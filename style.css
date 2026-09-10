@@ -456,7 +456,9 @@ button:disabled { opacity: .5; }
   box-shadow: 0 10px 50px rgba(0,0,0,.6), 0 0 34px rgba(180,120,255,.12) inset;
 }
 .mask-box.selfslash-box { width: 350px; max-width: 92vw; gap: 12px; }
+.mask-box.choice-box { width: 360px; max-width: 92vw; gap: 12px; }
 .selfslash-note { color: #c9bce8; font-size: 13px; line-height: 1.65; padding: 9px 10px; border: 1px solid rgba(184, 130, 255, .35); border-radius: 10px; background: rgba(48, 20, 81, .3); }
+.btn:disabled { opacity: .46; cursor: not-allowed; filter: grayscale(.45); }
 .mask-title { text-align: center; font-size: 20px; color: #ffe9b0; font-weight: 900; letter-spacing: 3px; text-shadow: 0 0 14px rgba(255,190,90,.4); }
 .mask-info { text-align: center; color: var(--ink-dim); font-size: 13px; }
 .mask-box .set-row { justify-content: center; padding: 4px 0; }

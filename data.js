@@ -358,6 +358,8 @@
     STRANGE_WORLD_BREAK_CULT: 1500000,
     STRANGE_WORLD_YEARS_MIN: 200000,
     STRANGE_WORLD_YEARS_MAX: 500000,
+    /* 等待成仙路：一世帝命中出现的目标次数；开启后仍要以战力、道蕴闯关。 */
+    IMMORTAL_ROAD_EVENT_TARGET: 0.22,
     /* 以力证道/融合天心 证道后的实力增幅倍率（随机 1.15~1.45） */
     CHENGDI_BONUS_MIN: 1.15,
     CHENGDI_BONUS_MAX: 1.45,

@@ -425,6 +425,8 @@
     }
     $('game-title').textContent = physiqueName(G);
     $('selfslash-mask').hidden = true;
+    $('darkturmoil-mask').hidden = true;
+    $('immortalpath-mask').hidden = true;
     renderAttrs();
     $('log-box').innerHTML = '';
     pendingLogs = [];
@@ -479,7 +481,7 @@
     if (pendingLogs.length) {
       renderLog([pendingLogs.shift()]);
       renderAttrs();
-      if (!pendingLogs.length && openSelfSlashChoiceIfNeeded()) return;
+      if (!pendingLogs.length && openPendingChoiceIfNeeded()) return;
       if (!pendingLogs.length && (G.dead || G.ascended)) { stopPlay(); finishGame(G.dead ? 'dead' : 'god'); }
       return;
     }
@@ -498,10 +500,50 @@
     } else {
       renderLog(log);
     }
-    if (!pendingLogs.length && openSelfSlashChoiceIfNeeded()) return;
+    if (!pendingLogs.length && openPendingChoiceIfNeeded()) return;
     if (!pendingLogs.length && (G.dead || G.ascended)) { stopPlay(); finishGame(G.dead ? 'dead' : 'god'); }
   }
 
+  function openPendingChoiceIfNeeded() {
+    if (!G) return false;
+    if (G.awaitingDarkTurmoil) return openDarkTurmoilChoice();
+    if (G.awaitingImmortalPath) return openImmortalPathChoice();
+    return openSelfSlashChoiceIfNeeded();
+  }
+  function openDarkTurmoilChoice() {
+    stopPlay();
+    $('darkturmoil-info').textContent = '当前实力 ' + fmt(G.cult) + ' · 生命本源 ' + G.forbiddenEssence + ' · 已负血债 ' + G.forbiddenKarma;
+    $('darkturmoil-mask').hidden = false;
+    return true;
+  }
+  function resolveDarkTurmoil(start) {
+    if (!G || !G.awaitingDarkTurmoil) return;
+    ensureAudio(); blip(start ? 125 : 600, 0.15, start ? 'sawtooth' : 'triangle', 0.12);
+    var log = [];
+    if (!Sim.chooseDarkTurmoil(G, start, log)) return;
+    $('darkturmoil-mask').hidden = true;
+    for (var i = 0; i < log.length; i++) fullLog.push(log[i]);
+    renderLog(log); renderAttrs(); startPlay();
+  }
+  function openImmortalPathChoice() {
+    stopPlay();
+    var boss = DATA.UNDEAD_EMPEROR_CULT;
+    var pct = Math.round(G.cult / boss * 100);
+    $('immortalpath-info').textContent = '当前实力 ' + fmt(G.cult) + '，约为不死天皇战力的 ' + pct + '% · 道蕴 ' + Math.round(G.daoyun) + '/' + Math.round(G.daoyunCap);
+    $('immortalpath-mask').hidden = false;
+    return true;
+  }
+  function resolveImmortalPath(path) {
+    if (!G || !G.awaitingImmortalPath) return;
+    ensureAudio(); blip(path === 'strange' ? 780 : 480, 0.15, path === 'strange' ? 'sawtooth' : 'triangle', 0.12);
+    var log = [];
+    if (!Sim.chooseImmortalPath(G, path, log)) return;
+    $('immortalpath-mask').hidden = true;
+    for (var i = 0; i < log.length; i++) fullLog.push(log[i]);
+    renderLog(log); renderAttrs();
+    if (G.dead || G.ascended) { stopPlay(); finishGame(G.dead ? 'dead' : 'god'); }
+    else startPlay();
+  }
   function openSelfSlashChoiceIfNeeded() {
     if (!G || !G.awaitingSelfSlash) return false;
     stopPlay();
@@ -531,7 +573,8 @@
     $('attr-title').textContent = G.redDustImmortal ? '红尘仙' : (G.forbiddenLord ? '禁区至尊' : (G.emperor ? '大帝·第' + G.lifeNo + '世' : DATA.titleOf(G.lvl)));
     if (G.forbiddenLord) $('attr-stage-sub').textContent = '生命本源 ' + G.forbiddenEssence + ' · 血债 ' + G.forbiddenKarma;
     else if (G.emperor) $('attr-stage-sub').textContent = G.immortalMode === 'strange_world' ? '奇异世界 · 红尘为仙' :
-      (G.redDustPath === 'reverse' ? '红尘印 ' + G.redDustMarks + '/' + (DATA.RED_DUST_LIVES - 1) : '帝命第一世 · 长生路未定');
+      (G.immortalMode === 'immortal_road' ? '成仙路 · 红尘为仙' :
+      (G.redDustPath === 'reverse' ? '红尘印 ' + G.redDustMarks + '/' + (DATA.RED_DUST_LIVES - 1) : '帝命第一世 · 长生路未定'));
     else $('attr-stage-sub').innerHTML = '第 <b id="attr-lvl">' + G.lvl + '</b> 层 · 共 100 层';
     $('attr-apt').textContent = physiqueName(G);
     $('attr-apt-sub').textContent = '修炼资质第 ' + G.aptitude + ' 档';
@@ -582,7 +625,7 @@
     if (G.emperor) {
       var e = document.createElement('span');
       e.className = 'chip chip-tianxin';
-      e.textContent = G.redDustImmortal ? (G.immortalMode === 'strange_world' ? '奇异世界成仙' : '九世红尘仙') : '帝者第' + G.lifeNo + '世';
+      e.textContent = G.redDustImmortal ? (G.immortalMode === 'strange_world' ? '奇异世界成仙' : (G.immortalMode === 'immortal_road' ? '成仙路成仙' : '九世红尘仙')) : '帝者第' + G.lifeNo + '世';
       frag.appendChild(e);
       if (!G.redDustImmortal && G.redDustRoots) {
         var rd = document.createElement('span');
@@ -652,13 +695,16 @@
 
     var t = $('settle-title');
     if (reason === 'god') {
-      t.textContent = G.immortalMode === 'strange_world' ? '✨ 奇异世界 · 红尘成仙' : '✨ 九世蜕变 · 红尘为仙'; blip(1200, 0.5, 'triangle', 0.16);
+      t.textContent = G.immortalMode === 'strange_world' ? '✨ 奇异世界 · 红尘成仙' :
+        (G.immortalMode === 'immortal_road' ? '✨ 横渡成仙路 · 红尘为仙' : '✨ 九世蜕变 · 红尘为仙'); blip(1200, 0.5, 'triangle', 0.16);
       t.className = 'settle-title god';
     }
     else if (reason === 'dead') {
       if (G.deadCause === 'zhengdao') { t.textContent = '💀 冲击帝关失败'; blip(120, 0.4, 'sawtooth', 0.14); }
       else if (G.deadCause === 'reverse') { t.textContent = '💀 逆活失败 · 帝路成空'; blip(120, 0.4, 'sawtooth', 0.14); }
       else if (G.deadCause === 'undead_emperor') { t.textContent = '💀 奇异世界 · 天皇截杀'; blip(120, 0.5, 'sawtooth', 0.15); }
+      else if (G.deadCause === 'immortal_road') { t.textContent = '💀 成仙路崩裂'; blip(120, 0.5, 'sawtooth', 0.15); }
+      else if (G.deadCause === 'waited_immortal_road') { t.textContent = '💀 空候仙路 · 帝命坐化'; blip(140, 0.4, 'sawtooth', 0.13); }
       else if (G.deadCause === 'no_strange_world_info') { t.textContent = '💀 不知仙路 · 帝命坐化'; blip(140, 0.4, 'sawtooth', 0.12); }
       else if (G.deadCause === 'cannot_break_world') { t.textContent = '💀 战力不足 · 无法破界'; blip(130, 0.4, 'sawtooth', 0.13); }
       else if (G.deadCause === 'forbidden_exhausted') { t.textContent = '💀 神源枯竭 · 禁区落幕'; blip(120, 0.4, 'sawtooth', 0.14); }
@@ -686,16 +732,18 @@
     if (G.redDustImmortal) {
       gd.textContent = G.immortalMode === 'strange_world' ?
         '🌌 击退三世天帝级的不死天皇，于奇异世界修炼' + G.strangeWorldYears + '年，红尘成仙 🌌' :
-        '🌌 九世道果合一，红尘为仙，岁月不加身 🌌';
+        (G.immortalMode === 'immortal_road' ? '🌌 横渡成仙路，万法归一，红尘为仙 🌌' : '🌌 九世道果合一，红尘为仙，岁月不加身 🌌');
       gd.hidden = false;
     } else if (G.becameEmperor) {
       gd.textContent = G.deadCause === 'undead_emperor' ?
         '你曾证道成帝，却在打入奇异世界时遭不死天皇截杀' :
+        (G.deadCause === 'immortal_road' ? '你选择等待成仙路，却在仙路崩裂时未能跨过天堑' :
+        (G.deadCause === 'waited_immortal_road' ? '你放弃奇异世界之门，终其一世也未等到成仙路开启' :
         (G.deadCause === 'forbidden_exhausted' ? '你曾自斩入主禁区，却在漫长沉睡后耗尽了最后一缕生命本源' :
         (G.deadCause === 'forbidden_battle' ? '你曾自斩化为禁区至尊，最终被当世大帝平定' :
         (G.deadCause === 'no_strange_world_info' ? '你曾证道成帝，却始终未能获得奇异世界的信息' :
         (G.deadCause === 'cannot_break_world' ? '你已获得奇异世界坐标，但未达到轰穿界壁所需的150万战力' :
-        '你曾证道成帝，并逆活至第 ' + G.lifeNo + ' 世，凝成 ' + G.redDustMarks + ' 枚红尘印'))));
+        '你曾证道成帝，并逆活至第 ' + G.lifeNo + ' 世，凝成 ' + G.redDustMarks + ' 枚红尘印'))))));
       gd.hidden = false;
     } else gd.hidden = true;
 
@@ -1138,6 +1186,10 @@
     $('btn-pause-resume').addEventListener('click', function () { blip(600, 0.06, 'triangle', 0.08); resumeGame(); });
     $('btn-selfslash-decline').addEventListener('click', function () { resolveSelfSlash(false); });
     $('btn-selfslash-accept').addEventListener('click', function () { resolveSelfSlash(true); });
+    $('btn-darkturmoil-refuse').addEventListener('click', function () { resolveDarkTurmoil(false); });
+    $('btn-darkturmoil-start').addEventListener('click', function () { resolveDarkTurmoil(true); });
+    $('btn-immortalpath-strange').addEventListener('click', function () { resolveImmortalPath('strange'); });
+    $('btn-immortalpath-wait').addEventListener('click', function () { resolveImmortalPath('wait'); });
     $('btn-pause-settle').addEventListener('click', function () { blip(500, 0.08, 'triangle', 0.1); finishGame('pause'); });
     $('btn-pause-exit').addEventListener('click', function () { exitGame(); });
     $('btn-settle-again').addEventListener('click', startGame);

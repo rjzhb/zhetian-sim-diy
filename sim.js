@@ -567,6 +567,43 @@
     push(log, { cls: 'god', text: '你挡住五色天刀，在奇异世界站稳脚跟；又经' + g.strangeWorldYears + '年炼化长生物质，最终于红尘中成仙！' });
   }
 
+  function canChooseImmortalPath(g) {
+    return !!(g.knowsStrangeWorld && g.cult >= D.STRANGE_WORLD_BREAK_CULT && !g.waitingImmortalRoad);
+  }
+  function openImmortalPathChoice(g, log) {
+    if (!canChooseImmortalPath(g) || g.awaitingImmortalPath) return false;
+    g.awaitingImmortalPath = true;
+    push(log, { cls: 'rainbow', text: '你已掌握奇异世界坐标，且战力足以轰开界壁：是立刻入界迎战不死天皇，还是继续等待虚无缥缈的成仙路？' });
+    /* 批量校准没有前台可供点击，默认选择已知风险、可立即结算的奇异世界路线。 */
+    if (_fast) chooseImmortalPath(g, 'strange', log);
+    return true;
+  }
+  function tryImmortalRoad(g, log) {
+    var daoPeak = g.daoyunCap > 0 ? g.daoyun / g.daoyunCap : 0;
+    var chance = clamp(0.08 + Math.min(0.30, g.cult / D.UNDEAD_EMPEROR_CULT * 0.30) + Math.min(0.32, daoPeak * 0.32), 0.08, 0.70);
+    push(log, { cls: 'rainbow', text: '成仙路于这一世开启，你携帝道冲关；凭当前战力与道蕴，闯关把握约' + Math.round(chance * 100) + '%' });
+    if (Math.random() >= chance) {
+      g.dead = true; g.deadCause = 'immortal_road';
+      push(log, { cls: 'dead', text: '成仙路崩裂，你未能跨过那一道天堑，帝躯消散于仙路尽头' });
+      return;
+    }
+    g.redDustImmortal = true; g.ascended = true; g.immortalMode = 'immortal_road';
+    g.cult = round(g.cult * rand(1.8, 2.3));
+    push(log, { cls: 'god', text: '你横渡成仙路，万法归一，终成红尘仙！' });
+  }
+  function chooseImmortalPath(g, path, log) {
+    if (!g || !g.awaitingImmortalPath) return false;
+    g.awaitingImmortalPath = false;
+    if (path === 'strange') {
+      push(log, { cls: 'god', text: '你不再等待，轰开界壁，主动打入奇异世界！' });
+      enterStrangeWorld(g, log);
+    } else {
+      g.waitingImmortalRoad = true;
+      push(log, { cls: 'rare', text: '你放弃眼前奇异世界之门，选择静候成仙路；此路不知何时开启，也可能此生无缘' });
+    }
+    return true;
+  }
+
   /* ---------- 自斩禁区：以帝位换取沉睡岁月；只能作为绝境退路，不能再走九世逆活 ---------- */
   function chooseSelfSlash(g, slash, log) {
     if (!g || !g.awaitingSelfSlash) return false;
@@ -603,6 +640,7 @@
   }
 
   function stepForbiddenLord(g, log) {
+    if (g.awaitingDarkTurmoil || g.awaitingImmortalPath) return;
     if (g.forbiddenEssence <= 0) {
       g.dead = true; g.deadCause = 'forbidden_exhausted';
       push(log, { cls: 'dead', text: g.sealingMaterial + '中的长生物质耗尽，你的禁区再也无法封存生机，残缺帝躯最终化作尘埃' });
@@ -614,9 +652,12 @@
     push(log, { cls: 'rare', text: '你封于' + g.sealingMaterial + '，沉睡' + sleep + '年后于新纪元苏醒；生命本源余' + g.forbiddenEssence + '道' });
 
     /* 已知坐标且战力恢复到破界线，苏醒后会立刻踏入奇异世界。 */
-    if (g.knowsStrangeWorld && g.cult >= D.STRANGE_WORLD_BREAK_CULT) {
-      push(log, { cls: 'god', text: '漫长沉睡后，你的残缺帝躯终于恢复到可破界之力，决定打入奇异世界' });
-      enterStrangeWorld(g, log);
+    if (g.waitingImmortalRoad && Math.random() < 0.18) {
+      tryImmortalRoad(g, log);
+      return;
+    }
+    if (canChooseImmortalPath(g)) {
+      openImmortalPathChoice(g, log);
       return;
     }
 
@@ -625,11 +666,12 @@
       g.knowsStrangeWorld = true;
       push(log, { cls: 'rainbow', text: '你从仙路残片与古代至尊遗骸中，终于获知奇异世界坐标' });
     } else if (roll < 0.70) {
-      /* 黑暗动乱是续命手段而非奖励：补本源、强战力，也显著提高被清算的风险。 */
-      g.forbiddenKarma++;
-      g.forbiddenEssence = Math.min(4, g.forbiddenEssence + 1);
-      g.cult = round(g.cult * rand(1.12, 1.20));
-      push(log, { cls: 'dead', text: '你发动黑暗动乱，吞纳众生精气，生命本源+1、实力攀升至' + g.cult + '；血债+' + g.forbiddenKarma });
+      /* 黑暗动乱是玩家的道德与生存抉择，不再后台自动代选。 */
+      g.awaitingDarkTurmoil = true;
+      push(log, { cls: 'dead', text: '你苏醒的年代众生鼎盛，禁区本源却在流失：是否发动黑暗动乱，吞纳众生精气续命？' });
+      /* 批量校准默认不发动，避免把模拟结果建立在自动屠戮之上。 */
+      if (_fast) chooseDarkTurmoil(g, false, log);
+      return;
     } else if (roll < 0.86) {
       var battle = forbiddenBattleChance(g);
       push(log, { cls: 'ev4', text: '当世大帝前来平定禁区，你以残缺帝躯迎战，胜算约' + Math.round(battle * 100) + '%' });
@@ -645,15 +687,33 @@
       push(log, { cls: 'gain', text: '你于神源中推演残缺皇道，虽未补全帝位，实力仍精进至' + g.cult });
     }
 
-    if (!g.dead && g.knowsStrangeWorld && g.cult >= D.STRANGE_WORLD_BREAK_CULT) {
-      push(log, { cls: 'god', text: '你已集齐坐标与破界战力，趁苏醒之机轰开界壁，打入奇异世界' });
-      enterStrangeWorld(g, log);
+    if (!g.dead && canChooseImmortalPath(g)) {
+      openImmortalPathChoice(g, log);
     }
+  }
+
+  function chooseDarkTurmoil(g, start, log) {
+    if (!g || !g.awaitingDarkTurmoil) return false;
+    g.awaitingDarkTurmoil = false;
+    if (!start) {
+      push(log, { cls: 'god', text: '你压下长生欲念，拒绝发动黑暗动乱；禁区继续沉寂于岁月中' });
+      return true;
+    }
+    g.forbiddenKarma++;
+    g.forbiddenEssence = Math.min(4, g.forbiddenEssence + 1);
+    g.cult = round(g.cult * rand(1.12, 1.20));
+    push(log, { cls: 'dead', text: '你发动黑暗动乱，吞纳众生精气，生命本源+1、实力攀升至' + g.cult + '；血债+' + g.forbiddenKarma });
+    return true;
   }
 
   function finishEmperorLife(g, log) {
     if (g.redDustPath === 'reverse') {
       tryReverseLife(g, log);
+      return;
+    }
+    if (g.waitingImmortalRoad) {
+      g.dead = true; g.deadCause = 'waited_immortal_road';
+      push(log, { cls: 'dead', text: '帝命耗尽，成仙路始终未在此世开启；你错过奇异世界之门，最终坐化' });
       return;
     }
     if (Math.random() < reversePathChance(g)) {
@@ -677,6 +737,14 @@
 
   function stepEmperor(g, log) {
     if (g.forbiddenLord) { stepForbiddenLord(g, log); return; }
+    if (g.awaitingImmortalPath) return;
+    if (g.waitingImmortalRoad) {
+      var waitSpan = Math.max(1, g.emperorLifeEnd - g.emperorLifeStart);
+      if (Math.random() < D.IMMORTAL_ROAD_EVENT_TARGET / waitSpan) { tryImmortalRoad(g, log); return; }
+    } else if (canChooseImmortalPath(g)) {
+      openImmortalPathChoice(g, log);
+      return;
+    }
     /* 只在第一世帝命晚年给予一次自斩抉择；选择由前台弹窗处理。 */
     if (!g.selfSlashOffered && !g.selfSlashed && !g.selfSlashDeclined && g.lifeNo === 1 &&
         g.age >= g.emperorLifeEnd - 100) {
@@ -791,6 +859,7 @@
       xianSource: false, primordialStone: false, sealingMaterial: '',
       knowsStrangeWorld: false,
       awaitingSelfSlash: false, selfSlashOffered: false, selfSlashDeclined: false, selfSlashed: false,
+      awaitingDarkTurmoil: false, awaitingImmortalPath: false, waitingImmortalRoad: false,
       forbiddenLord: false, forbiddenEssence: 0, forbiddenKarma: 0,
       traits: [],
       daoyun: baseDaoyun(t.innate),
@@ -982,6 +1051,8 @@
     tryZhengdao: tryZhengdao,
     becomeDi: becomeDi,
     chooseSelfSlash: chooseSelfSlash,
+    chooseDarkTurmoil: chooseDarkTurmoil,
+    chooseImmortalPath: chooseImmortalPath,
     setPhysique: setPhysique,
     testLv: testLv, testCult: testCult,
     EVENTS: E, DATA: D, U: U
