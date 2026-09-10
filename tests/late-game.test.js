@@ -65,6 +65,46 @@ assert.deepStrictEqual(Sim.undeadEmperorForRoll(0.995), { lives: 9, cult: 800000
 assert.ok(Sim.undeadEmperorForRoll(0.5, 2000000).lives >
   Sim.undeadEmperorForRoll(0.5, 0).lives, 'later world years should shift the enemy toward later lives');
 
+assert.strictEqual(typeof Sim.strangeWorldSituationForRoll, 'function');
+assert.strictEqual(Sim.strangeWorldSituationForRoll(0.05), 'quiet');
+assert.strictEqual(Sim.strangeWorldSituationForRoll(0.10), 'undead');
+assert.strictEqual(Sim.strangeWorldSituationForRoll(0.79), 'undead');
+assert.strictEqual(Sim.strangeWorldSituationForRoll(0.80), 'standoff');
+assert.strictEqual(Sim.strangeWorldSituationForRoll(0.99), 'standoff');
+
+assert.strictEqual(typeof Sim.strangeWorldAmbushChance, 'function');
+const weakAmbush = Sim.createGame(0, []);
+weakAmbush.undeadCult = 2000000;
+weakAmbush.pm = {};
+weakAmbush.tm.ward = 0;
+weakAmbush.cult = 800000;
+assert.ok(Sim.strangeWorldAmbushChance(weakAmbush) <= 0.03,
+  'an unsupported challenger below half the emperor strength should almost certainly die');
+weakAmbush.cult = 1800000;
+assert.ok(Sim.strangeWorldAmbushChance(weakAmbush) <= 0.18,
+  'even a near-peer below the emperor strength should have low survival odds');
+weakAmbush.cult = 2000000;
+assert.ok(Sim.strangeWorldAmbushChance(weakAmbush) >= 0.35,
+  'matching the emperor strength should restore a meaningful survival chance');
+
+assert.strictEqual(typeof Sim.applyStrangeAmbushWound, 'function');
+const woundedAmbush = Sim.createGame(0, []);
+woundedAmbush.cult = 1000000;
+woundedAmbush.daoyun = 1000;
+woundedAmbush.daoyunCap = 1500;
+woundedAmbush.strangeWorldInsight = 80;
+woundedAmbush.redDustRoots = { body: 2, soul: 2, dao: 2 };
+try {
+  Math.random = function () { return 0.5; };
+  Sim.applyStrangeAmbushWound(woundedAmbush);
+} finally {
+  Math.random = oldRandom;
+}
+assert.strictEqual(woundedAmbush.cult, 660000);
+assert.strictEqual(woundedAmbush.daoyun, 800);
+assert.strictEqual(woundedAmbush.daoyunCap, 1380);
+assert.deepStrictEqual(woundedAmbush.redDustRoots, { body: 1, soul: 1, dao: 1 });
+
 assert.strictEqual(typeof Sim.forbiddenPurgeChance, 'function');
 assert.strictEqual(Sim.forbiddenPurgeChance(0, true), 0.16);
 assert.strictEqual(Sim.forbiddenPurgeChance(1, true), 0.25);
@@ -93,6 +133,9 @@ assert.strictEqual(calendarGame.daoSuppressed, true);
 const suppressedGame = Sim.createGame(0, []);
 suppressedGame.lvl = 99;
 suppressedGame.cult = DATA.OVERWHELM_DAO_CULT - 1;
+suppressedGame.gotDiBing = true;
+suppressedGame.deathless = true;
+suppressedGame.resonanceState.overflowDao = 200;
 suppressedGame.worldEmperor = { name: '测试大帝', start: 0, end: 10000, cult: 1500000 };
 Sim.tryZhengdao(suppressedGame, []);
 assert.strictEqual(suppressedGame.deadCause, 'world_emperor_suppression');
@@ -134,11 +177,17 @@ try {
 assert.strictEqual(suppressionTraitGame.ascendMode, 'overwhelm', 'suppression traits should improve the reachable overwhelm branch');
 
 assert.strictEqual(typeof Sim.tryStrangeWorldImmortality, 'function');
+assert.strictEqual(typeof Sim.strangeWorldImmortalityChance, 'function');
 const limitedAttempts = Sim.createGame(0, []);
 Sim.becomeDi(limitedAttempts, [], 'force');
 limitedAttempts.inStrangeWorld = true;
 limitedAttempts.strangeWorldInsight = 100;
 limitedAttempts.strangeWorldEvents = 18;
+limitedAttempts.daoyun = 900;
+limitedAttempts.daoyunCap = 1500;
+limitedAttempts.innate = 10;
+const calibratedImmortalChance = Sim.strangeWorldImmortalityChance(limitedAttempts);
+assert.ok(calibratedImmortalChance >= 0.28 && calibratedImmortalChance <= 0.30);
 try {
   Math.random = function () { return 0.999; };
   Sim.tryStrangeWorldImmortality(limitedAttempts, []);

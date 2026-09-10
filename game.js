@@ -468,7 +468,7 @@
     first.push({ cls: G.era && G.era.id === 'golden' ? 'rainbow' : 'rare', text: '此世天时：' + (G.era ? G.era.name : '平常时代') + '；初始道蕴 ' + Math.round(G.daoyun) + '/' + Math.round(G.daoyunCap) });
     var pd = physiqueData(G);
     if (pd && pd.desc) first.push({ cls: 'rare', text: '体质特性：' + pd.desc });
-    if (G.daoSuppressed) first.push({ cls: 'ev4', text: '这一世尚有前帝大道压制，寻常修士证道将艰难无比；混沌体可不受此限' });
+    if (G.daoSuppressed) first.push({ cls: 'ev4', text: '这一世已有当世大帝镇压万道；无论何种体质，实际战力未达90万都无法在有帝之世证道' });
     /* 词条亮相 */
     var ti, names = [];
     for (ti = 0; ti < G.traits.length; ti++) { var td = DATA.traitById(G.traits[ti]); if (td) names.push('『' + td.name + '』'); }

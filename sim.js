@@ -377,7 +377,7 @@
         else if (ty === 'era') g.tm.era *= v;
         else if (ty === 'swallow') g.swallowingArt = true;
         else if (ty === 'retry') g.tm.retry = Math.min(1, g.tm.retry + v);
-        else if (ty === 'retryKeep') g.tm.retryKeep = Math.min(0.75, g.tm.retryKeep + v);
+        else if (ty === 'retryKeep') g.tm.retryKeep = Math.min(1, g.tm.retryKeep + v);
         else if (ty === 'bodyChance') g.tm.bodyChance += v;
         else if (ty === 'bodyDao') g.tm.bodyDao += v;
         else if (ty === 'overflow') g.tm.overflow = Math.max(g.tm.overflow, v);
@@ -428,7 +428,7 @@
     var need = Math.max(60, 130 - (g.tm.bodyDao || 0));
     if (g.daoyun < need) return false;
     g.resonanceState.bodyUsed = true;
-    var chance = Math.min(0.75, (g.tm.bodyChance || 0) + (g.resonance === 'body' ? 0.08 : 0));
+    var chance = Math.min(1, (g.tm.bodyChance || 0) + (g.resonance === 'body' ? 0.08 : 0));
     if (Math.random() >= chance) return false;
     var before = g.physiqueName;
     setPhysique(g, pickPhysique(Math.min(9, g.innate + 1)));
@@ -447,6 +447,9 @@
     var talent = (D.XINTIAN_TALENT_MULT && D.XINTIAN_TALENT_MULT[g.innate]) || 1;
     return D.XINTIAN_CHANCE * g.tm.xin * pval(g, 'xin', 1) * talent +
       ((g.resonanceState && g.resonanceState.tianxinPity) || 0);
+  }
+  function tianxinPityGain(g) {
+    return (g.tm.xinPity || 0) + Math.max(0, (g.tm.xin || 1) - 1) * 0.00002;
   }
 
   /* ---------- 抽 1 个随机事件执行 ---------- */
@@ -691,6 +694,12 @@
     return g.undeadImmortal ? '已踏入红尘仙境' : '已活出第' + g.undeadLives + '世';
   }
 
+  function strangeWorldSituationForRoll(r) {
+    if (r < 0.10) return 'quiet';
+    if (r < 0.80) return 'undead';
+    return 'standoff';
+  }
+
   function strangeWorldBattleChance(g, withWushi) {
     var boss = g.undeadCult || D.UNDEAD_EMPEROR_CULT;
     var ratio = g.cult / boss;
@@ -709,6 +718,28 @@
     return clamp(chance, 0.01, 0.98);
   }
 
+  function strangeWorldAmbushChance(g) {
+    var boss = g.undeadCult || D.UNDEAD_EMPEROR_CULT;
+    var ratio = g.cult / boss;
+    var wardBonus = Math.min(0.07, ((g.tm && g.tm.ward) || 0) / 100 + pval(g, 'ward', 0) / 100);
+    if (ratio < 0.50) return 0.02 + wardBonus;
+    if (ratio < 0.70) return 0.05 + wardBonus;
+    if (ratio < 0.85) return 0.10 + wardBonus;
+    if (ratio < 1.00) return 0.18 + wardBonus;
+    return clamp(0.35 + (ratio - 1) * 0.55 + wardBonus, 0.35, 0.90);
+  }
+
+  function applyStrangeAmbushWound(g) {
+    g.cult = round(g.cult * rand(0.60, 0.72));
+    g.daoyun = round(g.daoyun * 0.80);
+    g.daoyunCap = Math.max(1, round(g.daoyunCap * 0.92));
+    g.strangeWorldInsight = Math.max(0, (g.strangeWorldInsight || 0) - 20);
+    var roots = g.redDustRoots;
+    roots.body = Math.max(0, roots.body - 1);
+    roots.soul = Math.max(0, roots.soul - 1);
+    roots.dao = Math.max(0, roots.dao - 1);
+  }
+
   function enterStrangeWorld(g, log) {
     g.redDustPath = 'strange_world';
     g.inStrangeWorld = true;
@@ -725,7 +756,7 @@
       g.nextWorldEmperorYear = (g.worldYear || 0) + irand(800, 5000);
     }
     var situationRoll = Math.random();
-    g.strangeWorldSituation = situationRoll < 0.35 ? 'quiet' : (situationRoll < 0.70 ? 'undead' : 'standoff');
+    g.strangeWorldSituation = strangeWorldSituationForRoll(situationRoll);
     if (g.strangeWorldSituation !== 'quiet') {
       var enemy = undeadEmperorForRoll(Math.random(), g.worldYear || 0);
       g.undeadLives = enemy.lives;
@@ -771,15 +802,19 @@
     return true;
   }
 
+  function strangeWorldImmortalityChance(g) {
+    var daoPeak = g.daoyunCap > 0 ? g.daoyun / g.daoyunCap : 0;
+    var roots = g.redDustRoots.body + g.redDustRoots.soul + g.redDustRoots.dao;
+    var chance = 0.10 + Math.min(0.16, daoPeak * 0.16) + Math.min(0.08, roots * 0.003) +
+      Math.min(0.08, Math.max(0, g.strangeWorldInsight - 80) * 0.0016) + Math.min(0.06, g.innate * 0.006);
+    if (g.strangeWorldAlliance === 'wushi') chance += 0.04;
+    return clamp(chance, 0.12, 0.72);
+  }
+
   function tryStrangeWorldImmortality(g, log) {
     if ((g.strangeWorldImmortalAttempts || 0) >= 2) return false;
     g.strangeWorldImmortalAttempts = (g.strangeWorldImmortalAttempts || 0) + 1;
-    var daoPeak = g.daoyunCap > 0 ? g.daoyun / g.daoyunCap : 0;
-    var roots = g.redDustRoots.body + g.redDustRoots.soul + g.redDustRoots.dao;
-    var chance = 0.08 + Math.min(0.16, daoPeak * 0.16) + Math.min(0.08, roots * 0.003) +
-      Math.min(0.08, Math.max(0, g.strangeWorldInsight - 80) * 0.0016) + Math.min(0.06, g.innate * 0.006);
-    if (g.strangeWorldAlliance === 'wushi') chance += 0.04;
-    chance = clamp(chance, 0.12, 0.72);
+    var chance = strangeWorldImmortalityChance(g);
     if (Math.random() >= chance) {
       if (g.strangeWorldImmortalAttempts >= 2) {
         g.dead = true; g.deadCause = 'strange_world_tribulation';
@@ -830,15 +865,24 @@
     if (g.strangeWorldSituation === 'undead' && !g.strangeWorldThreatKnown &&
         (g.strangeWorldEvents >= 3 || Math.random() < 0.30)) {
       g.strangeWorldThreatKnown = true;
-      var survive = clamp(0.35 + g.cult / g.undeadCult * 0.28 + (g.tm.ward + pval(g, 'ward', 0)) / 250, 0.35, 0.82);
-      push(log, { cls: 'ev4', text: '一柄五色天刀撕裂虚空，你这才发现不死天皇' + undeadStageText(g) + '，并在暗中巡视此界！' });
+      var ratioToUndead = g.cult / g.undeadCult;
+      var survive = strangeWorldAmbushChance(g);
+      push(log, { cls: 'ev4', text: '一柄五色天刀撕裂虚空，你这才发现不死天皇' + undeadStageText(g) +
+        '，并在暗中巡视此界！此处没有其他强者牵制，当前逃生把握仅约' + Math.round(survive * 100) + '%' });
       if (Math.random() >= survive) {
         g.dead = true; g.deadCause = 'undead_emperor';
         push(log, { cls: 'dead', text: '你尚未来得及参透此界长生奥秘，便被突如其来的五色天刀斩灭' });
         return;
       }
-      g.strangeWorldInsight += 12;
-      push(log, { cls: 'god', text: '你竭尽帝道手段避开绝杀，并从对方的涅槃气息中窥见一缕长生真意' });
+      if (ratioToUndead < 1) {
+        applyStrangeAmbushWound(g);
+        push(log, { cls: 'dead', text: '你燃烧帝血才从五色天刀下逃得一命，却被斩伤大道根基：实力重创至' + g.cult +
+          '，当前道蕴与个人上限分别跌至' + Math.round(g.daoyun) + '/' + Math.round(g.daoyunCap) + '，三项帝者根基均受损' });
+      } else {
+        g.strangeWorldInsight += 12;
+        push(log, { cls: 'god', text: '你以不弱于对方的帝道修为避开绝杀，并从五色天刀的涅槃气息中窥见一缕长生真意' });
+      }
+      return;
     }
 
     if (g.strangeWorldAlliance === 'wushi' && Math.random() < 0.18) {
@@ -1163,17 +1207,19 @@
     g.lifeBase = Math.max(g.age + 300, g.lifeBase - irand(300, 800));
     syncLife(g);
     g.emperorAttemptAge = g.age + irand(300, 800);
-    push(log, { cls: 'rainbow', text: '帝关破碎，你以命格护住真灵，保留一次重修机会；实力受损，闭关至第' + g.emperorAttemptAge + '岁再争帝路' });
+    push(log, { cls: 'rainbow', text: '帝关破碎，你以命格护住真灵，保留一次重修机会；' +
+      (keepRate >= 0.999 ? '全部战力得以保留，但道蕴与寿元仍有损耗' : '实力受损') +
+      '，闭关至第' + g.emperorAttemptAge + '岁再争帝路' });
     return true;
   }
   function tryZhengdao(g, log) {
     var extra = g.tm.zhx + pval(g, 'zhx', 0);
     var eff = zhengdaoEff(g);     /* 判定用战力：含隐藏的帝兵/不死药加持 */
     if (g.worldEmperor) {
-      if (eff < D.OVERWHELM_DAO_CULT) {
+      if (g.cult < D.OVERWHELM_DAO_CULT) {
         if (spendImperialRetry(g, log)) return true;
-        push(log, { cls: 'dead', text: '第' + g.age + '岁，当世已有大帝镇压万道；你的' + Math.round(eff / 10000) +
-          '万战力尚未达到破灭万道的90万门槛，帝关在道压中崩碎' });
+        push(log, { cls: 'dead', text: '第' + g.age + '岁，当世已有大帝镇压万道；你的实际战力' + Math.round(g.cult / 10000) +
+          '万尚未达到破灭万道的90万硬门槛，帝兵等外物无法代替自身道行，帝关在道压中崩碎' });
         g.dead = true; g.deadCause = 'world_emperor_suppression';
         return true;
       }
@@ -1374,7 +1420,7 @@
         g.resonanceState.tianxinPity = 0;
         push(log, { cls: 'ev4', text: '第' + g.age + '岁，于冥冥中感悟天心，诸天道则垂落，你的成道之路一片坦途！' });
       } else {
-        g.resonanceState.tianxinPity += (g.tm.xinPity || 0) + (g.resonance === 'tianxin' ? 0.000006 : 0);
+        g.resonanceState.tianxinPity += tianxinPityGain(g) + (g.resonance === 'tianxin' ? 0.000006 : 0);
       }
     }
 
@@ -1478,10 +1524,12 @@
     tryBodyEvolution: tryBodyEvolution,
     eventDaoyunTier: eventDaoyunTier,
     tianxinChance: tianxinChance,
+    tianxinPityGain: tianxinPityGain,
     createGame: createGame,
     rollYear: rollYear,
     setFast: setFast,
     tryZhengdao: tryZhengdao,
+    spendImperialRetry: spendImperialRetry,
     reverseLifeChance: reverseLifeChance,
     tryReverseLife: tryReverseLife,
     initWorldCalendar: initWorldCalendar,
@@ -1492,8 +1540,12 @@
     chooseImmortalPath: chooseImmortalPath,
     chooseStrangeWorldAlliance: chooseStrangeWorldAlliance,
     stepStrangeWorld: stepStrangeWorld,
+    strangeWorldImmortalityChance: strangeWorldImmortalityChance,
     tryStrangeWorldImmortality: tryStrangeWorldImmortality,
     finishStrangeWorldBattle: finishStrangeWorldBattle,
+    strangeWorldSituationForRoll: strangeWorldSituationForRoll,
+    strangeWorldAmbushChance: strangeWorldAmbushChance,
+    applyStrangeAmbushWound: applyStrangeAmbushWound,
     undeadEmperorForRoll: undeadEmperorForRoll,
     forbiddenSleepRange: forbiddenSleepRange,
     forbiddenPurgeChance: forbiddenPurgeChance,
