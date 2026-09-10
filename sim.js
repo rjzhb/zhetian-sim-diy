@@ -93,7 +93,10 @@
       var room = Math.max(0, g.daoyunCap * 0.2 - g.resonanceState.overflowDao);
       g.resonanceState.overflowDao += Math.min(room, (next - g.daoyunCap) * keep);
     }
-    g.daoyun = Math.min(g.daoyunCap, next);
+    /* 没有金色道蕴成长时，个人上限填不满：空等、帝者一世和事件都不能把海灌满。 */
+    var fillCap = g.daoyunCap;
+    if (!hasGoldDaoGrowth(g)) fillCap = Math.floor(g.daoyunCap * 0.78);
+    g.daoyun = Math.min(fillCap, next);
     return round((g.daoyun - old) * 10) / 10;
   }
   function setPhysique(g, p) {
@@ -587,6 +590,9 @@
     g.lifeBase = g.emperorLifeEnd;
     g.lifeBonus = 0;
     g.redDustRoots = { body: 0, soul: 0, dao: 0 };
+    emperorLegacy(g);
+    g.emperorLegacy.usedThisLife = {};
+    g.emperorLegacy.lastBeat = null;
     syncLife(g);
   }
 
@@ -622,49 +628,209 @@
 
   function emperorLegacy(g) {
     if (!g.emperorLegacy) {
-      g.emperorLegacy = { order: 0, forbiddenSuppressed: 0, lateAmbushes: 0, farewells: 0 };
+      g.emperorLegacy = {
+        order: 0, forbiddenSuppressed: 0, lateAmbushes: 0, farewells: 0,
+        usedThisLife: {}, lastBeat: null
+      };
     }
+    if (!g.emperorLegacy.usedThisLife) g.emperorLegacy.usedThisLife = {};
     return g.emperorLegacy;
   }
 
+  var EMPEROR_BEAT_META = {
+    late_ambush: { lateOnly: true },
+    establish_heaven: { oncePerLife: true },
+    emperor_tomb: { oncePerLife: true, minLife: 2 },
+    reincarnation_dream: { minLife: 2 },
+    self_method: { minLife: 3 },
+    lonely_throne: { minLife: 5 }
+  };
+
+  function emperorBeatIds() {
+    return [
+      'body_refine', 'soul_nurture', 'dao_scripture', 'dark_turmoil', 'seek_longevity',
+      'forbidden_art', 'reforge_weapon', 'red_dust_insight', 'world_order', 'suppress_forbidden',
+      'late_ambush', 'mortal_farewell', 'lecture_beings', 'establish_heaven', 'star_voyage',
+      'predecessor_trace', 'faith_incense', 'imperial_god', 'disciple_rise', 'time_scar',
+      'sealed_world', 'race_mediation', 'ancient_road', 'underworld_edge', 'emperor_tomb',
+      'blood_pact', 'cosmos_bloom', 'nine_secret', 'void_rift', 'reincarnation_dream',
+      'self_method', 'lonely_throne'
+    ];
+  }
+
+  function pickEmperorBeat(g) {
+    var legacy = emperorLegacy(g);
+    var lifeNo = g.lifeNo || 1;
+    var span = Math.max(1, g.emperorLifeEnd - g.emperorLifeStart);
+    var progress = (g.age - g.emperorLifeStart) / span;
+    var used = legacy.usedThisLife || {};
+    var pool = emperorBeatIds().filter(function (id) {
+      var m = EMPEROR_BEAT_META[id] || {};
+      if (m.minLife && lifeNo < m.minLife) return false;
+      if (m.maxLife && lifeNo > m.maxLife) return false;
+      if (m.lateOnly && progress < 0.65) return false;
+      if (m.oncePerLife && used[id]) return false;
+      return true;
+    });
+    var preferred = pool.filter(function (id) { return id !== legacy.lastBeat; });
+    if (!preferred.length) preferred = pool;
+    var unused = preferred.filter(function (id) { return !used[id]; });
+    var pickFrom = unused.length ? unused : preferred;
+    if (!pickFrom.length) return null;
+    return pickFrom[Math.floor(Math.random() * pickFrom.length)];
+  }
+
+  function markBeat(g, id) {
+    var legacy = emperorLegacy(g);
+    legacy.usedThisLife[id] = (legacy.usedThisLife[id] || 0) + 1;
+    legacy.lastBeat = id;
+    return legacy.usedThisLife[id];
+  }
+
+  function beatLine(g, log, cls, text) {
+    push(log, { cls: cls, text: '帝历' + (g.age - g.emperorAge) + '年，' + text });
+  }
+
+  function pickVariant(g, id, variants) {
+    var n = ((g.emperorLegacy && g.emperorLegacy.usedThisLife && g.emperorLegacy.usedThisLife[id]) || 1) - 1;
+    return variants[n % variants.length];
+  }
+
   function runEmperorExperience(g, id, log) {
-    if (!g || !g.emperor) return false;
+    if (!g || !g.emperor || !id) return false;
     var roots = g.redDustRoots;
     var legacy = emperorLegacy(g);
-    var imperialYear = g.age - g.emperorAge;
+    var add;
+    markBeat(g, id);
+    if (id === 'body_refine') {
+      add = irand(1, 2); roots.body += add;
+      beatLine(g, log, 'rainbow', pickVariant(g, id, [
+        '你闭关熬炼帝躯，气血如海，肉身根基+' + add,
+        '你以神火淬炼骨骼，帝躯更近不朽，肉身根基+' + add,
+        '你在星核中坐化数载，血气重凝，肉身根基+' + add
+      ]));
+      return true;
+    }
+    if (id === 'soul_nurture') {
+      add = irand(1, 2); roots.soul += add;
+      beatLine(g, log, 'ev4', pickVariant(g, id, [
+        '你于岁月中温养元神，神念更清，元神根基+' + add,
+        '你以帝念观照自身，元神如灯，元神根基+' + add,
+        '你在寂静虚空中打坐，神魂不散，元神根基+' + add
+      ]));
+      return true;
+    }
+    if (id === 'dao_scripture') {
+      add = irand(1, 2); roots.dao += add;
+      beatLine(g, log, 'god', pickVariant(g, id, [
+        '你推演自身大道，补全帝经残章，道果根基+' + add,
+        '你改写一卷帝经秘境，使之更合此世，道果根基+' + add,
+        '你将毕生所悟写入经文，道则更稳，道果根基+' + add
+      ]));
+      return true;
+    }
+    if (id === 'dark_turmoil') {
+      if (Math.random() < 0.55 + (g.tm.ward + pval(g, 'ward', 0)) / 100) {
+        roots.dao += 2; g.cult = round(g.cult * 1.04);
+        beatLine(g, log, 'god', pickVariant(g, id, [
+          '黑暗动乱爆发，你镇杀至尊爪牙、平定宇宙，道果根基+2',
+          '禁区倾巢，你以帝威压回万古杀劫，道果根基+2',
+          '此世生灵将尽，你一怒血洗祸首，天下暂安，道果根基+2'
+        ]));
+      } else {
+        var turmoilLoss = irand(300, 900);
+        g.emperorLifeEnd -= turmoilLoss; g.lifeBase -= turmoilLoss; syncLife(g);
+        beatLine(g, log, 'dead', '你血战禁区至尊，虽平动乱却大道受创，帝命-' + turmoilLoss + '年');
+      }
+      return true;
+    }
+    if (id === 'seek_longevity') {
+      if (!g.xianSource && Math.random() < 0.22) {
+        g.xianSource = true;
+        beatLine(g, log, 'rainbow', '你于古代仙路遗址寻得一块仙源，可封存帝躯跨越万古');
+      } else if (!g.primordialStone && Math.random() < 0.18) {
+        g.primordialStone = true;
+        beatLine(g, log, 'rainbow', '你从太初古矿深处取出一枚太初命石，可承载残缺帝躯');
+      } else if (!g.deathless || g.deathlessUsed) {
+        if (Math.random() < 0.12) {
+          g.deathless = true; g.deathlessUsed = false;
+          beatLine(g, log, 'rainbow', '你寻遍诸天，得获一株不死神药');
+        } else {
+          roots.body++;
+          beatLine(g, log, 'rare', pickVariant(g, id, [
+            '你遍寻长生物质，虽未得不死药，却令肉身根基+1',
+            '你探访药园残址，只余药香，肉身根基+1',
+            '你炼化一缕太古生气，未成续命神药，肉身根基+1'
+          ]));
+        }
+      } else {
+        roots.body += 2;
+        beatLine(g, log, 'rainbow', '你参悟不死神药中的长生物质，肉身根基+2');
+      }
+      return true;
+    }
+    if (id === 'forbidden_art') {
+      roots.dao++; g.cult = round(g.cult * 1.03);
+      beatLine(g, log, 'gain', pickVariant(g, id, [
+        '你开创禁忌秘术，实力蜕变，道果根基+1',
+        '你自创一门逆天神通，专克同境，道果根基+1',
+        '你将杀伐之意写入大道，帝威更烈，道果根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'reforge_weapon') {
+      roots.soul++; g.gotDiBing = true;
+      beatLine(g, log, 'ev4', pickVariant(g, id, [
+        '你重炼极道帝兵，以神祇温养元神，元神根基+1',
+        '帝兵中神祇初醒，愿为你镇守一域，元神根基+1',
+        '你以精血喂养帝兵，兵鸣三日，元神根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'red_dust_insight') {
+      var key = ['body', 'soul', 'dao'][Math.floor(Math.random() * 3)];
+      roots[key]++;
+      beatLine(g, log, 'rare', pickVariant(g, id, [
+        '万载红尘流转，你从众生兴衰中悟得一缕长生真意',
+        '你立于凡尘集市，看尽生老病死，忽有所悟',
+        '你悄然走入人间，以帝尊之身听了一场婚丧，心境微动'
+      ]));
+      return true;
+    }
     if (id === 'world_order') {
       legacy.order++;
       roots.dao += 2;
       gainDaoyun(g, 14);
-      push(log, { cls: 'god', text: '帝历' + imperialYear + '年，万族争乱不休，你重定宇宙秩序、划下不可逾越的帝律，道果根基+2' });
+      beatLine(g, log, 'god', pickVariant(g, id, [
+        '万族争乱不休，你重定宇宙秩序、划下不可逾越的帝律，道果根基+2',
+        '你重划星域疆界，禁绝私开战端，道果根基+2',
+        '你颁布帝律，令圣地不得再以凡人祭道，道果根基+2'
+      ]));
       return true;
     }
     if (id === 'suppress_forbidden') {
       legacy.forbiddenSuppressed++;
-      var safe = 0.58 + (g.tm.ward + pval(g, 'ward', 0)) / 100;
-      if (Math.random() < safe) {
+      if (Math.random() < 0.58 + (g.tm.ward + pval(g, 'ward', 0)) / 100) {
         roots.body++; roots.dao++;
         g.cult = round(g.cult * 1.025);
-        push(log, { cls: 'god', text: '帝历' + imperialYear + '年，你亲临生命禁区，逼得沉睡至尊封闭山门，肉身与道果根基各+1' });
+        beatLine(g, log, 'god', '你亲临生命禁区，逼得沉睡至尊封闭山门，肉身与道果根基各+1');
       } else {
-        var loss = irand(180, 520);
-        g.emperorLifeEnd -= loss; g.lifeBase -= loss; syncLife(g);
-        push(log, { cls: 'dead', text: '帝历' + imperialYear + '年，你威压禁区时遭数道皇道法则反扑，虽全身而退，帝命-' + loss + '年' });
+        var pressLoss = irand(180, 520);
+        g.emperorLifeEnd -= pressLoss; g.lifeBase -= pressLoss; syncLife(g);
+        beatLine(g, log, 'dead', '你威压禁区时遭数道皇道法则反扑，虽全身而退，帝命-' + pressLoss + '年');
       }
       return true;
     }
     if (id === 'late_ambush') {
       legacy.lateAmbushes++;
-      var survived = 0.48 + Math.min(0.32, g.cult / 10000000) +
-        (g.tm.ward + pval(g, 'ward', 0)) / 100;
-      if (Math.random() < survived) {
+      if (Math.random() < 0.48 + Math.min(0.32, g.cult / 10000000) + (g.tm.ward + pval(g, 'ward', 0)) / 100) {
         roots.body += 2;
         g.cult = round(g.cult * 1.035);
-        push(log, { cls: 'god', text: '帝历' + imperialYear + '年，你帝血转衰，蛰伏至尊联手袭杀；你拖着晚年帝躯反杀来敌，肉身根基+2' });
+        beatLine(g, log, 'god', '你帝血转衰，蛰伏至尊联手袭杀；你拖着晚年帝躯反杀来敌，肉身根基+2');
       } else {
         var wound = irand(450, 1100);
         g.emperorLifeEnd -= wound; g.lifeBase -= wound; syncLife(g);
-        push(log, { cls: 'dead', text: '帝历' + imperialYear + '年，禁区趁你晚年血气衰败发动袭杀；你击退来敌，却留下难愈道伤，帝命-' + wound + '年' });
+        beatLine(g, log, 'dead', '禁区趁你晚年血气衰败发动袭杀；你击退来敌，却留下难愈道伤，帝命-' + wound + '年');
       }
       return true;
     }
@@ -672,76 +838,167 @@
       legacy.farewells++;
       roots.soul += 2; roots.dao++;
       gainDaoyun(g, 18);
-      push(log, { cls: 'rainbow', text: '帝历' + imperialYear + '年，故人先后凋零，唯你独立红尘；在一次次送别中，你看清岁月与生灭，元神根基+2、道果根基+1' });
+      beatLine(g, log, 'rainbow', pickVariant(g, id, [
+        '故人先后凋零，唯你独立红尘；在一次次送别中，你看清岁月与生灭，元神根基+2、道果根基+1',
+        '你送走最后一位旧识，山河仍在，人已不在，元神根基+2、道果根基+1',
+        '你立于故人坟前，帝威收尽，只余一声叹息，元神根基+2、道果根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'lecture_beings') {
+      roots.dao++; gainDaoyun(g, 12);
+      beatLine(g, log, 'god', pickVariant(g, id, [
+        '你开坛讲道，亿万生灵跪听，一道道香火化作你的道果根基+1',
+        '你在星空中央讲经九日，诸天记下你的帝音，道果根基+1',
+        '你随口点化一名后辈，却牵动整片星域悟道，道果根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'establish_heaven') {
+      roots.dao += 2;
+      beatLine(g, log, 'god', pickVariant(g, id, [
+        '你建立天庭，令万族朝拜，却不让信仰反噬己道，道果根基+2',
+        '你拒绝立朝，独行宇宙，以帝尊本身为天，道果根基+2',
+        '你设下巡天法度，命传人镇守各方，道果根基+2'
+      ]));
+      return true;
+    }
+    if (id === 'star_voyage') {
+      roots.soul++; g.cult = round(g.cult * 1.02);
+      beatLine(g, log, 'ev4', pickVariant(g, id, [
+        '你横渡宇宙边荒，见残破世界沉于混沌，元神根基+1',
+        '你穿过一道星空裂隙，带回一缕异域法则，元神根基+1',
+        '你在荒古星域外找到一处无人问津的死寂宇宙，元神根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'predecessor_trace') {
+      roots.dao++;
+      beatLine(g, log, 'rare', pickVariant(g, id, [
+        '你遭遇前代大帝遗留执念，论道三日，各退一步，道果根基+1',
+        '一具帝尸睁眼，要与你分个高下，你压下它的不甘，道果根基+1',
+        '你踏入前代道痕深处，看见对方未走完的长生路，道果根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'faith_incense') {
+      if (Math.random() < 0.55) {
+        roots.soul++; g.cult = round(g.cult * 1.02);
+        beatLine(g, log, 'rainbow', '你收下部分众生香火，化为温养元神的力量，元神根基+1');
+      } else {
+        roots.dao++;
+        beatLine(g, log, 'god', '你拒绝信仰，斩断香火反噬，己道更纯，道果根基+1');
+      }
+      return true;
+    }
+    if (id === 'imperial_god') {
+      roots.soul += 2; g.gotDiBing = true;
+      beatLine(g, log, 'ev4', '帝兵中神祇成型，或可镇守传承，或可随你征战，元神根基+2');
+      return true;
+    }
+    if (id === 'disciple_rise') {
+      roots.dao++;
+      beatLine(g, log, 'gain', pickVariant(g, id, [
+        '你座下传人证得圣人，为你分忧一方星域，道果根基+1',
+        '一名后辈借你帝经残篇入准帝，天下再添变数，道果根基+1',
+        '你随手留下的一缕道音，成就了一座圣地的气运，道果根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'time_scar') {
+      gainDaoyun(g, 16); roots.soul++;
+      beatLine(g, log, 'rainbow', pickVariant(g, id, [
+        '你误入岁月乱流，看见自己尚未走完的未来，元神根基+1',
+        '时光神殿残响响起，你以帝尊之身硬抗一截岁月刀，元神根基+1',
+        '你在乱流中抓住一缕属于来世的气息，元神根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'sealed_world') {
+      roots.body++; gainDaoyun(g, 10);
+      beatLine(g, log, 'rare', '你发现一处被封死的小世界，其中生灵仍在祭拜一位早已死去的帝尊，肉身根基+1');
+      return true;
+    }
+    if (id === 'race_mediation') {
+      roots.dao++;
+      beatLine(g, log, 'god', pickVariant(g, id, [
+        '太古万族再起冲突，你以帝律压下杀劫，道果根基+1',
+        '人族与异族争抢古路，你各打五十，令双方退兵，道果根基+1',
+        '你不许任何一族再以血祭沟通上苍，道果根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'ancient_road') {
+      roots.body++; roots.soul++;
+      beatLine(g, log, 'ev4', '星空古路再度开启，你巡视沿途杀阵，以免后辈尽数葬身，肉身与元神根基各+1');
+      return true;
+    }
+    if (id === 'underworld_edge') {
+      roots.soul++;
+      beatLine(g, log, 'rare', '你立于轮回海边缘，未踏入其中，却看清了神魂归处，元神根基+1');
+      return true;
+    }
+    if (id === 'emperor_tomb') {
+      roots.dao += 2;
+      beatLine(g, log, 'god', '你为自己预留帝陵与传承，既是后手，也是对岁月的宣战，道果根基+2');
+      return true;
+    }
+    if (id === 'blood_pact') {
+      g.forbiddenKarma = Math.max(0, (g.forbiddenKarma || 0) - 1);
+      roots.dao++;
+      beatLine(g, log, 'rare', '你与一处禁区立下互不侵扰之约，杀意暂歇，道果根基+1');
+      return true;
+    }
+    if (id === 'cosmos_bloom') {
+      roots.body++; g.cult = round(g.cult * 1.015);
+      beatLine(g, log, 'gain', '你重开一片死寂星域的生机，草木重生，肉身根基+1');
+      return true;
+    }
+    if (id === 'nine_secret') {
+      roots.dao++; gainDaoyun(g, 14);
+      beatLine(g, log, 'god', '你参悟一记九秘残篇，未得全貌，却足以补全自身大道一角，道果根基+1');
+      return true;
+    }
+    if (id === 'void_rift') {
+      if (Math.random() < 0.7) {
+        roots.body++; g.cult = round(g.cult * 1.02);
+        beatLine(g, log, 'gain', '虚空裂隙中冲出一头太古凶物，你将其镇杀，肉身根基+1');
+      } else {
+        var riftLoss = irand(120, 360);
+        g.emperorLifeEnd -= riftLoss; g.lifeBase -= riftLoss; syncLife(g);
+        beatLine(g, log, 'dead', '虚空裂隙反噬，你以帝躯硬抗，帝命-' + riftLoss + '年');
+      }
+      return true;
+    }
+    if (id === 'reincarnation_dream') {
+      roots.soul += 2;
+      beatLine(g, log, 'rainbow', '你梦见尚未成帝时的红尘旧事，醒来后神魂更稳，元神根基+2');
+      return true;
+    }
+    if (id === 'self_method') {
+      roots.dao += 2; gainDaoyun(g, 20);
+      beatLine(g, log, 'god', '第' + g.lifeNo + '世中，你抛开药物与外物，自创一缕长生法则，道果根基+2');
+      return true;
+    }
+    if (id === 'lonely_throne') {
+      roots.soul++; roots.dao++;
+      beatLine(g, log, 'rainbow', '第' + g.lifeNo + '世帝尊独立万古，连禁区也不再轻易睁眼，元神与道果根基各+1');
       return true;
     }
     return false;
   }
 
   function emperorEvent(g, log) {
-    var roots = g.redDustRoots, r = Math.floor(Math.random() * 12), add;
-    /* 帝者游历诸天时仍可能撞见传说级仙路线索；高阶机缘只提供“信息”，不会代替战力门槛。 */
     if (!g.knowsStrangeWorld && Math.random() < 0.025 &&
         learnStrangeWorld(g, log, '帝历' + (g.age - g.emperorAge) + '年，你追索一处仙路裂隙，确认奇异世界真实存在，并记下界壁坐标')) {
-      roots.dao++;
+      g.redDustRoots.dao++;
       return;
     }
-    if (r === 0) {
-      add = irand(1, 2); roots.body += add;
-      push(log, { cls: 'rainbow', text: '帝历' + (g.age - g.emperorAge) + '年，你熬炼帝躯、参悟不朽，肉身根基+' + add });
-    } else if (r === 1) {
-      add = irand(1, 2); roots.soul += add;
-      push(log, { cls: 'ev4', text: '帝历' + (g.age - g.emperorAge) + '年，你于岁月中温养元神，元神根基+' + add });
-    } else if (r === 2) {
-      add = irand(1, 2); roots.dao += add;
-      push(log, { cls: 'god', text: '帝历' + (g.age - g.emperorAge) + '年，你推演自身大道，完善帝经，道果根基+' + add });
-    } else if (r === 3) {
-      var safe = 0.55 + (g.tm.ward + pval(g, 'ward', 0)) / 100;
-      if (Math.random() < safe) {
-        roots.dao += 2; g.cult = round(g.cult * 1.04);
-        push(log, { cls: 'god', text: '帝历' + (g.age - g.emperorAge) + '年，黑暗动乱爆发，你镇杀至尊、平定宇宙，道果根基+2' });
-      } else {
-        var loss = irand(300, 900); g.emperorLifeEnd -= loss; g.lifeBase -= loss; syncLife(g);
-        push(log, { cls: 'dead', text: '帝历' + (g.age - g.emperorAge) + '年，你血战禁区至尊，虽平动乱却大道受创，帝命-' + loss + '年' });
-      }
-    } else if (r === 4) {
-      /* 仙源与太初命石是禁区自封的前提。帝者一生有较大机会寻到，但绝非人手一份。 */
-      if (!g.xianSource && Math.random() < 0.22) {
-        g.xianSource = true;
-        push(log, { cls: 'rainbow', text: '帝历' + (g.age - g.emperorAge) + '年，你于古代仙路遗址寻得一块仙源，可封存帝躯跨越万古' });
-      } else if (!g.primordialStone && Math.random() < 0.18) {
-        g.primordialStone = true;
-        push(log, { cls: 'rainbow', text: '帝历' + (g.age - g.emperorAge) + '年，你从太初古矿深处取出一枚太初命石，可承载残缺帝躯' });
-      } else
-      if (!g.deathless || g.deathlessUsed) {
-        if (Math.random() < 0.12) {
-          g.deathless = true; g.deathlessUsed = false;
-          push(log, { cls: 'rainbow', text: '帝历' + (g.age - g.emperorAge) + '年，你寻遍诸天，得获一株不死神药' });
-        } else {
-          roots.body++;
-          push(log, { cls: 'rare', text: '帝历' + (g.age - g.emperorAge) + '年，你遍寻长生物质，虽未得不死药，却令肉身根基+1' });
-        }
-      } else {
-        roots.body += 2;
-        push(log, { cls: 'rainbow', text: '帝历' + (g.age - g.emperorAge) + '年，你参悟不死神药中的长生物质，肉身根基+2' });
-      }
-    } else if (r === 5) {
-      roots.dao++; g.cult = round(g.cult * 1.03);
-      push(log, { cls: 'gain', text: '帝历' + (g.age - g.emperorAge) + '年，你开创禁忌秘术，实力蜕变，道果根基+1' });
-    } else if (r === 6) {
-      roots.soul++; g.gotDiBing = true;
-      push(log, { cls: 'ev4', text: '帝历' + (g.age - g.emperorAge) + '年，你重炼极道帝兵，以神祇温养元神，元神根基+1' });
-    } else if (r === 7) {
-      var key = ['body', 'soul', 'dao'][Math.floor(Math.random() * 3)];
-      roots[key]++;
-      push(log, { cls: 'rare', text: '帝历' + (g.age - g.emperorAge) + '年，万载红尘流转，你从众生兴衰中悟得一缕长生真意' });
-    } else {
-      var extraEvents = ['world_order', 'suppress_forbidden', 'mortal_farewell'];
-      var lifeSpan = Math.max(1, g.emperorLifeEnd - g.emperorLifeStart);
-      if ((g.age - g.emperorLifeStart) / lifeSpan >= 0.65) extraEvents.push('late_ambush');
-      else extraEvents.push('world_order');
-      runEmperorExperience(g, extraEvents[r - 8], log);
-    }
+    runEmperorExperience(g, pickEmperorBeat(g), log);
+  }
+
+  function hasGoldDaoGrowth(g) {
+    return !!(g && g.tm && g.tm.daog >= 1.5);
   }
 
   function reverseLifeChance(g) {
@@ -1519,8 +1776,11 @@
       return;
     }
 
-    /* 道蕴是可积累的后期根基；平常时代积累缓慢，黄金大世更易悟道。 */
-    gainDaoyun(g, 0.125 * (0.2 + g.innate * 0.5));
+    /* 道蕴是可积累的后期根基；平常时代积累缓慢，黄金大世更易悟道。
+     * 准帝空等不能单靠年数填满个人上限，除非带着金色道蕴成长。 */
+    var yearlyDao = 0.125 * (0.2 + g.innate * 0.5);
+    if (g.lvl >= 91 && !hasGoldDaoGrowth(g)) yearlyDao *= 0.35;
+    gainDaoyun(g, yearlyDao);
     /* 凡体的逆天线：继承/自创吞天魔功后，积累足够道蕴可蜕为混沌体。 */
     if (g.swallowingArt && g.physiqueId !== 'chaos' && g.lvl >= 71 && g.daoyun >= 85) {
       var swallowChance = g.gotRuthless ? 0.004 : 0.001;
@@ -1683,6 +1943,8 @@
     emperorLifeSpanRange: emperorLifeSpanRange,
     emperorDaoyunGainPerYear: emperorDaoyunGainPerYear,
     runEmperorExperience: runEmperorExperience,
+    emperorBeatIds: emperorBeatIds,
+    pickEmperorBeat: pickEmperorBeat,
     gainLevels: gainLevels,
     levelUp: levelUp,
     drawTraits: drawTraits,

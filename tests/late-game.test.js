@@ -85,7 +85,8 @@ const lowDaoReverse = Sim.reverseLifeChance(reverseFixture(300, 1500, 2));
 const highDaoReverse = Sim.reverseLifeChance(reverseFixture(900, 1500, 2));
 assert.ok(highDaoReverse > lowDaoReverse, 'higher absolute Dao should improve reversal');
 assert.strictEqual(Sim.reverseLifeChance(reverseFixture(100, 100, 2)) < 0.25, true, 'a tiny full cap must not guarantee reversal');
-assert.strictEqual(Sim.reverseLifeChance(reverseFixture(1500, 1500, 2)), 1, 'absolute and personal Dao fullness should guarantee reversal');
+assert.strictEqual(Sim.reverseLifeChance(reverseFixture(1500, 1500, 2)), 1,
+  'absolute and personal Dao fullness should guarantee reversal');
 assert.ok(Sim.reverseLifeChance(reverseFixture(900, 1500, 3)) >
   Sim.reverseLifeChance(reverseFixture(900, 1500, 2)), 'later mastered techniques should be easier than the third-life bottleneck');
 const secondLifeByForce = reverseFixture(800, 1500, 1);
@@ -98,6 +99,31 @@ assert.strictEqual(Sim.reverseLifeChance(secondLifeByForce), 1,
   'an unused immortal medicine should still guarantee the second life');
 
 assert.strictEqual(typeof Sim.tryReverseLife, 'function');
+function longChaosFirstLife(traitIds) {
+  const g = Sim.createGame(0, traitIds);
+  Sim.setPhysique(g, DATA.physiqueById('chaos'));
+  g.era = { id: 'normal', name: '平常时代', daog: 0.75, evt: 1, evf: 1 };
+  g.lvl = 91;
+  Sim.gainDaoyun(g, 0.125 * (0.2 + g.innate * 0.5) * 2200);
+  Sim.becomeDi(g, [], 'force');
+  g.redDustRoots = { body: 2, soul: 2, dao: 2 };
+  g.cult = Math.max(g.cult, 800000);
+  const span = Math.max(1, g.emperorLifeEnd - g.emperorLifeStart);
+  Sim.gainDaoyun(g, Sim.emperorDaoyunGainPerYear(g) * span);
+  for (let i = 0; i < 24; i++) {
+    const id = Sim.pickEmperorBeat(g);
+    if (id) Sim.runEmperorExperience(g, id, []);
+  }
+  return g;
+}
+const longBareChaos = longChaosFirstLife([]);
+assert.ok(longBareChaos.daoyun / longBareChaos.daoyunCap < 0.85,
+  'chaos sitting through quasi-emperor and one emperor life still must not fill Dao without gold growth');
+assert.strictEqual(Sim.reversePathChance(longBareChaos), 0);
+const longGoldChaos = longChaosFirstLife(['o08']);
+assert.ok(longGoldChaos.daoyun / longGoldChaos.daoyunCap >= 0.85,
+  'gold Dao-growth should still let chaos fill the sea across a long first life');
+
 const reverseGame = reverseFixture(1500, 1500, 2);
 reverseGame.redDustPath = 'reverse';
 const reverseDaoBefore = reverseGame.daoyun;
@@ -560,6 +586,14 @@ assert.ok(eventBoundary.daoyun > daoBeforeTribulation,
   'surviving a quasi-emperor tribulation should deepen Dao comprehension');
 
 assert.strictEqual(typeof Sim.runEmperorExperience, 'function');
+assert.strictEqual(typeof Sim.emperorBeatIds, 'function');
+assert.strictEqual(typeof Sim.pickEmperorBeat, 'function');
+assert.ok(Sim.emperorBeatIds().length >= 24,
+  'the emperor life must have a large enough beat pool to survive nine lives without looping four sentences');
+['lecture_beings', 'establish_heaven', 'star_voyage', 'predecessor_trace',
+  'faith_incense', 'imperial_god', 'disciple_rise', 'time_scar'].forEach(function (id) {
+  assert.ok(Sim.emperorBeatIds().indexOf(id) >= 0, 'missing emperor beat: ' + id);
+});
 const emperorExperience = Sim.createGame(0, []);
 Sim.becomeDi(emperorExperience, [], 'force');
 const originalRoots = Object.assign({}, emperorExperience.redDustRoots);
@@ -575,5 +609,27 @@ assert.ok(emperorExperience.emperorLegacy.forbiddenSuppressed >= 1,
 assert.strictEqual(Sim.runEmperorExperience(emperorExperience, 'late_ambush', []), true);
 assert.ok(emperorExperience.emperorLegacy.lateAmbushes >= 1,
   'late-life assaults should be recorded instead of becoming generic flavor text');
+assert.strictEqual(Sim.runEmperorExperience(emperorExperience, 'lecture_beings', []), true);
+assert.strictEqual(Sim.runEmperorExperience(emperorExperience, 'star_voyage', []), true);
+
+const varietyLog = [];
+const varietyGame = Sim.createGame(0, []);
+Sim.becomeDi(varietyGame, [], 'force');
+const forcedIds = Sim.emperorBeatIds().slice(0, 16);
+forcedIds.forEach(function (id) { Sim.runEmperorExperience(varietyGame, id, varietyLog); });
+const uniqueLines = {};
+varietyLog.forEach(function (row) {
+  const stem = String(row.text || '').replace(/^帝历\d+年，/, '').replace(/\d+/g, '#');
+  uniqueLines[stem] = true;
+});
+assert.ok(Object.keys(uniqueLines).length >= 12,
+  'sixteen emperor beats must not collapse into a handful of repeated sentences');
+
+const pickGame = Sim.createGame(0, []);
+Sim.becomeDi(pickGame, [], 'force');
+pickGame.emperorLegacy.lastBeat = 'world_order';
+const nextBeat = Sim.pickEmperorBeat(pickGame);
+assert.ok(nextBeat && nextBeat !== 'world_order',
+  'the next emperor beat should not immediately repeat the last one');
 
 console.log('late-game: ok');
