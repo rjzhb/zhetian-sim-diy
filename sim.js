@@ -891,13 +891,19 @@
       return true;
     }
     if (id === 'seek_longevity') {
-      if (!g.xianSource && Math.random() < 0.22) {
+      var foundSeal = false;
+      if (!g.xianSource && Math.random() < 0.58) {
         g.xianSource = true;
+        foundSeal = true;
         beatLine(g, log, 'rainbow', '你于古代仙路遗址寻得一块仙源，可封存帝躯跨越万古');
-      } else if (!g.primordialStone && Math.random() < 0.18) {
+      }
+      if (!g.primordialStone && Math.random() < 0.52) {
         g.primordialStone = true;
+        foundSeal = true;
         beatLine(g, log, 'rainbow', '你从太初古矿深处取出一枚太初命石，可承载残缺帝躯');
-      } else if (!g.deathless || g.deathlessUsed) {
+      }
+      if (foundSeal) return true;
+      if (!g.deathless || g.deathlessUsed) {
         if (Math.random() < 0.12) {
           g.deathless = true; g.deathlessUsed = false;
           beatLine(g, log, 'rainbow', '你寻遍诸天，得获一株不死神药');
@@ -1134,8 +1140,20 @@
     return false;
   }
 
+  function strangeWorldLearnChance(g) {
+    if (!g || g.knowsStrangeWorld) return 0;
+    var years = g.worldYear || 0;
+    if (g.forbiddenLord) {
+      return clamp(0.28 + Math.min(0.62, years / 1800000 * 0.62), 0.28, 0.90);
+    }
+    var span = Math.max(1, (g.emperorLifeEnd || 0) - (g.emperorLifeStart || 0));
+    var progress = span > 0 ? clamp(((g.age || 0) - (g.emperorLifeStart || 0)) / span, 0, 1) : 0;
+    var lifeBonus = Math.min(0.018, Math.max(0, (g.lifeNo || 1) - 1) * 0.006);
+    return clamp(0.030 + progress * 0.018 + lifeBonus, 0.030, 0.08);
+  }
+
   function emperorEvent(g, log) {
-    if (!g.knowsStrangeWorld && Math.random() < 0.025 &&
+    if (!g.knowsStrangeWorld && Math.random() < strangeWorldLearnChance(g) &&
         learnStrangeWorld(g, log, '帝历' + (g.age - g.emperorAge) + '年，你追索一处仙路裂隙，确认奇异世界真实存在，并记下界壁坐标')) {
       g.redDustRoots.dao++;
       return;
@@ -1592,6 +1610,9 @@
     g.forbiddenEssence--;
     push(log, { cls: 'rare', text: '你封于' + g.sealingMaterial + '，沉睡' + sleep + '年后于万古历' + g.worldYear + '年苏醒；生命本源余' + g.forbiddenEssence + '道，' +
       (g.worldEmperor ? '此世天心有主' : '此世尚无大帝') });
+    if (!g.knowsStrangeWorld && Math.random() < strangeWorldLearnChance(g)) {
+      learnStrangeWorld(g, log, '你从仙路残片与古代至尊遗骸中，终于获知奇异世界坐标');
+    }
 
     /* 已知坐标且战力恢复到破界线，苏醒后会立刻踏入奇异世界。 */
     if (g.waitingImmortalRoad && Math.random() < 0.18) {
@@ -1627,9 +1648,7 @@
         '你击退当世大帝，残缺皇道在血战中复苏，实力升至' + g.cult });
     } else {
       var roll = Math.random();
-      if (!g.knowsStrangeWorld && roll < 0.35 &&
-        learnStrangeWorld(g, log, '你从仙路残片与古代至尊遗骸中，终于获知奇异世界坐标')) {
-      } else if (roll < 0.70) {
+      if (roll < 0.55) {
         /* 黑暗动乱是玩家的道德与生存抉择，不再后台自动代选。 */
         g.awaitingDarkTurmoil = true;
         push(log, { cls: 'dead', text: '你苏醒的年代众生鼎盛，禁区本源却在流失：是否发动黑暗动乱，吞纳众生精气续命？' });
@@ -2108,6 +2127,8 @@
     reverseLifeChance: reverseLifeChance,
     reversePathChance: reversePathChance,
     learnStrangeWorld: learnStrangeWorld,
+    strangeWorldLearnChance: strangeWorldLearnChance,
+    emperorEvent: emperorEvent,
     tryReverseLife: tryReverseLife,
     initWorldCalendar: initWorldCalendar,
     advanceWorldCalendar: advanceWorldCalendar,

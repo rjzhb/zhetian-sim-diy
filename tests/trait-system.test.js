@@ -202,6 +202,7 @@ assert.strictEqual(typeof SIM.becomeChaosFromSwallow, 'function');
 const motai = SIM.createGame(0, ['o03']);
 assert.strictEqual(motai.swallowingArt, true, '魔胎 must open the swallowing art');
 SIM.setPhysique(motai, DATA.physiqueById('mortal'));
+motai.swallowState = { taken: { mortal: true } };
 const swallowStart = SIM.swallowProgress(motai);
 assert.ok(swallowStart.need >= 18, 'chaos requires devouring the named physiques');
 assert.ok(swallowStart.have >= 1 && swallowStart.have < swallowStart.need,

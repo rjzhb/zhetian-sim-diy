@@ -612,6 +612,58 @@ assert.ok(emperorExperience.emperorLegacy.lateAmbushes >= 1,
 assert.strictEqual(Sim.runEmperorExperience(emperorExperience, 'lecture_beings', []), true);
 assert.strictEqual(Sim.runEmperorExperience(emperorExperience, 'star_voyage', []), true);
 
+let seekSource = 0, seekStone = 0, seekStoneOnly = 0, seekBoth = 0;
+const seekN = 240;
+for (let i = 0; i < seekN; i++) {
+  const seekGame = Sim.createGame(0, []);
+  Sim.becomeDi(seekGame, [], 'force');
+  Sim.runEmperorExperience(seekGame, 'seek_longevity', []);
+  if (seekGame.xianSource) seekSource++;
+  if (seekGame.primordialStone) seekStone++;
+  if (seekGame.primordialStone && !seekGame.xianSource) seekStoneOnly++;
+  if (seekGame.xianSource && seekGame.primordialStone) seekBoth++;
+}
+assert.ok(seekSource / seekN >= 0.45, 'an emperor seeking longevity should often find immortal source');
+assert.ok(seekStone / seekN >= 0.40, 'an emperor seeking longevity should often find a primordial stone');
+assert.ok(seekStoneOnly > 0, 'primordial stone must not wait behind immortal source');
+assert.ok(seekBoth > 0, 'a single search may yield both sealing materials');
+
+assert.strictEqual(typeof Sim.strangeWorldLearnChance, 'function');
+const rumorEmperor = Sim.createGame(0, []);
+Sim.becomeDi(rumorEmperor, [], 'force');
+const rumorEarly = Sim.strangeWorldLearnChance(rumorEmperor);
+rumorEmperor.age = rumorEmperor.emperorLifeEnd - 50;
+const rumorLate = Sim.strangeWorldLearnChance(rumorEmperor);
+assert.ok(rumorEarly >= 0.028 && rumorEarly <= 0.05,
+  'an ordinary emperor year must not treat Strange World as common knowledge');
+assert.ok(rumorLate > rumorEarly, 'late in an emperor life the rumor should be easier to confirm');
+assert.ok(rumorLate <= 0.08, 'even a late emperor year must not make the coordinates nearly guaranteed');
+const rumorLord = Sim.createGame(0, []);
+Sim.becomeDi(rumorLord, [], 'force');
+rumorLord.forbiddenLord = true;
+rumorLord.worldYear = 0;
+const rumorLordYoung = Sim.strangeWorldLearnChance(rumorLord);
+rumorLord.worldYear = 1800000;
+const rumorLordOld = Sim.strangeWorldLearnChance(rumorLord);
+assert.ok(rumorLordYoung >= 0.25, 'a newly sealed forbidden lord already has more time than a mortal emperor year');
+assert.ok(rumorLordOld > rumorLordYoung + 0.25,
+  'a forbidden lord who has slept across eras must be much likelier to learn the coordinates');
+assert.ok(rumorLordOld <= 0.92, 'even an ancient forbidden lord should not automatically know the far shore');
+let rumorHits = 0;
+const rumorN = 80;
+for (let i = 0; i < rumorN; i++) {
+  const life = Sim.createGame(0, []);
+  Sim.becomeDi(life, [], 'force');
+  life.redDustRoots = { body: 0, soul: 0, dao: 0 };
+  for (let n = 0; n < 24 && !life.knowsStrangeWorld; n++) {
+    life.age = life.emperorLifeStart + Math.floor((life.emperorLifeEnd - life.emperorLifeStart) * n / 24);
+    Sim.emperorEvent(life, []);
+  }
+  if (life.knowsStrangeWorld) rumorHits++;
+}
+assert.ok(rumorHits / rumorN >= 0.48 && rumorHits / rumorN <= 0.82,
+  'one emperor life should often, but not almost always, confirm Strange World coordinates');
+
 const varietyLog = [];
 const varietyGame = Sim.createGame(0, []);
 Sim.becomeDi(varietyGame, [], 'force');
