@@ -130,8 +130,8 @@ try {
   Math.random = function () { return 0; };
   const floorAndDao = SIM.createGame(0, ['o01', 'o07']);
   assert.strictEqual(floorAndDao.innate, 7);
-  assert.strictEqual(floorAndDao.daoyun, 55, 'floor base and initial Dao bonus should both apply');
-  assert.strictEqual(floorAndDao.daoyunCap, 1220, 'floor base and Dao cap bonus should both apply');
+  assert.strictEqual(floorAndDao.daoyun, 810, 'floor base and initial Dao bonus should both apply');
+  assert.strictEqual(floorAndDao.daoyunCap, 1400, 'floor base and Dao cap bonus should both apply');
 } finally {
   Math.random = initialRandom;
 }

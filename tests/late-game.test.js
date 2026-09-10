@@ -134,6 +134,8 @@ assert.ok(batchedEmperor.age - ageBeforeEmperorTick >= 500,
 assert.strictEqual(typeof Sim.reverseLifeChance, 'function');
 function reverseFixture(dao, cap, lifeNo) {
   const g = Sim.createGame(0, ['w06', 'w11']);
+  Sim.setPhysique(g, DATA.physiqueById('mortal'));
+  g.sacredEmperorBurst = false;
   Sim.becomeDi(g, [], 'force');
   g.daoyun = dao;
   g.daoyunCap = cap;
@@ -630,6 +632,95 @@ try {
 }
 assert.ok(sacredHeavenly.becameEmperor, 'a sacred body that can overwhelm the myriad daos may become emperor');
 assert.ok(sacredHeavenly.cult >= DATA.HEAVENLY_EMPEROR_CULT, 'a sacred-body emperor must start at heavenly-emperor power');
+assert.ok(sacredHeavenly.daoyun >= 2400 && sacredHeavenly.daoyunCap >= 2800,
+  'a sacred-body emperor must erupt with enough Dao to nearly guarantee the next life');
+assert.ok(sacredHeavenly.daoyun / sacredHeavenly.daoyunCap >= 0.88,
+  'sacred-body success should fill the Dao sea almost to the brim');
+assert.ok(Sim.reverseLifeChance(sacredHeavenly) >= 0.85,
+  'Ye-Fan-like sacred success should almost guarantee reversing into the next life');
+assert.ok(Sim.reverseLifeChance(sacredHeavenly) < 1,
+  'even a sacred-body emperor must not lock a 100% reversal');
+
+const sacredNoDarkPeak = Sim.createGame(0, []);
+Sim.setPhysique(sacredNoDarkPeak, DATA.physiqueById('sacred'));
+sacredNoDarkPeak.lvl = 99;
+sacredNoDarkPeak.cult = 400000;
+sacredNoDarkPeak.daoyun = Sim.effectiveDaoyunNeed(sacredNoDarkPeak, 99);
+sacredNoDarkPeak.worldEmperor = null;
+try {
+  Math.random = function () { return 0; };
+  Sim.tryZhengdao(sacredNoDarkPeak, []);
+} finally {
+  Math.random = oldRandom;
+}
+assert.strictEqual(sacredNoDarkPeak.sacredPeakAwakened, false,
+  'knocking on the emperor gate must not secretly complete the sacred body');
+assert.ok(sacredNoDarkPeak.cult < DATA.OVERWHELM_DAO_CULT,
+  '90万战力必须来自可见机缘，不能靠叩关暗骰');
+
+assert.strictEqual(typeof Sim.sacredStepChance, 'function');
+assert.strictEqual(typeof Sim.sacredEmperorChance, 'function');
+assert.strictEqual(typeof Sim.awakenSacredPeak, 'function');
+const sacredBare = Sim.createGame(0, []);
+Sim.setPhysique(sacredBare, DATA.physiqueById('sacred'));
+sacredBare.lvl = 96;
+sacredBare.daoyun = 400;
+sacredBare.daoGift = 5;
+const sacredGold = Sim.createGame(0, ['o01', 'o04', 'o25']);
+Sim.setPhysique(sacredGold, DATA.physiqueById('sacred'));
+sacredGold.lvl = 96;
+sacredGold.daoyun = 400;
+sacredGold.daoGift = 5;
+sacredGold.sacredKuhai = true;
+sacredGold.sacredBloodSea = true;
+assert.ok(Sim.sacredStepChance(sacredGold, 'dacheng') > Sim.sacredStepChance(sacredBare, 'dacheng') * 1.35,
+  'matching gold physique/fortune cards must raise the sacred-peak opportunity');
+assert.ok(Sim.sacredEmperorChance(sacredGold) > Sim.sacredEmperorChance(sacredBare) * 1.35,
+  'matching gold cards must raise the sacred emperor rate');
+assert.ok(Sim.sacredEmperorChance(sacredBare) < 0.05,
+  'a bare sacred body almost never becomes emperor');
+assert.ok(Sim.sacredEmperorChance(sacredGold) >= 0.25 && Sim.sacredEmperorChance(sacredGold) <= 0.32,
+  'matching gold cards should lift a sacred body to about a 30% emperor chance');
+const sacredTianxin = Sim.createGame(0, []);
+Sim.setPhysique(sacredTianxin, DATA.physiqueById('sacred'));
+sacredTianxin.lvl = 99;
+sacredTianxin.cult = DATA.OVERWHELM_DAO_CULT;
+sacredTianxin.daoyun = Sim.effectiveDaoyunNeed(sacredTianxin, 99);
+sacredTianxin.xintian = true;
+sacredTianxin.worldEmperor = null;
+try {
+  Math.random = function () { return 0.5; };
+  Sim.tryZhengdao(sacredTianxin, []);
+} finally {
+  Math.random = oldRandom;
+}
+assert.strictEqual(sacredTianxin.becameEmperor, false,
+  'Tianxin must not let a sacred body skip the once-in-an-era emperor gate');
+assert.ok(Sim.sacredStepChance(sacredBare, 'dacheng') < 0.35,
+  'a bare sacred body should still find 大成 rare');
+
+const sacredJidao = Sim.createGame(0, []);
+Sim.setPhysique(sacredJidao, DATA.physiqueById('sacred'));
+sacredJidao.lvl = 96;
+sacredJidao.cult = 180000;
+sacredJidao.worldEmperor = null;
+const jidaoLog = [];
+Sim.awakenSacredPeak(sacredJidao, jidaoLog);
+assert.strictEqual(sacredJidao.sacredPeakAwakened, true);
+assert.ok(sacredJidao.cult >= DATA.SACRED_JIDAO_CULT,
+  'a completed sacred body in a world without an emperor is already the universe’s first extreme-dao supreme');
+assert.ok(jidaoLog.some(function (line) { return /宇宙第一|极道至尊/.test(line.text); }),
+  '大成 must be a visible extreme-dao opportunity, not a hidden stat bump');
+
+const sacredContested = Sim.createGame(0, []);
+Sim.setPhysique(sacredContested, DATA.physiqueById('sacred'));
+sacredContested.cult = 180000;
+sacredContested.worldEmperor = { name: '当世大帝' };
+Sim.awakenSacredPeak(sacredContested, []);
+assert.ok(sacredContested.cult >= DATA.OVERWHELM_DAO_CULT,
+  '大成 in an occupied heaven must still reach the 90万 line');
+assert.ok(sacredContested.cult < DATA.SACRED_JIDAO_CULT,
+  'a living emperor still denies the sacred body uncontested supremacy');
 
 const suppressedGame = Sim.createGame(0, []);
 suppressedGame.lvl = 99;
@@ -822,11 +913,39 @@ assert.ok(!/T3_HERB = \[[^\]]*太初命石/.test(eventsSource), 'primordial ston
 
 const experienceEvents = {};
 (Sim.EVENTS || []).forEach(function (ev) { experienceEvents[ev.id] = ev; });
-['xingkong_gulu', 'dilu_zhengfeng', 'quasi_heavenly_tribulation', 'forbidden_gaze'].forEach(function (id) {
+['xingkong_gulu', 'dilu_zhengfeng', 'quasi_heavenly_tribulation', 'forbidden_gaze',
+  'sacred_kuhai', 'sacred_blood', 'sacred_dacheng'].forEach(function (id) {
   assert.ok(experienceEvents[id], 'missing pre-emperor experience event: ' + id);
   assert.strictEqual(typeof experienceEvents[id].available, 'function',
     'stage-specific events must declare when they can enter the event pool: ' + id);
 });
+const sacredEventHost = Sim.createGame(0, []);
+Sim.setPhysique(sacredEventHost, DATA.physiqueById('sacred'));
+sacredEventHost.lvl = 70;
+assert.strictEqual(Sim.eventAvailable(sacredEventHost, experienceEvents.sacred_kuhai), true,
+  'the golden bitter sea should open once a sacred body reaches the high mortal stages');
+assert.strictEqual(Sim.eventAvailable(sacredEventHost, experienceEvents.sacred_dacheng), false,
+  '大成 must wait until the quasi-emperor stage');
+sacredEventHost.lvl = 91;
+assert.strictEqual(Sim.eventAvailable(sacredEventHost, experienceEvents.sacred_dacheng), true);
+const mortalHost = Sim.createGame(0, []);
+Sim.setPhysique(mortalHost, DATA.physiqueById('mortal'));
+mortalHost.lvl = 96;
+assert.strictEqual(Sim.eventAvailable(mortalHost, experienceEvents.sacred_dacheng), false,
+  'sacred-peak events must not leak into other physiques');
+const peakFromEvent = Sim.createGame(0, []);
+Sim.setPhysique(peakFromEvent, DATA.physiqueById('sacred'));
+peakFromEvent.lvl = 96;
+peakFromEvent.cult = 200000;
+peakFromEvent.worldEmperor = null;
+try {
+  Math.random = function () { return 0; };
+  experienceEvents.sacred_dacheng.ok(peakFromEvent, Sim.U, []);
+} finally {
+  Math.random = oldRandom;
+}
+assert.strictEqual(peakFromEvent.sacredPeakAwakened, true, 'the 大成 event must complete the sacred body');
+assert.ok(peakFromEvent.cult >= DATA.OVERWHELM_DAO_CULT, 'the 大成 event is the path to 90万');
 assert.strictEqual(typeof Sim.eventAvailable, 'function');
 const eventBoundary = Sim.createGame(0, []);
 eventBoundary.lvl = 70;

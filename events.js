@@ -160,6 +160,30 @@
       },
       fail: null
     },
+    {
+      id: 'sacred_dacheng', weight: 4.2, maxCount: 2,
+      name: '圣体大成', tier: 4, desc: '极道机缘贯通金色苦海，成就极道至尊',
+      minAge: 400, maxAge: 10000,
+      available: function (g) {
+        return g.physiqueId === 'sacred' && !g.becameEmperor && !g.sacredPeakAwakened &&
+          g.lvl >= 91 && g.lvl < 100;
+      },
+      cond: function (g, U) {
+        return g.physiqueId === 'sacred' && !g.sacredPeakAwakened && g.lvl >= 91 &&
+          Math.random() < U.sacredStepChance(g, 'dacheng');
+      },
+      ok: function (g, U, log) {
+        U.awakenSacredPeak(g, log);
+        U.gainDao(g, U.irand(40, 80), 24);
+        U.printlog('荒古圣体大成！极道血气横压星空，战力暴涨至' + Math.round(g.cult / 10000) + '万');
+      },
+      fail: function (g, U) {
+        var h = U.hurt(g, 80, 220);
+        U.printlog(h.exempt ?
+          '金色苦海剧烈震荡，大成之机擦肩而过，你强自压下血气，未受重创' :
+          '大成之机擦肩而过，金色血气反冲己身，寿元 -' + h.loss);
+      }
+    },
 
     /* ===================== tier 3 稀有 ===================== */
     {
@@ -229,6 +253,55 @@
       fail: function (g, U) {
         var h = U.hurt(g, 100, 260);
         U.printlog(h.exempt ? '至尊神念扫过星空，并未在你身上久留' : '一道皇道神念跨域压落，你强撑不跪，寿元 -' + h.loss);
+      }
+    },
+    {
+      id: 'sacred_kuhai', weight: 2.8, maxCount: 2,
+      name: '金色苦海圆满', tier: 3, desc: '荒古圣体苦海金辉大盛，血气初成渊海',
+      minAge: 80, maxAge: 10000,
+      available: function (g) {
+        return g.physiqueId === 'sacred' && !g.becameEmperor && !g.sacredKuhai &&
+          g.lvl >= 61 && g.lvl < 100;
+      },
+      cond: function (g, U) {
+        return g.physiqueId === 'sacred' && !g.sacredKuhai && g.lvl >= 61 &&
+          Math.random() < U.sacredStepChance(g, 'kuhai');
+      },
+      ok: function (g, U) {
+        g.sacredKuhai = true;
+        if (g.cult < 120000) g.cult = U.irand(120000, 180000);
+        else U.cultPct(g, 0.18, 0.32, 20000);
+        U.gainDao(g, U.irand(16, 28));
+        U.printlog('金色苦海彻底圆满，万丈金辉吞没星域，血气暴涨，战力达' + Math.round(g.cult / 10000) + '万');
+      },
+      fail: function (g, U) {
+        U.printlog('苦海金辉闪过又寂，圣体机缘未成，还需继续淬炼血气');
+      }
+    },
+    {
+      id: 'sacred_blood', weight: 2.4, maxCount: 2,
+      name: '圣体血气如海', tier: 3, desc: '大成前夜，血气镇压一方星空',
+      minAge: 200, maxAge: 10000,
+      available: function (g) {
+        return g.physiqueId === 'sacred' && !g.becameEmperor && !g.sacredBloodSea &&
+          g.lvl >= 81 && g.lvl < 100;
+      },
+      cond: function (g, U) {
+        return g.physiqueId === 'sacred' && !g.sacredBloodSea && g.lvl >= 81 &&
+          Math.random() < U.sacredStepChance(g, 'blood');
+      },
+      ok: function (g, U) {
+        g.sacredBloodSea = true;
+        if (g.cult < 360000) g.cult = U.irand(360000, 480000);
+        else U.cultPct(g, 0.16, 0.28, 40000);
+        U.gainDao(g, U.irand(22, 36));
+        U.printlog('圣体血气如海，隔空一拳震退禁区余威，战力攀至' + Math.round(g.cult / 10000) + '万，离大成只差一场极道机缘');
+      },
+      fail: function (g, U) {
+        var h = U.hurt(g, 60, 160);
+        U.printlog(h.exempt ?
+          '你欲以血气镇压星空，终究还差一线，及时收势' :
+          '强行催动未成之圣体，血气逆乱，寿元 -' + h.loss);
       }
     },
     {

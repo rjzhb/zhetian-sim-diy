@@ -80,6 +80,20 @@
   function effectiveDaoyunNeed(g, lvl) {
     return Math.round(daoyunNeed(lvl != null ? lvl : (g && g.lvl)) * daoNeedMult(g));
   }
+  /* 悟性不会抹平体质的前期差距，但在准圣以上可以转化为创法/破关效率。
+   * 绝世悟性凡体因此有一条极难、却真实可走的纯悟道路线。 */
+  function breakAptitude(g, lvl) {
+    var base = Math.max(1, g && g.aptitude || 1);
+    if (!g || (lvl || g.lvl || 1) < 11) return base;
+    var gift = Math.max(1, g.daoGift || 1);
+    /* 从道宫后逐步显现，避免悟性直接抹平轮海/道宫的体质差距。 */
+    var stage = clamp(((lvl || g.lvl || 1) + 10) / 40, 0, 1);
+    var daoBonus = Math.floor(Math.max(0, gift - 6) * 2.0 * stage);
+    return Math.min(10, base + daoBonus);
+  }
+  function pureDaoPath(g) {
+    return !!(g && g.daoGift >= 9 && g.daoyun >= Math.max(120, effectiveDaoyunNeed(g, g.lvl)));
+  }
   function daoBreakFactor(g) {
     var need = effectiveDaoyunNeed(g, g.lvl);
     if (!need) return 1;
@@ -90,7 +104,7 @@
   function canAdvance(g) {
     var need = effectiveDaoyunNeed(g, g.lvl);
     if (need && g.daoyun < need) return false;
-    if (g.innate <= 2 && !g.swallowingArt && g.lvl >= 90) return false;
+    if (g.innate <= 2 && !g.swallowingArt && g.lvl >= 90 && !pureDaoPath(g)) return false;
     return true;
   }
   function gainDaoyun(g, amount, capAdd) {
@@ -104,9 +118,10 @@
       var room = Math.max(0, g.daoyunCap * 0.2 - g.resonanceState.overflowDao);
       g.resonanceState.overflowDao += Math.min(room, (next - g.daoyunCap) * keep);
     }
-    /* 没有金色道蕴成长时，个人上限填不满：空等、帝者一世和事件都不能把海灌满。 */
+    /* 没有金色道蕴成长时，个人上限填不满：空等、帝者一世和事件都不能把海灌满。
+     * 已因圣体证道等机缘超过该线的，不再被逐年回扣。 */
     var fillCap = g.daoyunCap;
-    if (!hasGoldDaoGrowth(g)) fillCap = Math.floor(g.daoyunCap * 0.78);
+    if (!hasGoldDaoGrowth(g)) fillCap = Math.max(Math.floor(g.daoyunCap * 0.78), g.daoyun || 0);
     g.daoyun = Math.min(fillCap, next);
     return round((g.daoyun - old) * 10) / 10;
   }
@@ -452,7 +467,7 @@
     if (g.lvl >= 100) return 0;
     if (!canAdvance(g)) return 0;
     var coef = breakAgeCoef(g);
-    var base = breakChance(g.aptitude, g.lvl) * coef * pval(g, 'brk', 1) *
+    var base = breakChance(breakAptitude(g, g.lvl), g.lvl) * coef * pval(g, 'brk', 1) *
       daoBreakFactor(g) / quasiLayerMultiplier(g, g.lvl);
     if (base <= 0.25 + 1e-9) {
       return Math.random() < base ? 1 : 0;
@@ -461,7 +476,7 @@
     while (true) {
       var lvl = g.lvl + gained;
       if (lvl >= 100) break;
-      var b = breakChance(g.aptitude, lvl) * coef * pval(g, 'brk', 1) *
+      var b = breakChance(breakAptitude(g, lvl), lvl) * coef * pval(g, 'brk', 1) *
         daoBreakFactor({ daoyun: g.daoyun, daoyunCap: g.daoyunCap, lvl: lvl,
           physiqueId: g.physiqueId, innate: g.innate }) / quasiLayerMultiplier(g, lvl);
       if (b <= 0.25 + 1e-9) break;
@@ -575,6 +590,9 @@
       return v;
     },
     drawHighTalent: drawHighTalent,
+    sacredStepChance: sacredStepChance,
+    sacredEmperorChance: sacredEmperorChance,
+    awakenSacredPeak: awakenSacredPeak,
     printlog: printlog,
     trySwallowPhysique: trySwallowPhysique,
     nextSwallowTarget: nextSwallowTarget,
@@ -630,8 +648,8 @@
         if (ty === 'life') {
           g.lifeBonus += v;
           g.longevityTraitBonus = (g.longevityTraitBonus || 0) + v;
-          /* 高寿元命格同时意味着晚年血气更稳，寿元路线不再只是开局加几年。 */
-          g.tm.latePower = Math.min(0.22, g.tm.latePower + v / 500);
+          /* 高寿元命格同时意味着晚年血气更稳；按放大后的“年”数值缩放，避免一张白卡直接吃满上限。 */
+          g.tm.latePower = Math.min(0.22, g.tm.latePower + v / 20000);
         }
         else if (ty === 'floor') { if (v > floorMax) floorMax = v; }
         else if (ty === 'evf') g.tm.evf *= v;
@@ -813,6 +831,64 @@
     return id === 'sacred' || id === 'origin_sacred' || id === 'innate_sacred_dao';
   }
 
+  function isHuangguSacred(g) {
+    return !!(g && g.physiqueId === 'sacred');
+  }
+
+  /* 荒古圣体大成机缘：金色体质/气运/证道卡提高成功率，仍远不到保送。 */
+  function sacredStepChance(g, step) {
+    if (!isHuangguSacred(g)) return 0;
+    var body = (g.tm && g.tm.bodyChance) || 0;
+    var zhx = (g.tm && g.tm.zhx) || 0;
+    var evt = (g.tm && g.tm.evt) || 1;
+    var dao = (g.daoyun || 0) / D.DAO_ABSOLUTE_MAX;
+    var base = step === 'dacheng' ? 0.18 : (step === 'blood' ? 0.28 : 0.32);
+    var chance = base + Math.min(0.18, body * 0.35) + Math.min(0.08, zhx * 0.6) +
+      Math.min(0.08, dao * 0.08) + Math.min(0.08, Math.max(0, evt - 1) * 0.04);
+    if (step === 'blood' && g.sacredKuhai) chance += 0.12;
+    if (step === 'dacheng' && g.sacredKuhai) chance += 0.08;
+    if (step === 'dacheng' && g.sacredBloodSea) chance += 0.12;
+    if (step === 'dacheng' && !g.worldEmperor) chance += 0.06;
+    return clamp(chance, 0.08, step === 'dacheng' ? 0.55 : 0.70);
+  }
+
+  /* 大成之后叩帝关：荒古圣体成帝是万古难遇，原著仅叶凡做到。
+   * 光秃约 2%；合适金卡可抬到约 30%，仍远不到保送。 */
+  function sacredEmperorChance(g) {
+    if (!isHuangguSacred(g)) return 0;
+    var body = (g.tm && g.tm.bodyChance) || 0;
+    var extra = ((g.tm && g.tm.zhx) || 0) + pval(g, 'zhx', 0);
+    var dao = (g.daoyun || 0) / D.DAO_ABSOLUTE_MAX;
+    var gift = Math.max(0, (g.daoGift || 5) - 8) * 0.012;
+    var chance = 0.018 + Math.min(0.18, body * 0.22) + Math.min(0.09, extra * 0.9) +
+      Math.min(0.02, dao * 0.02) + gift;
+    if (g.gotDiBing) chance += 0.012;
+    if (g.deathless) chance += 0.008;
+    if (g.worldEmperor) chance *= 0.40;
+    return clamp(chance, 0.012, 0.32);
+  }
+
+  function awakenSacredPeak(g, log) {
+    if (!g) return g;
+    g.sacredPeakAwakened = true;
+    g.sacredKuhai = true;
+    g.sacredBloodSea = true;
+    var target;
+    if (g.worldEmperor) {
+      target = Math.max(D.OVERWHELM_DAO_CULT, irand(950000, 1300000));
+    } else {
+      target = Math.max(D.SACRED_JIDAO_CULT || 1600000, irand(1600000, 2000000));
+    }
+    g.cult = Math.max(g.cult || 0, target);
+    if (log) {
+      push(log, { cls: 'rainbow', text: '第' + (g.age || 0) + '岁，荒古圣体血气贯通九天十地，触发大成机缘！' +
+        (g.worldEmperor ?
+          '极道法则初显，战力跃至可与大帝争锋的' + Math.round(g.cult / 10000) + '万' :
+          '此世无帝，大成圣体已是宇宙第一极道至尊，战力' + Math.round(g.cult / 10000) + '万') });
+    }
+    return g;
+  }
+
   function emperorLifeSpanRange(lifeNo, g) {
     if ((lifeNo || 1) === 1 && isSacredBody(g)) return [20000, 26000];
     var ranges = [
@@ -841,8 +917,9 @@
 
   function resetEmperorLife(g) {
     var range = emperorLifeSpanRange(g.lifeNo, g);
-    /* 寿元命格会转化为帝者路线的可规划余量，而不是在成帝时被清零。 */
-    var span = irand(range[0], range[1]) + Math.min(1200, Math.round((g.longevityTraitBonus || 0) * 4));
+    /* 寿元命格会转化为帝者路线的可规划余量，而不是在成帝时被清零。
+     * 词条数值按“年”直接计入帝者寿元；旧版 ×4 再封顶 1200 会让高阶寿元卡失去意义。 */
+    var span = irand(range[0], range[1]) + Math.min(8000, Math.round(g.longevityTraitBonus || 0));
     g.emperorLifeStart = g.age;
     g.emperorLifeEnd = g.age + span;
     g.lifeBase = g.emperorLifeEnd;
@@ -871,7 +948,13 @@
     if (mode === 'jidao' || mode === 'hedao') rate = D.CHENGDI_BONUS_JIDAO;
     else rate = D.CHENGDI_BONUS_MIN + Math.random() * (D.CHENGDI_BONUS_MAX - D.CHENGDI_BONUS_MIN);
     g.cult = xianCult(g.cult, rate);
-    if (g.physiqueId === 'sacred') g.cult = Math.max(g.cult, D.HEAVENLY_EMPEROR_CULT);
+    if (g.physiqueId === 'sacred') {
+      /* 荒古圣体一旦证道，道果极厚：战力直达天帝，道蕴暴涨到几乎能保底逆活下一世。 */
+      g.cult = Math.max(g.cult, D.HEAVENLY_EMPEROR_CULT);
+      g.daoyunCap = Math.min(D.DAO_ABSOLUTE_MAX, Math.max(g.daoyunCap, D.SACRED_EMPEROR_DAO_CAP || 2800));
+      g.daoyun = Math.max(g.daoyun, Math.min(g.daoyunCap, Math.max(2400, Math.floor(g.daoyunCap * 0.92))));
+      g.sacredEmperorBurst = true;
+    }
     resetEmperorLife(g);
     return g.cult;
   }
@@ -1317,6 +1400,10 @@
       daoPeak * 0.12 + Math.min(0.08, total * 0.003);
     if (g.gotDiBing) chance += 0.02;
     if (targetLife >= 6 && g.daoyun >= 800 && daoPeak >= 0.55) chance = Math.max(chance, 0.70);
+    /* 荒古圣体成帝后道蕴暴涨：第一世逆出第二世接近保底，仍非百分百。 */
+    if (g.physiqueId === 'sacred' && g.sacredEmperorBurst && targetLife === 2) {
+      return clamp(Math.max(chance, 0.88), 0.88, 0.94);
+    }
     return clamp(chance, 0.02, targetLife >= 6 ? 0.88 : 0.62);
   }
 
@@ -1454,7 +1541,7 @@
     g.strangeWorldInsight = (g.strangeWorldInsight || 0) + add;
     g.cult = round(g.cult * rand(1.03, 1.07));
     gainDaoyun(g, 8);
-    push(log, { cls: 'rare', text: '五色天刀余威未散，你收敛帝道气机，藏入界海褶皱蛰伏' + years + '年；长生感悟+' + add + '，实力暗增至' + g.cult });
+    push(log, { cls: 'rare', text: '五色天刀余威未散，你收敛帝道气机，藏入奇异世界的法则褶皱蛰伏' + years + '年；长生感悟+' + add + '，实力暗增至' + g.cult });
     return true;
   }
 
@@ -1599,7 +1686,7 @@
     if (g.strangeWorldSituation === 'standoff' && !g.strangeWorldAlliance) {
       g.strangeWorldThreatKnown = true;
       g.awaitingStrangeWorldChoice = true;
-      push(log, { cls: 'ev4', text: '你在界海尽头发现两道对峙万古的身影：无始大帝正牵制一位沐浴五色神光、' + undeadStageText(g) + '的恐怖强者' });
+      push(log, { cls: 'ev4', text: '你在奇异世界深处发现两道对峙万古的身影：无始大帝正牵制一位沐浴五色神光、' + undeadStageText(g) + '的恐怖强者' });
       if (_fast) chooseStrangeWorldAlliance(g, 'hide', log);
       return;
     }
@@ -1669,10 +1756,10 @@
       var safe = clamp(0.58 + (g.tm.ward + pval(g, 'ward', 0)) / 120, 0.58, 0.90);
       if (Math.random() < safe) {
         add = irand(7, 13); g.strangeWorldInsight += add; g.redDustRoots.body++;
-        push(log, { cls: 'god', text: '界海风暴席卷仙土，你以帝躯硬抗而过，肉身根基+1，长生感悟+' + add });
+        push(log, { cls: 'god', text: '奇异世界的长生风暴席卷仙土，你以帝躯硬抗而过，肉身根基+1，长生感悟+' + add });
       } else {
         g.cult = round(g.cult * 0.88);
-        push(log, { cls: 'dead', text: '你被界海风暴重创，实力跌落至' + g.cult + '，不得不蛰伏疗伤' });
+        push(log, { cls: 'dead', text: '你被奇异世界的长生风暴重创，实力跌落至' + g.cult + '，不得不蛰伏疗伤' });
       }
     } else if (r < 0.80) {
       add = irand(8, 14); g.strangeWorldInsight += add; g.redDustRoots.soul++;
@@ -1682,7 +1769,7 @@
       if (g.strangeWorldAlliance === 'wushi') g.strangeWorldInsight += 3;
       push(log, { cls: 'rare', text: '万载岁月流转，你在此界重演自身帝法，道果根基+1，长生感悟+' + add });
     } else {
-      var danger = ['界海风暴撕开你的闭关地', '古代强者循着帝道气机袭杀而来', '异界法则反噬旧日道果', '熔炼长生物质时修行失控'][irand(0, 3)];
+      var danger = ['奇异世界的法则风暴撕开你的闭关地', '古代强者循着帝道气机袭杀而来', '异界法则反噬旧日道果', '熔炼长生物质时修行失控'][irand(0, 3)];
       var dangerSafe = clamp(0.42 + (g.tm.ward + pval(g, 'ward', 0)) / 120 + g.cult / 10000000, 0.42, 0.82);
       if (Math.random() >= dangerSafe && Math.random() < 0.45) {
         g.dead = true; g.deadCause = 'strange_world_accident';
@@ -2006,20 +2093,27 @@
     return true;
   }
   function tryZhengdao(g, log) {
+    function deferImperialAttempt(years) {
+      g.emperorAttemptAge = g.age + irand(years || 300, (years || 300) * 2);
+    }
     var extra = g.tm.zhx + pval(g, 'zhx', 0);
     var eff = zhengdaoEff(g);     /* 判定用战力：含隐藏的帝兵/不死药加持 */
     if (!g.worldEmperor && tracesStillActive(g)) {
       push(log, { cls: 'rare', text: '第' + g.age + '岁，前代帝道烙印尚未消散，万道仍被镇压，此世无人能证道' });
+      deferImperialAttempt(300);
       return false;
     }
-    if (g.physiqueId === 'sacred' && currentCombatPower(g) < D.OVERWHELM_DAO_CULT) {
-      push(log, { cls: 'rare', text: '第' + g.age + '岁，荒古圣体未极，尚不足以破灭万道、问鼎天帝之位' });
+    if (isHuangguSacred(g) && !g.sacredPeakAwakened && currentCombatPower(g) < D.OVERWHELM_DAO_CULT) {
+      /* 90万必须来自金色苦海/血气/大成等可见机缘，叩关本身不会暗骰大成。 */
+      push(log, { cls: 'rare', text: '第' + g.age + '岁，荒古圣体尚未大成，仍缺一场极道机缘，暂不足以破灭万道' });
+      deferImperialAttempt(400);
       return false;
     }
     var emperorDaoNeed = effectiveDaoyunNeed(g, 99);
     if (g.lvl >= 99 && emperorDaoNeed && g.daoyun < emperorDaoNeed) {
       push(log, { cls: 'rare', text: '第' + g.age + '岁，准帝九重已至，然道蕴仅' + Math.round(g.daoyun) +
         '/' + emperorDaoNeed + '，尚不足以叩开帝关' });
+      deferImperialAttempt(250);
       return false;
     }
     if (g.worldEmperor) {
@@ -2032,6 +2126,7 @@
       }
       var overwhelmChance = clamp(0.35 + (eff - D.OVERWHELM_DAO_CULT) / 600000 + extra +
         (g.tm.ignoreSuppression || 0), 0.35, 1);
+      if (isHuangguSacred(g)) overwhelmChance = sacredEmperorChance(g);
       if (Math.random() < overwhelmChance) {
         var oldEmperorName = g.worldEmperor.name;
         becomeDi(g, log, 'overwhelm');
@@ -2045,7 +2140,8 @@
       g.dead = true; g.deadCause = 'overwhelm_failed';
       return true;
     }
-    if (g.xintian) {
+    /* 天心也不能给荒古圣体开后门：天道不容圣体成帝，仍要过那道万古难关。 */
+    if (g.xintian && !isHuangguSacred(g)) {
       var red = clamp(g.tm.dlm + pval(g, 'dlm', 0), 0, 90);
       var fade = g.age > D.EMPEROR_PATH_FADE_AGE ? 1 + 0.3 * (g.age - D.EMPEROR_PATH_FADE_AGE) / (D.EMPEROR_PATH_CLOSE_AGE - D.EMPEROR_PATH_FADE_AGE) : 1;
       var suppression = g.daoSuppressed && !isPeakPhysique(g.physiqueId) ?
@@ -2073,14 +2169,27 @@
     /* 无天心：以力证道（按判定战力查概率曲线） */
     var latePenalty = g.age > D.EMPEROR_PATH_FADE_AGE ? 1 - 0.5 * (g.age - D.EMPEROR_PATH_FADE_AGE) / (D.EMPEROR_PATH_CLOSE_AGE - D.EMPEROR_PATH_FADE_AGE) : 1;
     var daoPenalty = g.daoSuppressed && !isPeakPhysique(g.physiqueId) ? 0.15 : 1;
-    var prob = Math.min(1, (zhengdaoChance(eff) + extra) * Math.max(0.5, latePenalty) * daoPenalty);
+    /* 凡体绝世悟性可走“以道证帝”：不靠蛮力硬撼九十万战力，而以完整道果换取有限但真实的帝关成功率。
+     * 仅对低体质生效，避免混沌体叠加后把证帝变成必然。 */
+    var pureDaoBonus = (g.innate <= 2 && pureDaoPath(g)) ?
+      ((g.daoGift - 8) * 0.10 + Math.min(0.22, g.daoyun / D.DAO_ABSOLUTE_MAX * 0.22)) : 0;
+    var lateScale = Math.max(0.5, latePenalty) * daoPenalty;
+    var prob = isHuangguSacred(g) ?
+      sacredEmperorChance(g) * lateScale :
+      Math.min(1, (zhengdaoChance(eff) + extra + pureDaoBonus) * lateScale);
     if (Math.random() < prob) {
       becomeDi(g, log, 'force');
-      push(log, { cls: 'god', text: '第' + g.age + '岁，一力降万法，强行证道，破开帝关！' });
+      push(log, { cls: 'god', text: isHuangguSacred(g) ?
+        '第' + g.age + '岁，你以荒古圣体逆天而行，硬生生破开天道不容的帝关，证道成帝！' :
+        (pureDaoBonus > 0 ?
+        '第' + g.age + '岁，你以万古悟性熔炼自身道果，不借外力而证道成帝！' :
+        '第' + g.age + '岁，一力降万法，强行证道，破开帝关！') });
       return true;
     }
     if (spendImperialRetry(g, log)) return true;
-    push(log, { cls: 'dead', text: '第' + g.age + '岁，冲击帝关失败，大道反噬，身死道消' });
+    push(log, { cls: 'dead', text: isHuangguSacred(g) ?
+      '第' + g.age + '岁，天道不容圣体成帝，帝关反噬，身死道消' :
+      '第' + g.age + '岁，冲击帝关失败，大道反噬，身死道消' });
     g.dead = true; g.deadCause = 'zhengdao';
     return true;
   }
@@ -2127,6 +2236,7 @@
       worldYear: 0, worldHistory: [], worldEmperor: null, worldEmperorSeq: 0,
       nextWorldEmperorYear: null, playerEmperorActive: false, daoTraceUntil: null,
       xintian: false, deathless: false, deathlessUsed: false, reverseMedicineUsed: false,
+      sacredPeakAwakened: false, sacredKuhai: false, sacredBloodSea: false, sacredEmperorBurst: false,
       xianSource: false, primordialStone: false, sealingMaterial: '',
       knowsStrangeWorld: false,
       awaitingSelfSlash: false, selfSlashOffered: false, selfSlashDeclined: false, selfSlashed: false,
@@ -2362,6 +2472,9 @@
     rollYear: rollYear,
     setFast: setFast,
     tryZhengdao: tryZhengdao,
+    sacredStepChance: sacredStepChance,
+    sacredEmperorChance: sacredEmperorChance,
+    awakenSacredPeak: awakenSacredPeak,
     spendImperialRetry: spendImperialRetry,
     reverseLifeChance: reverseLifeChance,
     reversePathChance: reversePathChance,
