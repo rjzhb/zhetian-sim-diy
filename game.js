@@ -47,7 +47,7 @@
     var badge = $('admin-badge');
     if (badge) {
       badge.hidden = GOLD_MODE === 'none' && !FORCE_XIANTI;
-      badge.textContent = FORCE_XIANTI ? '🛠 强制混沌体已开启' : '🛠 金色命格模式已开启';
+      badge.textContent = FORCE_XIANTI ? '🛠 强制混沌体 / 先天圣体道胎已开启' : '🛠 金色命格模式已开启';
     }
   }
   var KEY_SPEED = 'zt_speed';
@@ -445,7 +445,8 @@
     ensureAudio(); blip(880, 0.1, 'triangle', 0.1);
     G = Sim.createGame(player.lv, traitIds);
     if (FORCE_XIANTI) {
-      Sim.setPhysique(G, DATA.physiqueById('chaos'));
+      var peakId = Math.random() < 0.5 ? 'chaos' : 'innate_sacred_dao';
+      Sim.setPhysique(G, DATA.physiqueById(peakId));
       G.aptitude = 10;
       G.cult = Math.max(G.cult, 10);
     }

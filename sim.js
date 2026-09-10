@@ -363,7 +363,7 @@
   }
   function quasiLayerMultiplier(g, lvl) {
     if (lvl < 91 || lvl > 98) return 1;
-    var table = g && g.physiqueId === 'chaos' ? D.QUASI_CHAOS_MULT : D.QUASI_LAYER_MULT;
+    var table = g && isPeakPhysique(g.physiqueId) ? D.QUASI_CHAOS_MULT : D.QUASI_LAYER_MULT;
     return table[lvl - 91] || 1;
   }
   function attemptBreak(g) {
@@ -1847,7 +1847,7 @@
     if (g.xintian) {
       var red = clamp(g.tm.dlm + pval(g, 'dlm', 0), 0, 90);
       var fade = g.age > D.EMPEROR_PATH_FADE_AGE ? 1 + 0.3 * (g.age - D.EMPEROR_PATH_FADE_AGE) / (D.EMPEROR_PATH_CLOSE_AGE - D.EMPEROR_PATH_FADE_AGE) : 1;
-      var suppression = g.daoSuppressed && g.physiqueId !== 'chaos' ?
+      var suppression = g.daoSuppressed && !isPeakPhysique(g.physiqueId) ?
         1 + 0.5 * (1 - (g.tm.ignoreSuppression || 0)) : 1;
       var need = Math.max(1, Math.round(irand(D.XINTIAN_NEED_MIN, D.XINTIAN_NEED_MAX) * (1 - red / 100) * fade * suppression));
       /* 准帝九重天即已走到帝关前，战力达标后融合天心必成。 */
@@ -1871,7 +1871,7 @@
     }
     /* 无天心：以力证道（按判定战力查概率曲线） */
     var latePenalty = g.age > D.EMPEROR_PATH_FADE_AGE ? 1 - 0.5 * (g.age - D.EMPEROR_PATH_FADE_AGE) / (D.EMPEROR_PATH_CLOSE_AGE - D.EMPEROR_PATH_FADE_AGE) : 1;
-    var daoPenalty = g.daoSuppressed && g.physiqueId !== 'chaos' ? 0.15 : 1;
+    var daoPenalty = g.daoSuppressed && !isPeakPhysique(g.physiqueId) ? 0.15 : 1;
     var prob = Math.min(1, (zhengdaoChance(eff) + extra) * Math.max(0.5, latePenalty) * daoPenalty);
     if (Math.random() < prob) {
       becomeDi(g, log, 'force');

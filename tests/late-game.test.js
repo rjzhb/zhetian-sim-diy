@@ -142,6 +142,9 @@ assert.ok(Sim.quasiLayerMultiplier({ physiqueId: 'mortal' }, 98) >
 assert.ok(Sim.quasiLayerMultiplier({ physiqueId: 'chaos' }, 98) <
   Sim.quasiLayerMultiplier({ physiqueId: 'mortal' }, 98),
   'chaos may shorten quasi-emperor waits but still cannot skip the climb');
+assert.strictEqual(Sim.quasiLayerMultiplier({ physiqueId: 'innate_sacred_dao' }, 98),
+  Sim.quasiLayerMultiplier({ physiqueId: 'chaos' }, 98),
+  'the two peak physiques should climb quasi-emperor at the same pace');
 assert.strictEqual(Sim.quasiLayerMultiplier({ physiqueId: 'mortal' }, 90), 1);
 
 assert.strictEqual(typeof Sim.daoyunNeed, 'function');
@@ -170,6 +173,17 @@ chaosKing.lvl = 70;
 chaosKing.daoyun = 0;
 assert.strictEqual(Sim.effectiveDaoyunNeed(chaosKing, 70), 0, 'chaos has no Dao bottleneck');
 assert.strictEqual(Sim.canAdvance(chaosKing), true, 'chaos can break King to Saint without Dao');
+const daoChaos = Sim.createGame(0, []);
+Sim.setPhysique(daoChaos, DATA.physiqueById('chaos'));
+daoChaos.daoyun = 100;
+daoChaos.era = { daog: 1 };
+const daoSacred = Sim.createGame(0, []);
+Sim.setPhysique(daoSacred, DATA.physiqueById('innate_sacred_dao'));
+daoSacred.daoyun = 100;
+daoSacred.era = { daog: 1 };
+const chaosGain = Sim.gainDaoyun(daoChaos, 20);
+const sacredGain = Sim.gainDaoyun(daoSacred, 20);
+assert.ok(sacredGain > chaosGain, 'Innate Sacred Dao Fetus must accumulate Dao faster than Chaos');
 const fetusKing = Sim.createGame(0, []);
 Sim.setPhysique(fetusKing, DATA.physiqueById('innate_sacred_dao'));
 fetusKing.lvl = 90;
@@ -565,6 +579,9 @@ assert.ok(/id="force-xianti-toggle"/.test(html));
 assert.ok(!/id="gold-random-toggle"[^>]*checked/.test(html), 'gold-random cheat must default off');
 assert.ok(!/id="gold-free-toggle"[^>]*checked/.test(html), 'gold-free cheat must default off');
 assert.ok(!/id="force-xianti-toggle"[^>]*checked/.test(html), 'force-chaos cheat must default off');
+assert.ok(html.indexOf('强制混沌体 / 先天圣体道胎') >= 0, 'the peak-physique lock must name both bodies');
+assert.ok(gameSource.indexOf("peakId = Math.random() < 0.5 ? 'chaos' : 'innate_sacred_dao'") >= 0,
+  'the peak-physique lock must roll either Chaos or Innate Sacred Dao Fetus');
 assert.ok(gameSource.indexOf('localStorage.setItem(KEY_GOLD_MODE') < 0, 'gold cheat mode must not persist across downloads or reloads');
 assert.ok(gameSource.indexOf('localStorage.setItem(KEY_FORCE_XIANTI') < 0, 'force-chaos cheat must not persist across downloads or reloads');
 assert.ok(gameSource.indexOf('localStorage.getItem(KEY_GOLD_MODE') < 0, 'gold cheat mode must not reload a saved on-state');

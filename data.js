@@ -34,7 +34,7 @@
     { id: 'overlord', name: '苍天霸体', tier: 9, weight: 1, fx: pm({ brk: 1.05, cgt: 1.28, ward: 12 }), desc: '紫色苦海、神形无双，与圣体争锋' },
     { id: 'origin_sacred', name: '元灵圣体', tier: 9, weight: 1, fx: pm({ brk: 1.18, cgt: 1.3, evf: 1.2 }), desc: '圣体肉身与元灵法力合一' },
     { id: 'chaos', name: '混沌体', tier: 10, weight: 1, fx: pm({ brk: 1.3, cgt: 1.4, evt: 1.5, xin: 1.5, dlm: 10, zhx: 0.70 }), desc: '万道交融，不受寻常大道压制' },
-    { id: 'innate_sacred_dao', name: '先天圣体道胎', tier: 10, weight: 1, fx: pm({ brk: 1.35, cgt: 1.35, xin: 1.6, dlm: 10, ward: 10, zhx: 0.65 }), desc: '圣体肉身与道胎悟性合一' }
+    { id: 'innate_sacred_dao', name: '先天圣体道胎', tier: 10, weight: 1, fx: pm({ brk: 1.35, cgt: 1.35, xin: 1.6, dlm: 10, ward: 10, zhx: 0.65, daog: 1.28 }), desc: '圣体肉身与道胎悟性合一，悟道更快' }
   ];
   function physiqueById(id) {
     for (var i = 0; i < PHYSIQUES.length; i++) if (PHYSIQUES[i].id === id) return PHYSIQUES[i];
