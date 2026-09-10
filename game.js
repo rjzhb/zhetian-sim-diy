@@ -32,18 +32,13 @@
   var KEY_SOUND = 'zt_sound';
   /* ---------- 金色命格模式（纯本地，不联网、不影响任何榜单） ---------- */
   var GOLD_MODE = 'none';
-  var KEY_GOLD_MODE = 'zt_gold_mode';
   var FORCE_XIANTI = false;
-  var KEY_FORCE_XIANTI = 'zt_force_xianti';
-  function loadGoldMode() {
+  function clearPersistedCheats() {
     try {
-      GOLD_MODE = localStorage.getItem(KEY_GOLD_MODE) || 'none';
-      if (GOLD_MODE !== 'random' && GOLD_MODE !== 'free') GOLD_MODE = 'none';
+      localStorage.removeItem('zt_gold_mode');
+      localStorage.removeItem('zt_force_xianti');
     } catch (e) {}
   }
-  function saveGoldMode() { try { localStorage.setItem(KEY_GOLD_MODE, GOLD_MODE); } catch (e) {} }
-  function loadForceXianti() { try { FORCE_XIANTI = localStorage.getItem(KEY_FORCE_XIANTI) === '1'; } catch (e) {} }
-  function saveForceXianti() { try { localStorage.setItem(KEY_FORCE_XIANTI, FORCE_XIANTI ? '1' : '0'); } catch (e) {} }
   function syncAdminUI() {
     var random = $('gold-random-toggle'), free = $('gold-free-toggle');
     if (random) random.checked = GOLD_MODE === 'random';
@@ -1280,9 +1275,9 @@
     $('btn-settle-follow').addEventListener('click', function () { blip(660, 0.08, 'triangle', 0.1); followAuthor(); });
     $('btn-settle-home').addEventListener('click', function () { show('home'); });
     $('home-sound').addEventListener('change', function () { SOUND = this.checked; saveSound(); syncSoundUI(); });
-    $('gold-random-toggle').addEventListener('change', function () { GOLD_MODE = this.checked ? 'random' : 'none'; saveGoldMode(); syncAdminUI(); });
-    $('gold-free-toggle').addEventListener('change', function () { GOLD_MODE = this.checked ? 'free' : 'none'; saveGoldMode(); syncAdminUI(); });
-    $('force-xianti-toggle').addEventListener('change', function () { FORCE_XIANTI = this.checked; saveForceXianti(); syncAdminUI(); });
+    $('gold-random-toggle').addEventListener('change', function () { GOLD_MODE = this.checked ? 'random' : 'none'; syncAdminUI(); });
+    $('gold-free-toggle').addEventListener('change', function () { GOLD_MODE = this.checked ? 'free' : 'none'; syncAdminUI(); });
+    $('force-xianti-toggle').addEventListener('change', function () { FORCE_XIANTI = this.checked; syncAdminUI(); });
     $('trait-search').addEventListener('input', filterTraitList);
     $('speed-range').addEventListener('input', setSpeed);
     $('speed-range').addEventListener('change', setSpeed);
@@ -1302,8 +1297,7 @@
   /* ---------- 启动 ---------- */
   loadSound();
   loadSpeed();
-  loadGoldMode();
-  loadForceXianti();
+  clearPersistedCheats();
   loadPlayer();
   loadAchLocal();
   refreshHome();
