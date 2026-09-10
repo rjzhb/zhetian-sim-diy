@@ -21,14 +21,24 @@
   var _achBonus = 0;
   function setAchBonus(pct) { _achBonus = pct || 0; }
 
-  function pickPhysique(tier) {
+  function pickPhysique(tier, acquiredOnly) {
     var pool = D.physiquesAtTier ? D.physiquesAtTier(tier) : [];
-    if (!pool.length) return D.physiqueById ? D.physiqueById('mortal') : null;
+    if (acquiredOnly) {
+      var filtered = [], fi;
+      for (fi = 0; fi < pool.length; fi++) {
+        if (pool[fi].id !== 'innate_sacred_dao') filtered.push(pool[fi]);
+      }
+      pool = filtered;
+    }
+    if (!pool.length) return D.physiqueById ? D.physiqueById(acquiredOnly ? 'chaos' : 'mortal') : null;
     var total = 0, i;
     for (i = 0; i < pool.length; i++) total += pool[i].weight || 1;
     var r = Math.random() * total, acc = 0;
     for (i = 0; i < pool.length; i++) { acc += pool[i].weight || 1; if (r < acc) return pool[i]; }
     return pool[pool.length - 1];
+  }
+  function pickAcquiredPhysique(tier) {
+    return pickPhysique(tier, true);
   }
   function pval(g, key, fallback) {
     return g.pm && g.pm[key] != null ? g.pm[key] : fallback;
@@ -101,6 +111,10 @@
   }
   function setPhysique(g, p) {
     if (!p) return;
+    if (p.id === 'innate_sacred_dao' && g.physiqueId && g.physiqueId !== 'innate_sacred_dao' &&
+        ((g.year || 0) > 0 || g.gotYibian)) {
+      return;
+    }
     g.physiqueId = p.id; g.physiqueName = p.name; g.pm = p.fx || {};
     g.innate = p.tier; g.aptitude = Math.max(g.aptitude || 1, p.tier);
     if (g.daoyunCap != null) {
@@ -502,7 +516,7 @@
     for (i = 7; i <= 10; i++) wsum += D.INNATE_WEIGHTS[i];
     var r = Math.random() * wsum, acc = 0, ni = 7;
     for (i = 7; i <= 10; i++) { acc += D.INNATE_WEIGHTS[i]; if (r < acc) { ni = i; break; } }
-    var physique = pickPhysique(ni);
+    var physique = pickAcquiredPhysique(ni);
     setPhysique(g, physique);
     g.gotYibian = true;
     return { innate: ni, talent: physique ? physique.name : D.talentOf(ni) };
@@ -568,7 +582,7 @@
     /* 体质保底只抬升先天品阶，不再根据命格稀有度附送隐藏体质。 */
     var oldInnate = g.innate;
     var targetInnate = Math.max(g.innate, floorMax);
-    if (targetInnate > oldInnate) setPhysique(g, pickPhysique(targetInnate));
+    if (targetInnate > oldInnate) setPhysique(g, pickAcquiredPhysique(targetInnate));
     g.innate = targetInnate;
     g.aptitude = Math.max(g.aptitude, targetInnate);
     g.daoyunCap = Math.min(D.DAO_ABSOLUTE_MAX, g.daoyunCap + daoCapAdd);
@@ -610,7 +624,7 @@
     var chance = Math.min(1, (g.tm.bodyChance || 0) + (g.resonance === 'body' ? 0.08 : 0));
     if (Math.random() >= chance) return false;
     var before = g.physiqueName;
-    setPhysique(g, pickPhysique(Math.min(9, g.innate + 1)));
+    setPhysique(g, pickAcquiredPhysique(Math.min(9, g.innate + 1)));
     push(log, { cls: 'rainbow', text: '第' + g.age + '岁，百炼凡躯终破先天桎梏，『' + before + '』蜕变为『' + g.physiqueName + '』！' });
     return true;
   }
@@ -2173,6 +2187,8 @@
     forbiddenSleepRange: forbiddenSleepRange,
     forbiddenPurgeChance: forbiddenPurgeChance,
     setPhysique: setPhysique,
+    pickAcquiredPhysique: pickAcquiredPhysique,
+    drawHighTalent: drawHighTalent,
     testLv: testLv, testCult: testCult,
     EVENTS: E, DATA: D, U: U
   };

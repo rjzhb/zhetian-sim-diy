@@ -184,6 +184,27 @@ daoSacred.era = { daog: 1 };
 const chaosGain = Sim.gainDaoyun(daoChaos, 20);
 const sacredGain = Sim.gainDaoyun(daoSacred, 20);
 assert.ok(sacredGain > chaosGain, 'Innate Sacred Dao Fetus must accumulate Dao faster than Chaos');
+assert.strictEqual(typeof Sim.pickAcquiredPhysique, 'function');
+for (let i = 0; i < 40; i++) {
+  const acquired = Sim.pickAcquiredPhysique(10);
+  assert.ok(acquired && acquired.id !== 'innate_sacred_dao',
+    'acquired physique draws must never produce Innate Sacred Dao Fetus');
+}
+const yibianGame = Sim.createGame(0, []);
+yibianGame.year = 3;
+for (let i = 0; i < 40; i++) {
+  const roll = Sim.createGame(0, []);
+  roll.year = 3;
+  Sim.drawHighTalent(roll);
+  assert.notStrictEqual(roll.physiqueId, 'innate_sacred_dao',
+    'physique mutation must not awaken Innate Sacred Dao Fetus');
+}
+const refuseLate = Sim.createGame(0, []);
+Sim.setPhysique(refuseLate, DATA.physiqueById('mortal'));
+refuseLate.year = 8;
+Sim.setPhysique(refuseLate, DATA.physiqueById('innate_sacred_dao'));
+assert.strictEqual(refuseLate.physiqueId, 'mortal',
+  'a mid-life physique change must not become Innate Sacred Dao Fetus');
 const fetusKing = Sim.createGame(0, []);
 Sim.setPhysique(fetusKing, DATA.physiqueById('innate_sacred_dao'));
 fetusKing.lvl = 90;
