@@ -9,6 +9,68 @@ assert.strictEqual(DATA.DAO_ABSOLUTE_MAX, 3000);
 assert.strictEqual(Sim.baseDaoyunCap(1), 500);
 assert.strictEqual(Sim.baseDaoyunCap(10), 1500);
 
+assert.strictEqual(typeof Sim.emperorLifeSpanRange, 'function');
+const emperorLifeRanges = [
+  [8000, 12000], [15000, 25000], [30000, 45000], [50000, 70000],
+  [70000, 95000], [90000, 120000], [110000, 145000], [130000, 170000]
+];
+let eightLifeMin = 0, eightLifeMax = 0;
+emperorLifeRanges.forEach(function (range, index) {
+  assert.deepStrictEqual(Sim.emperorLifeSpanRange(index + 1), range);
+  eightLifeMin += range[0];
+  eightLifeMax += range[1];
+});
+assert.ok(eightLifeMin >= 500000 && eightLifeMax >= 650000);
+
+assert.strictEqual(typeof Sim.emperorDaoyunGainPerYear, 'function');
+const longLifeDao = Sim.createGame(0, []);
+longLifeDao.innate = 10;
+longLifeDao.emperorLifeStart = 0;
+longLifeDao.emperorLifeEnd = 100000;
+assert.ok(Sim.emperorDaoyunGainPerYear(longLifeDao) * 100000 <= 810,
+  'a long emperor life must not generate unlimited Dao merely from elapsed years');
+
+assert.strictEqual(typeof Sim.reversePathChance, 'function');
+function chaosAfterFirstEmperorLife(traitIds) {
+  const g = Sim.createGame(0, traitIds);
+  Sim.setPhysique(g, DATA.physiqueById('chaos'));
+  g.era = { id: 'normal', name: '平常时代', daog: 0.75, evt: 1, evf: 1 };
+  Sim.gainDaoyun(g, 0.125 * (0.2 + g.innate * 0.5) * 400);
+  Sim.becomeDi(g, [], 'force');
+  g.redDustRoots = { body: 2, soul: 2, dao: 2 };
+  g.cult = Math.max(g.cult, 800000);
+  const span = Math.max(1, g.emperorLifeEnd - g.emperorLifeStart);
+  Sim.gainDaoyun(g, Sim.emperorDaoyunGainPerYear(g) * span);
+  return g;
+}
+const bareChaosFirstLife = chaosAfterFirstEmperorLife([]);
+assert.ok(bareChaosFirstLife.daoyun / bareChaosFirstLife.daoyunCap < 0.85,
+  'chaos without Dao-growth cards must not fill the personal cap in one ordinary emperor life');
+assert.strictEqual(Sim.reversePathChance(bareChaosFirstLife), 0,
+  'an unfilled Dao sea must not reveal the reverse-life path');
+const goldDaoChaosFirstLife = chaosAfterFirstEmperorLife(['o08']);
+assert.ok(goldDaoChaosFirstLife.daoyun / goldDaoChaosFirstLife.daoyunCap >= 0.85,
+  'chaos with a gold Dao-growth card should fill the personal cap in one ordinary emperor life');
+assert.ok(Sim.reversePathChance(goldDaoChaosFirstLife) >= 0.7,
+  'a filled Dao sea with balanced roots and sufficient power should almost always reveal reverse-life');
+
+const batchedEmperor = Sim.createGame(0, []);
+Sim.becomeDi(batchedEmperor, [], 'force');
+batchedEmperor.lifeNo = 8;
+batchedEmperor.emperorLifeStart = batchedEmperor.age;
+batchedEmperor.emperorLifeEnd = batchedEmperor.age + 150000;
+batchedEmperor.lifeBase = batchedEmperor.emperorLifeEnd;
+batchedEmperor.knowsStrangeWorld = false;
+const ageBeforeEmperorTick = batchedEmperor.age;
+try {
+  Math.random = function () { return 0.5; };
+  Sim.rollYear(batchedEmperor);
+} finally {
+  Math.random = oldRandom;
+}
+assert.ok(batchedEmperor.age - ageBeforeEmperorTick >= 500,
+  'long emperor lives must advance in playable multi-century ticks');
+
 assert.strictEqual(typeof Sim.reverseLifeChance, 'function');
 function reverseFixture(dao, cap, lifeNo) {
   const g = Sim.createGame(0, ['w06', 'w11']);
@@ -26,6 +88,14 @@ assert.strictEqual(Sim.reverseLifeChance(reverseFixture(100, 100, 2)) < 0.25, tr
 assert.strictEqual(Sim.reverseLifeChance(reverseFixture(1500, 1500, 2)), 1, 'absolute and personal Dao fullness should guarantee reversal');
 assert.ok(Sim.reverseLifeChance(reverseFixture(900, 1500, 3)) >
   Sim.reverseLifeChance(reverseFixture(900, 1500, 2)), 'later mastered techniques should be easier than the third-life bottleneck');
+const secondLifeByForce = reverseFixture(800, 1500, 1);
+secondLifeByForce.deathless = false;
+secondLifeByForce.deathlessUsed = false;
+assert.ok(Sim.reverseLifeChance(secondLifeByForce) <= 0.35,
+  'without immortal medicine, brute-forcing the second life must remain unlikely');
+secondLifeByForce.deathless = true;
+assert.strictEqual(Sim.reverseLifeChance(secondLifeByForce), 1,
+  'an unused immortal medicine should still guarantee the second life');
 
 assert.strictEqual(typeof Sim.tryReverseLife, 'function');
 const reverseGame = reverseFixture(1500, 1500, 2);

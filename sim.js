@@ -516,8 +516,23 @@
     return round((1000000 + cult) * rate);
   }
 
+  function emperorLifeSpanRange(lifeNo) {
+    var ranges = [
+      [8000, 12000], [15000, 25000], [30000, 45000], [50000, 70000],
+      [70000, 95000], [90000, 120000], [110000, 145000], [130000, 170000]
+    ];
+    return ranges[Math.min(7, Math.max(0, (lifeNo || 1) - 1))].slice();
+  }
+
+  function emperorDaoyunGainPerYear(g) {
+    var span = Math.max(1, g.emperorLifeEnd - g.emperorLifeStart);
+    var perLifeBudget = 270 * (0.5 + g.innate * 0.25);
+    return perLifeBudget / span;
+  }
+
   function resetEmperorLife(g) {
-    var span = irand(D.EMPEROR_LIFE_MIN, D.EMPEROR_LIFE_MAX);
+    var range = emperorLifeSpanRange(g.lifeNo);
+    var span = irand(range[0], range[1]);
     g.emperorLifeStart = g.age;
     g.emperorLifeEnd = g.age + span;
     g.lifeBase = g.emperorLifeEnd;
@@ -613,12 +628,12 @@
     var total = roots.body + roots.soul + roots.dao;
     var targetLife = Math.min(D.RED_DUST_LIVES, g.lifeNo + 1);
     if (targetLife === 2 && g.deathless && !g.deathlessUsed && !g.reverseMedicineUsed) return 1;
-    var baseByLife = [0, 0, 0.12, 0.03, 0.20, 0.35, 0.50, 0.65, 0.78, 0.88];
-    var absoluteNeed = targetLife === 2 ? 700 : 1200;
+    var baseByLife = [0, 0, 0.06, 0.03, 0.20, 0.35, 0.50, 0.65, 0.78, 0.88];
+    var absoluteNeed = targetLife === 2 ? 800 : 1200;
     var daoPeak = g.daoyunCap > 0 ? clamp(g.daoyun / g.daoyunCap, 0, 1) : 0;
     if (g.daoyun >= absoluteNeed && daoPeak >= 0.995) return 1;
     var absoluteRatio = clamp(g.daoyun / absoluteNeed, 0, 1);
-    var mastery = targetLife === 3 ? 0.38 : 0.28;
+    var mastery = targetLife === 2 ? 0.16 : (targetLife === 3 ? 0.38 : 0.28);
     var chance = baseByLife[targetLife] + Math.pow(absoluteRatio, 3) * mastery +
       daoPeak * 0.12 + Math.min(0.08, total * 0.003);
     if (g.gotDiBing) chance += 0.02;
@@ -658,7 +673,15 @@
   }
 
   function reversePathChance(g) {
-    return reverseLifeChance(g);
+    var daoPeak = g.daoyunCap > 0 ? g.daoyun / g.daoyunCap : 0;
+    if (daoPeak < 0.85) return 0;
+    var roots = g.redDustRoots || { body: 0, soul: 0, dao: 0 };
+    var balance = Math.min(roots.body, roots.soul, roots.dao);
+    var chance = 0.70 + (daoPeak - 0.85) / 0.15 * 0.18;
+    if (g.daoyun >= 800) chance += 0.04;
+    if (balance >= 1) chance += 0.04;
+    if (g.cult >= 800000) chance += 0.03;
+    return clamp(chance, 0.70, 0.95);
   }
 
   function undeadEmperorForRoll(r, worldYear) {
@@ -1156,6 +1179,12 @@
     enterStrangeWorld(g, log);
   }
 
+  function emperorTickSize(g) {
+    var remaining = g.emperorLifeEnd - g.age;
+    if (remaining <= 200) return 1;
+    return Math.max(1, Math.min(irand(500, 2000), Math.floor(remaining / 8)));
+  }
+
   function stepEmperor(g, log) {
     if (g.inStrangeWorld) { stepStrangeWorld(g, log); return; }
     if (g.forbiddenLord) { stepForbiddenLord(g, log); return; }
@@ -1167,24 +1196,21 @@
       openImmortalPathChoice(g, log);
       return;
     }
-    /* 只在第一世帝命晚年给予一次自斩抉择；选择由前台弹窗处理。 */
     if (!g.selfSlashOffered && !g.selfSlashed && !g.selfSlashDeclined && g.lifeNo === 1 &&
-        g.age >= g.emperorLifeEnd - 100) {
+        g.age >= g.emperorLifeEnd - 200) {
       g.selfSlashOffered = true;
-      /* 批量校准不应卡在前台弹窗，默认按“保全帝位”路线继续。 */
-      if (_fast) {
-        g.selfSlashDeclined = true;
-        return;
-      }
+      if (_fast) { g.selfSlashDeclined = true; return; }
       g.awaitingSelfSlash = true;
       push(log, { cls: 'rainbow', text: '帝命只余百年：是保全皇道、继续求仙，还是自斩一刀、入主禁区？' });
       return;
     }
     if (g.awaitingSelfSlash) return;
-    /* 帝者一世万年仍在推演己身大道；这是道蕴真正拉开差距的阶段。 */
-    gainDaoyun(g, 0.010 * (0.5 + g.innate * 0.25));
+    var tick = emperorTickSize(g);
+    g.age += tick - 1;
+    advanceWorldCalendar(g, tick - 1, log);
+    gainDaoyun(g, emperorDaoyunGainPerYear(g) * tick);
     var span = Math.max(1, g.emperorLifeEnd - g.emperorLifeStart);
-    if (Math.random() < D.EMPEROR_EVENT_TARGET / span) emperorEvent(g, log);
+    if (Math.random() < D.EMPEROR_EVENT_TARGET * tick / span) emperorEvent(g, log);
     if (g.age >= g.emperorLifeEnd) finishEmperorLife(g, log);
   }
   /* 隐藏加成：获得过极道帝兵 / 不死药 者，证道判定时临时提升判定战力各 5%（各只算一次，不实际改战力） */
@@ -1515,6 +1541,8 @@
     zhengdaoChance: zhengdaoChance,
     zhengdaoEff: zhengdaoEff,
     xianCult: xianCult,
+    emperorLifeSpanRange: emperorLifeSpanRange,
+    emperorDaoyunGainPerYear: emperorDaoyunGainPerYear,
     gainLevels: gainLevels,
     levelUp: levelUp,
     drawTraits: drawTraits,
@@ -1531,6 +1559,7 @@
     tryZhengdao: tryZhengdao,
     spendImperialRetry: spendImperialRetry,
     reverseLifeChance: reverseLifeChance,
+    reversePathChance: reversePathChance,
     tryReverseLife: tryReverseLife,
     initWorldCalendar: initWorldCalendar,
     advanceWorldCalendar: advanceWorldCalendar,
