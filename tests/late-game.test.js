@@ -108,15 +108,66 @@ assert.strictEqual(reverseGame.daoyun, reverseDaoBefore, 'successful reversal mu
 assert.strictEqual(reverseGame.redDustRoutes.length, 1);
 
 assert.strictEqual(typeof Sim.quasiLayerMultiplier, 'function');
-assert.strictEqual(Sim.quasiLayerMultiplier({ physiqueId: 'mortal' }, 91), 1);
-assert.strictEqual(Sim.quasiLayerMultiplier({ physiqueId: 'mortal' }, 98), 7);
-assert.strictEqual(Sim.quasiLayerMultiplier({ physiqueId: 'chaos' }, 98), 2.8);
+assert.ok(Sim.quasiLayerMultiplier({ physiqueId: 'mortal' }, 91) >= 2,
+  'the first quasi-emperor layer must already be slower than Great Sage');
+assert.ok(Sim.quasiLayerMultiplier({ physiqueId: 'mortal' }, 98) >
+  Sim.quasiLayerMultiplier({ physiqueId: 'mortal' }, 91),
+  'later quasi-emperor layers must keep getting harder');
+assert.ok(Sim.quasiLayerMultiplier({ physiqueId: 'chaos' }, 98) <
+  Sim.quasiLayerMultiplier({ physiqueId: 'mortal' }, 98),
+  'chaos may shorten quasi-emperor waits but still cannot skip the climb');
 assert.strictEqual(Sim.quasiLayerMultiplier({ physiqueId: 'mortal' }, 90), 1);
 
 assert.strictEqual(typeof Sim.daoyunNeed, 'function');
-assert.strictEqual(Sim.daoyunNeed(91), 110);
-assert.strictEqual(Sim.daoyunNeed(94), 125);
-assert.strictEqual(Sim.daoyunNeed(98), 145);
+assert.ok(Sim.daoyunNeed(60) > Sim.daoyunNeed(59), 'Great Power to King must be a Dao gate');
+assert.ok(Sim.daoyunNeed(70) > Sim.daoyunNeed(69), 'King to Saint must be a Dao gate');
+assert.ok(Sim.daoyunNeed(80) > Sim.daoyunNeed(79), 'Saint to Great Sage must be a Dao gate');
+assert.ok(Sim.daoyunNeed(90) > Sim.daoyunNeed(89), 'Great Sage to quasi-emperor must be a Dao gate');
+assert.ok(Sim.daoyunNeed(96) > Sim.daoyunNeed(95) + 20, 'late quasi-emperor must jump again');
+assert.ok(Sim.daoyunNeed(99) > Sim.daoyunNeed(98), 'ninth-layer perfection must demand more Dao than the eighth');
+assert.ok(Sim.daoyunNeed(90) > Sim.daoyunNeed(80), 'entering quasi-emperor must need more Dao than Great Sage');
+assert.ok(Sim.daoyunNeed(94) > Sim.daoyunNeed(91), 'Dao need must rise through quasi-emperor layers');
+assert.ok(Sim.daoyunNeed(98) > Sim.daoyunNeed(94));
+assert.ok(Sim.daoyunNeed(70) >= 160, 'King to Saint must be a real wall for ordinary physiques');
+assert.ok(Sim.daoyunNeed(90) >= Sim.daoyunNeed(80) * 1.4, 'most Great Sages should stall before quasi-emperor');
+
+assert.strictEqual(typeof Sim.effectiveDaoyunNeed, 'function');
+assert.strictEqual(typeof Sim.canAdvance, 'function');
+const mortalKing = Sim.createGame(0, []);
+Sim.setPhysique(mortalKing, DATA.physiqueById('mortal'));
+mortalKing.lvl = 70;
+mortalKing.daoyun = 0;
+assert.strictEqual(Sim.canAdvance(mortalKing), false, 'a mortal at King peak cannot enter Saint with empty Dao');
+const chaosKing = Sim.createGame(0, []);
+Sim.setPhysique(chaosKing, DATA.physiqueById('chaos'));
+chaosKing.lvl = 70;
+chaosKing.daoyun = 0;
+assert.strictEqual(Sim.effectiveDaoyunNeed(chaosKing, 70), 0, 'chaos has no Dao bottleneck');
+assert.strictEqual(Sim.canAdvance(chaosKing), true, 'chaos can break King to Saint without Dao');
+const fetusKing = Sim.createGame(0, []);
+Sim.setPhysique(fetusKing, DATA.physiqueById('innate_sacred_dao'));
+fetusKing.lvl = 90;
+fetusKing.daoyun = 0;
+assert.strictEqual(Sim.effectiveDaoyunNeed(fetusKing, 90), 0, 'innate sacred-dao fetus has no Dao bottleneck');
+const sacredNeed = Sim.effectiveDaoyunNeed({ physiqueId: 'sacred', innate: 9 }, 70);
+const divineNeed = Sim.effectiveDaoyunNeed({ physiqueId: 'divine_king', innate: 6 }, 70);
+const mortalNeed = Sim.effectiveDaoyunNeed({ physiqueId: 'mortal', innate: 1 }, 70);
+assert.ok(mortalNeed > divineNeed && divineNeed > sacredNeed && sacredNeed > 0,
+  'stronger physiques must need less Dao, but only the two peak bodies ignore it');
+
+assert.strictEqual(typeof Sim.daoBreakFactor, 'function');
+const daoPace = Sim.createGame(0, []);
+Sim.setPhysique(daoPace, DATA.physiqueById('divine_king'));
+daoPace.lvl = 91;
+daoPace.daoyun = Sim.effectiveDaoyunNeed(daoPace, 91);
+const justMet = Sim.daoBreakFactor(daoPace);
+daoPace.daoyun = Sim.effectiveDaoyunNeed(daoPace, 91) * 2;
+assert.ok(Sim.daoBreakFactor(daoPace) > justMet, 'surplus Dao should speed late-realm breakthroughs');
+
+const sageYears = 1 / Sim.breakChance(10, 85);
+const quasiYears = 1 / Sim.breakChance(10, 91) * Sim.quasiLayerMultiplier({ physiqueId: 'chaos' }, 91);
+assert.ok(quasiYears > sageYears * 2.5,
+  'even a chaos body must spend far longer on the first quasi-emperor layer than on Great Sage');
 
 assert.strictEqual(typeof Sim.forbiddenSleepRange, 'function');
 assert.deepStrictEqual(Sim.forbiddenSleepRange({ sealingMaterial: '太初命石' }), [80000, 220000]);
@@ -263,8 +314,24 @@ const tianxinFallback = Sim.createGame(0, []);
 Sim.setPhysique(tianxinFallback, DATA.physiqueById('chaos'));
 tianxinFallback.lvl = 99;
 tianxinFallback.cult = 180000;
+tianxinFallback.daoyun = Sim.effectiveDaoyunNeed(tianxinFallback, 99);
 tianxinFallback.xintian = true;
 tianxinFallback.worldEmperor = null;
+
+const ninthLayerLowDao = Sim.createGame(0, []);
+Sim.setPhysique(ninthLayerLowDao, DATA.physiqueById('divine_king'));
+ninthLayerLowDao.lvl = 99;
+ninthLayerLowDao.cult = 500000;
+ninthLayerLowDao.daoyun = Math.max(0, Sim.effectiveDaoyunNeed(ninthLayerLowDao, 99) - 80);
+ninthLayerLowDao.worldEmperor = null;
+try {
+  Math.random = function () { return 0; };
+  Sim.tryZhengdao(ninthLayerLowDao, []);
+} finally {
+  Math.random = oldRandom;
+}
+assert.strictEqual(ninthLayerLowDao.becameEmperor, false, 'ninth-layer quasi-emperors without enough Dao cannot force the gate');
+assert.strictEqual(ninthLayerLowDao.dead, false, 'waiting on Dao at the emperor gate must not kill the challenger');
 try {
   Math.random = function () { return 0.5; };
   Sim.tryZhengdao(tianxinFallback, []);
@@ -278,6 +345,7 @@ const sacredBlocked = Sim.createGame(0, []);
 Sim.setPhysique(sacredBlocked, DATA.physiqueById('sacred'));
 sacredBlocked.lvl = 99;
 sacredBlocked.cult = 400000;
+sacredBlocked.daoyun = Sim.effectiveDaoyunNeed(sacredBlocked, 99);
 sacredBlocked.worldEmperor = null;
 try {
   Math.random = function () { return 0; };
@@ -292,6 +360,7 @@ const sacredHeavenly = Sim.createGame(0, []);
 Sim.setPhysique(sacredHeavenly, DATA.physiqueById('sacred'));
 sacredHeavenly.lvl = 99;
 sacredHeavenly.cult = DATA.OVERWHELM_DAO_CULT;
+sacredHeavenly.daoyun = Sim.effectiveDaoyunNeed(sacredHeavenly, 99);
 sacredHeavenly.worldEmperor = null;
 try {
   Math.random = function () { return 0; };
@@ -305,6 +374,7 @@ assert.ok(sacredHeavenly.cult >= DATA.HEAVENLY_EMPEROR_CULT, 'a sacred-body empe
 const suppressedGame = Sim.createGame(0, []);
 suppressedGame.lvl = 99;
 suppressedGame.cult = DATA.OVERWHELM_DAO_CULT - 1;
+suppressedGame.daoyun = Sim.effectiveDaoyunNeed(suppressedGame, 99);
 suppressedGame.gotDiBing = true;
 suppressedGame.deathless = true;
 suppressedGame.resonanceState.overflowDao = 200;
@@ -315,6 +385,7 @@ assert.strictEqual(suppressedGame.deadCause, 'world_emperor_suppression');
 const overwhelmGame = Sim.createGame(0, []);
 overwhelmGame.lvl = 99;
 overwhelmGame.cult = 1500000;
+overwhelmGame.daoyun = Sim.effectiveDaoyunNeed(overwhelmGame, 99);
 overwhelmGame.worldEmperor = { name: '测试大帝', start: 0, end: 10000, cult: 1500000 };
 try {
   Math.random = function () { return 0; };
@@ -339,6 +410,7 @@ assert.strictEqual(suppressedTianxin.xintian, false, 'Tianxin cannot be acquired
 const suppressionTraitGame = Sim.createGame(0, ['o18']);
 suppressionTraitGame.lvl = 99;
 suppressionTraitGame.cult = DATA.OVERWHELM_DAO_CULT;
+suppressionTraitGame.daoyun = Sim.effectiveDaoyunNeed(suppressionTraitGame, 99);
 suppressionTraitGame.worldEmperor = { name: '测试大帝', start: 0, end: 10000, cult: 1500000 };
 try {
   Math.random = function () { return 0.4; };
@@ -435,15 +507,22 @@ assert.ok(gameSource.indexOf('localStorage.setItem(KEY_FORCE_XIANTI') < 0, 'forc
 assert.ok(gameSource.indexOf('localStorage.getItem(KEY_GOLD_MODE') < 0, 'gold cheat mode must not reload a saved on-state');
 assert.ok(gameSource.indexOf('localStorage.getItem(KEY_FORCE_XIANTI') < 0, 'force-chaos cheat must not reload a saved on-state');
 
+assert.strictEqual(typeof Sim.learnStrangeWorld, 'function');
 const mortalClue = Sim.createGame(0, []);
-assert.strictEqual(mortalClue.emperor, false);
+assert.strictEqual(Sim.learnStrangeWorld(mortalClue, []), false);
+assert.strictEqual(mortalClue.knowsStrangeWorld, false, 'pre-emperor lives must not learn Strange World coordinates');
 const clueEvent = (Sim.EVENTS || []).filter(function (ev) { return ev.id === 'qiyishijie'; })[0];
 assert.ok(clueEvent, 'the old pre-emperor strange-world event should still exist so it can be gated');
-if (clueEvent.cond) assert.strictEqual(clueEvent.cond(mortalClue, Sim.U), false);
 clueEvent.ok(mortalClue, Sim.U, []);
-assert.strictEqual(mortalClue.knowsStrangeWorld, false, 'pre-emperor lives must not learn Strange World coordinates');
+assert.strictEqual(mortalClue.knowsStrangeWorld, false, 'pre-emperor chance events must not write Strange World coordinates');
 assert.strictEqual(mortalClue.xianSource, false);
 assert.strictEqual(mortalClue.primordialStone, false);
+const emperorClue = Sim.createGame(0, []);
+Sim.becomeDi(emperorClue, [], 'force');
+assert.strictEqual(Sim.learnStrangeWorld(emperorClue, []), true);
+assert.strictEqual(emperorClue.knowsStrangeWorld, true);
+assert.ok(gameSource.indexOf('becameEmperor && G.knowsStrangeWorld') >= 0,
+  'settlement must not advertise Strange World coordinates before becoming emperor');
 
 const eventsSource = fs.readFileSync(path.join(__dirname, '..', 'events.js'), 'utf8');
 assert.ok(!/T3_HERB = \[[^\]]*太初命石/.test(eventsSource), 'primordial stone must not appear as a pre-emperor herb drop');

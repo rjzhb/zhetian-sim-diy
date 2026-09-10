@@ -50,16 +50,34 @@
     return pool[0] || { id: 'normal', name: '平常时代', daog: 1, evt: 1, evf: 1 };
   }
   function daoyunNeed(lvl) {
-    if (lvl >= 99) return 145; /* 准帝九重圆满 */
-    if (lvl >= 91) return 110 + (lvl - 91) * 5; /* 准帝逐重加压 */
-    if (lvl >= 90) return 110; /* 入准帝 */
-    if (lvl >= 80) return 80;  /* 大圣 */
-    if (lvl >= 70) return 55;  /* 入圣 */
+    if (lvl >= 99) return 650; /* 准帝九重圆满 → 帝关 */
+    if (lvl >= 96) return 520 + (lvl - 96) * 40; /* 准帝后期 */
+    if (lvl >= 91) return 420 + (lvl - 91) * 18; /* 准帝前中期 */
+    if (lvl >= 90) return 420; /* 大圣巅峰 → 准帝：多数大圣止步 */
+    if (lvl >= 80) return 280; /* 圣人巅峰 → 大圣 */
+    if (lvl >= 70) return 190; /* 王者巅峰 → 圣人：多数人到此为止 */
+    if (lvl >= 60) return 85;  /* 大能巅峰 → 王者 */
     if (lvl >= 50) return 25;  /* 入仙台 */
     return 0;
   }
+  function daoNeedMult(g) {
+    if (!g) return 1;
+    if (g.physiqueId === 'chaos' || g.physiqueId === 'innate_sacred_dao') return 0;
+    var t = g.innate || 1;
+    return [0, 1.15, 1.05, 1, 0.9, 0.8, 0.65, 0.5, 0.35, 0.22, 0.12][Math.min(10, Math.max(1, t))] || 1;
+  }
+  function effectiveDaoyunNeed(g, lvl) {
+    return Math.round(daoyunNeed(lvl != null ? lvl : (g && g.lvl)) * daoNeedMult(g));
+  }
+  function daoBreakFactor(g) {
+    var need = effectiveDaoyunNeed(g, g.lvl);
+    if (!need) return 1;
+    var ratio = g.daoyunCap > 0 ? g.daoyun / need : 0;
+    if (ratio < 1) return 0;
+    return clamp(0.35 + (ratio - 1) * 0.45, 0.35, 1.25);
+  }
   function canAdvance(g) {
-    var need = daoyunNeed(g.lvl);
+    var need = effectiveDaoyunNeed(g, g.lvl);
     if (need && g.daoyun < need) return false;
     if (g.innate <= 2 && !g.swallowingArt && g.lvl >= 90) return false;
     return true;
@@ -221,7 +239,8 @@
     if (g.lvl >= 100) return 0;
     if (!canAdvance(g)) return 0;
     var coef = breakAgeCoef(g);
-    var base = breakChance(g.aptitude, g.lvl) * coef * pval(g, 'brk', 1) / quasiLayerMultiplier(g, g.lvl);
+    var base = breakChance(g.aptitude, g.lvl) * coef * pval(g, 'brk', 1) *
+      daoBreakFactor(g) / quasiLayerMultiplier(g, g.lvl);
     if (base <= 0.25 + 1e-9) {
       return Math.random() < base ? 1 : 0;
     }
@@ -229,7 +248,9 @@
     while (true) {
       var lvl = g.lvl + gained;
       if (lvl >= 100) break;
-      var b = breakChance(g.aptitude, lvl) * coef * pval(g, 'brk', 1) / quasiLayerMultiplier(g, lvl);
+      var b = breakChance(g.aptitude, lvl) * coef * pval(g, 'brk', 1) *
+        daoBreakFactor({ daoyun: g.daoyun, daoyunCap: g.daoyunCap, lvl: lvl,
+          physiqueId: g.physiqueId, innate: g.innate }) / quasiLayerMultiplier(g, lvl);
       if (b <= 0.25 + 1e-9) break;
       var p = b * Math.pow(0.6, step);
       if (p <= 0.25 + 1e-9) break;
@@ -585,13 +606,20 @@
     return g.cult;
   }
 
+  function learnStrangeWorld(g, log, text) {
+    if (!g || !(g.emperor || g.becameEmperor || g.forbiddenLord)) return false;
+    if (g.knowsStrangeWorld) return false;
+    g.knowsStrangeWorld = true;
+    if (text) push(log, { cls: 'rainbow', text: text });
+    return true;
+  }
+
   function emperorEvent(g, log) {
     var roots = g.redDustRoots, r = Math.floor(Math.random() * 8), add;
     /* 帝者游历诸天时仍可能撞见传说级仙路线索；高阶机缘只提供“信息”，不会代替战力门槛。 */
-    if (!g.knowsStrangeWorld && Math.random() < 0.025) {
-      g.knowsStrangeWorld = true;
+    if (!g.knowsStrangeWorld && Math.random() < 0.025 &&
+        learnStrangeWorld(g, log, '帝历' + (g.age - g.emperorAge) + '年，你追索一处仙路裂隙，确认奇异世界真实存在，并记下界壁坐标')) {
       roots.dao++;
-      push(log, { cls: 'rainbow', text: '帝历' + (g.age - g.emperorAge) + '年，你追索一处仙路裂隙，确认奇异世界真实存在，并记下界壁坐标，道果根基+1' });
       return;
     }
     if (r === 0) {
@@ -1126,9 +1154,8 @@
         '你击退当世大帝，残缺皇道在血战中复苏，实力升至' + g.cult });
     } else {
       var roll = Math.random();
-      if (!g.knowsStrangeWorld && roll < 0.35) {
-      g.knowsStrangeWorld = true;
-      push(log, { cls: 'rainbow', text: '你从仙路残片与古代至尊遗骸中，终于获知奇异世界坐标' });
+      if (!g.knowsStrangeWorld && roll < 0.35 &&
+        learnStrangeWorld(g, log, '你从仙路残片与古代至尊遗骸中，终于获知奇异世界坐标')) {
       } else if (roll < 0.70) {
         /* 黑暗动乱是玩家的道德与生存抉择，不再后台自动代选。 */
         g.awaitingDarkTurmoil = true;
@@ -1270,6 +1297,12 @@
     }
     if (g.physiqueId === 'sacred' && g.cult < D.OVERWHELM_DAO_CULT) {
       push(log, { cls: 'rare', text: '第' + g.age + '岁，荒古圣体未极，尚不足以破灭万道、问鼎天帝之位' });
+      return false;
+    }
+    var emperorDaoNeed = effectiveDaoyunNeed(g, 99);
+    if (g.lvl >= 99 && emperorDaoNeed && g.daoyun < emperorDaoNeed) {
+      push(log, { cls: 'rare', text: '第' + g.age + '岁，准帝九重已至，然道蕴仅' + Math.round(g.daoyun) +
+        '/' + emperorDaoNeed + '，尚不足以叩开帝关' });
       return false;
     }
     if (g.worldEmperor) {
@@ -1565,6 +1598,9 @@
     baseDaoyunCap: baseDaoyunCap,
     breakChance: breakChance,
     daoyunNeed: daoyunNeed,
+    effectiveDaoyunNeed: effectiveDaoyunNeed,
+    daoBreakFactor: daoBreakFactor,
+    canAdvance: canAdvance,
     quasiLayerMultiplier: quasiLayerMultiplier,
     attemptBreak: attemptBreak,
     cultGain: cultGain,
@@ -1593,6 +1629,7 @@
     spendImperialRetry: spendImperialRetry,
     reverseLifeChance: reverseLifeChance,
     reversePathChance: reversePathChance,
+    learnStrangeWorld: learnStrangeWorld,
     tryReverseLife: tryReverseLife,
     initWorldCalendar: initWorldCalendar,
     advanceWorldCalendar: advanceWorldCalendar,

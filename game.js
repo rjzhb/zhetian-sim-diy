@@ -668,13 +668,13 @@
       x.textContent = '天心';
       frag.appendChild(x);
     }
-    if (G.knowsStrangeWorld) {
+    if (G.becameEmperor && G.knowsStrangeWorld) {
       var sw = document.createElement('span');
       sw.className = 'chip color-p';
       sw.textContent = '奇异世界坐标';
       frag.appendChild(sw);
     }
-    if (G.xianSource || G.primordialStone) {
+    if (G.becameEmperor && (G.xianSource || G.primordialStone)) {
       var sealChip = document.createElement('span');
       sealChip.className = 'chip color-o';
       sealChip.textContent = G.xianSource ? (G.primordialStone ? '仙源·太初命石' : '仙源') : '太初命石';
@@ -787,7 +787,7 @@
     $('settle-wuhun').innerHTML = '体质 <b>' + esc(physiqueName(G)) + '</b> · 修行根基第 ' + G.aptitude + ' 档' +
       (G.aptitude > G.innate ? ' · <b>经命格/奇遇提升</b>' : '') +
       (G.xintian ? ' · <b>已悟天心</b>' : '') +
-      (G.knowsStrangeWorld ? ' · <b>已知奇异世界坐标</b>' : '') +
+      (G.becameEmperor && G.knowsStrangeWorld ? ' · <b>已知奇异世界坐标</b>' : '') +
       (G.sealingMaterial ? ' · <b>曾以' + esc(G.sealingMaterial) + '自封</b>' : '') +
       (G.deathless && !G.deathlessUsed ? ' · <b>怀有不死药</b>' : '');
     $('settle-lvl').textContent = G.redDustImmortal ? '红尘仙' : (G.forbiddenLord ? '禁区至尊' : (G.emperor ? '大帝·第' + G.lifeNo + '世' : DATA.titleOf(G.lvl)));
