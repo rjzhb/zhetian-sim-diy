@@ -92,6 +92,11 @@
   var INNATE_WEIGHTS = [
     0, 33.0, 25.0, 11.0, 9.0, 7.0, 5.0, 4.0, 3.0, 2.0, 1.0
   ];
+  /* 悟性独立于体质：多数寻常，绝世天才与万古道心合计约 2.5%。 */
+  var DAO_GIFT_NAMES = ['', '愚钝', '寻常', '小慧', '通明', '颖悟', '天资', '天纵', '道种', '绝世天才', '万古道心'];
+  var DAO_GIFT_WEIGHTS = [
+    0, 26.0, 22.0, 15.0, 11.0, 9.0, 7.0, 4.5, 3.0, 1.8, 0.7
+  ];
 
   /* 天时并非人人平等：黄金大世机缘更多，也意味着更强的竞争与危险。 */
   var ERAS = [
@@ -343,7 +348,9 @@
     REALM_LIFE: REALM_LIFE,
     TRAITS: TRAITS, TRAIT_PATHS: TRAIT_PATHS, TRAIT_COLOR_NAME: TRAIT_COLOR_NAME, traitById: traitById, traitDesc: traitDesc,
     /* 词条抽取颜色权重（可改：白/蓝/紫/金，和需为 100 或任意比例） */
-    TRAIT_WEIGHT: { w: 55, b: 28, p: 13, o: 4 },
+    TRAIT_WEIGHT: { w: 48, b: 28, p: 17, o: 7 },
+    DAO_GIFT_NAMES: DAO_GIFT_NAMES,
+    DAO_GIFT_WEIGHTS: DAO_GIFT_WEIGHTS,
     ACHIEVEMENTS: ACHIEVEMENTS,
     /* 诞生寿元 60-100（之后按境界上限带补充） */
     LIFE_MIN: 60, LIFE_MAX: 100,

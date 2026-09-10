@@ -8,6 +8,8 @@ function count(items, predicate) {
 }
 
 assert.ok(DATA.TRAIT_PATHS, 'TRAIT_PATHS should be exported');
+assert.ok(DATA.TRAIT_WEIGHT.p >= 16, 'purple Dao-relevant cards must appear more often');
+assert.ok(DATA.TRAIT_WEIGHT.o >= 6, 'gold Dao-relevant cards must appear more often');
 
 const paths = Object.keys(DATA.TRAIT_PATHS).sort();
 const legacyTypes = ['cult', 'brk', 'cgt'];
@@ -107,6 +109,18 @@ Object.keys(percentageMinimums).forEach(function (effectType) {
 });
 
 const SIM = require('../sim.js');
+assert.ok(SIM.createGame(0, []).daoGift >= 1);
+assert.ok(typeof SIM.createGame(0, []).daoGiftName === 'string');
+let daoDraws = 0, bodyDraws = 0;
+for (let i = 0; i < 80; i++) {
+  SIM.drawTraits(5).forEach(function (trait) {
+    if (trait.path === 'dao') daoDraws++;
+    if (trait.path === 'body') bodyDraws++;
+  });
+}
+assert.ok(daoDraws + bodyDraws > 0);
+assert.ok(daoDraws >= bodyDraws * 0.75,
+  'Dao-path cards must be drawn at least as often as physique cards');
 const initialRandom = Math.random;
 try {
   Math.random = function () { return 0; };
@@ -232,6 +246,25 @@ assert.strictEqual(SIM.becomeChaosFromSwallow(motai, []), true);
 assert.strictEqual(motai.physiqueId, 'chaos');
 assert.ok(SIM.EVENTS.some(function (ev) { return ev.id === 'tunti_yiti'; }),
   'swallowing must have a visible encounter event');
+const siegeEvent = SIM.EVENTS.filter(function (ev) { return ev.id === 'jushi_jiedi'; })[0];
+assert.ok(siegeEvent, 'demon embryo must face a world-hunt event');
+assert.strictEqual(typeof SIM.swallowSiegeDeathChance, 'function');
+const innocent = SIM.createGame(0, ['o03']);
+SIM.setPhysique(innocent, DATA.physiqueById('mortal'));
+innocent.swallowState = { taken: { mortal: true } };
+assert.strictEqual(SIM.swallowSiegeDeathChance(innocent), 0,
+  'an unused swallowing art must not already be hunted');
+const hunted = SIM.createGame(0, ['o03']);
+SIM.setPhysique(hunted, DATA.physiqueById('mortal'));
+hunted.swallowState = { taken: { mortal: true, star: true, guanghan: true, light: true, vajra: true } };
+const midHunt = SIM.swallowSiegeDeathChance(hunted);
+SIM.swallowTargets().forEach(function (p) { hunted.swallowState.taken[p.id] = true; });
+hunted.physiqueId = 'chaos';
+hunted.swallowReady = true;
+assert.ok(midHunt > 0.08, 'swallowing several physiques must draw a real world-hunt');
+assert.ok(SIM.swallowSiegeDeathChance(hunted) > midHunt,
+  'the more bodies the demon embryo swallows, the likelier the world siege becomes');
+assert.ok(siegeEvent.available(hunted, SIM.U), 'the hunt event must appear after swallowing others');
 assert.ok(SIM.swallowTargets().every(function (p) {
   return p.id !== 'chaos' && p.id !== 'innate_sacred_dao';
 }), 'peak physiques cannot be swallowed as fuel for the other peak');

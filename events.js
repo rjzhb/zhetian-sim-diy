@@ -464,6 +464,30 @@
       }
     },
     {
+      id: 'jushi_jiedi', weight: 2.8, maxCount: 8,
+      name: '举世皆敌', tier: 3, desc: '吞天血债爆发，圣地古族联手围杀',
+      minAge: 16, maxAge: 1000000,
+      available: function (g, U) {
+        return !!(g.swallowingArt && U.swallowProgress(g).have >= 2);
+      },
+      cond: function (g, U) {
+        return Math.random() < U.swallowSiegeSurviveChance(g);
+      },
+      ok: function (g, U) {
+        var c = U.cultPct(g, 0.02, 0.05, 180);
+        U.printlog('举世皆敌，圣地与古族联手围攻；你以所吞本源杀出重围，实力+' + c);
+      },
+      fail: function (g, U) {
+        if (Math.random() < 0.72) {
+          U.kill(g, '举世皆敌！圣地、古族与仇家联手围攻，你炼化他人本源的因果爆发，最终被围杀陨落');
+          g.deadCause = 'swallow_siege';
+          return;
+        }
+        var h = U.hurt(g, 80, 220);
+        U.printlog(h.exempt ? '仇家围攻将成，你提前遁走，暂避血债' : '举世围攻中你险死还生，寿元 -' + h.loss);
+      }
+    },
+    {
       id: 'tianjiao', weight: 3, maxCount: 4,
       name: '同辈争锋', tier: 2, desc: '遇上一位心高气傲的天骄',
       minAge: 15, maxAge: 1000000,

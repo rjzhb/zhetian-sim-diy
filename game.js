@@ -461,7 +461,9 @@
     var first = [];
     if (G.innate >= 8) first.push({ cls: 'rare', text: '第6岁，天生异禀！觉醒『' + physiqueName(G) + '』' });
     first.push({ cls: 'brk', text: '第6岁，觉醒体质，为『' + physiqueName(G) + '』！修行根基第 ' + G.aptitude + ' 档，实力 ' + G.cult });
-    first.push({ cls: G.era && G.era.id === 'golden' ? 'rainbow' : 'rare', text: '此世天时：' + (G.era ? G.era.name : '平常时代') + '；初始道蕴 ' + Math.round(G.daoyun) + '/' + Math.round(G.daoyunCap) });
+    first.push({ cls: G.era && G.era.id === 'golden' ? 'rainbow' : 'rare', text: '此世天时：' + (G.era ? G.era.name : '平常时代') + '；悟性『' + (G.daoGiftName || '寻常') + '』，初始道蕴 ' + Math.round(G.daoyun) + '/' + Math.round(G.daoyunCap) });
+    if ((G.daoGift || 0) >= 8) first.push({ cls: 'rainbow', text: '你生而近道，悟性远超同辈；纵然体质寻常，亦可凭道蕴自创法门、推高修为' });
+    else if ((G.daoGift || 0) <= 2) first.push({ cls: 'gain', text: '此世悟性平平，修道多赖体质与机缘，难以无中生有' });
     var pd = physiqueData(G);
     if (pd && pd.desc) first.push({ cls: 'rare', text: '体质特性：' + pd.desc });
     if (G.daoSuppressed) first.push({ cls: 'ev4', text: '这一世已有当世大帝镇压万道；无论何种体质，实际战力未达90万都无法在有帝之世证道' });
@@ -626,7 +628,7 @@
     if (!G) return;
     $('attr-title').textContent = G.redDustImmortal ? '红尘仙' : (G.inStrangeWorld ? '奇异世界·帝者' : (G.forbiddenLord ? '禁区至尊' : (G.emperor ? '大帝·第' + G.lifeNo + '世' : DATA.titleOf(G.lvl))));
     if (G.inStrangeWorld) {
-      var strangeRoute = G.strangeWorldAlliance === 'wushi' ? '与无始并肩' : (G.strangeWorldAlliance === 'hide' ? '隐世蛰伏' : '探索未知');
+      var strangeRoute = G.defeatedUndead ? '已斩天皇' : (G.undeadHunting ? '天皇追杀中' : (G.strangeWorldAlliance === 'wushi' ? '与无始并肩' : (G.strangeWorldAlliance === 'hide' ? '隐世蛰伏' : '探索未知')));
       $('attr-stage-sub').textContent = '入界 ' + fmt(G.strangeWorldYears) + ' 年 · 长生感悟 ' + Math.round(G.strangeWorldInsight) + ' · ' + strangeRoute;
     }
     else if (G.forbiddenLord) {
@@ -651,6 +653,7 @@
       (G.forbiddenLord ? (G.forbiddenSleepLeft > 0 ? '沉睡余 ' + fmt(G.forbiddenSleepLeft) : '封源 ' + G.forbiddenEssence) : (G.emperor ? (G.age - G.emperorLifeStart) + '/' + (G.emperorLifeEnd - G.emperorLifeStart) : G.age + '/' + G.lifespan));
     $('attr-cult').textContent = fmt(G.cult);
     $('attr-daoyun').textContent = Math.round(G.daoyun) + '/' + Math.round(G.daoyunCap);
+    $('attr-daoyun-sub').textContent = '悟性 · ' + (G.daoGiftName || '寻常') + ' · 大道极限 3000';
     $('attr-era').textContent = G.inStrangeWorld ? '奇异世界' : (G.era ? G.era.name : '--');
     $('attr-world-year').textContent = '第 ' + fmt(Math.round(G.worldYear || 0)) + ' 年';
     $('attr-world-emperor').textContent = G.playerEmperorActive ? '你正镇压当世万道' :
@@ -788,6 +791,7 @@
       else if (G.deadCause === 'world_emperor_suppression' || G.deadCause === 'overwhelm_failed') { t.textContent = '💀 有帝之世 · 万道压制'; blip(110, 0.5, 'sawtooth', 0.15); }
       else if (G.deadCause === 'missed_emperor_path') { t.textContent = '💀 错过黄金帝路'; blip(140, 0.4, 'sawtooth', 0.12); }
       else if (G.deadCause === 'accident') { t.textContent = '💀 不幸身陨'; blip(160, 0.4, 'sawtooth', 0.12); }
+      else if (G.deadCause === 'swallow_siege') { t.textContent = '💀 举世皆敌 · 围攻陨落'; blip(120, 0.5, 'sawtooth', 0.15); }
       else if (G.deadCause === 'event') { t.textContent = '💀 身死道消'; blip(160, 0.4, 'sawtooth', 0.12); }
       else { t.textContent = '💀 与世长辞'; blip(160, 0.4, 'sawtooth', 0.12); }
       t.className = 'settle-title';
@@ -828,6 +832,7 @@
       else if (G.deadCause === 'forbidden_battle') gd.textContent = '你曾自斩化为禁区至尊，最终被当世大帝平定';
       else if (G.deadCause === 'no_strange_world_info') gd.textContent = '你曾证道成帝，却始终未能获得奇异世界的信息';
       else if (G.deadCause === 'cannot_break_world') gd.textContent = '你已获得奇异世界坐标，但未达到轰穿界壁所需的150万战力';
+      else if (G.deadCause === 'swallow_siege') gd.textContent = '你以吞天魔功炼化他人本源，终被举世围攻、身死道消';
       else gd.textContent = '你曾证道成帝，并逆活至第 ' + G.lifeNo + ' 世，凝成 ' + G.redDustMarks + ' 枚红尘印';
       gd.hidden = false;
     } else gd.hidden = true;

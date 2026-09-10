@@ -8,6 +8,27 @@ const oldRandom = Math.random;
 assert.strictEqual(DATA.DAO_ABSOLUTE_MAX, 3000);
 assert.strictEqual(Sim.baseDaoyunCap(1), 500);
 assert.strictEqual(Sim.baseDaoyunCap(10), 1500);
+assert.strictEqual(typeof Sim.drawDaoGift, 'function');
+assert.strictEqual(typeof Sim.daoGiftName, 'function');
+assert.strictEqual(Sim.daoGiftName(9), '绝世天才');
+try {
+  Math.random = function () { return 0; };
+  assert.strictEqual(Sim.drawDaoGift().tier, 1, 'the lowest roll must be an ordinary Dao gift');
+} finally {
+  Math.random = oldRandom;
+}
+const mortalGenius = Sim.createGame(0, []);
+Sim.setPhysique(mortalGenius, DATA.physiqueById('mortal'));
+mortalGenius.daoGift = 9;
+mortalGenius.daoGiftName = Sim.daoGiftName(9);
+mortalGenius.daoyun = 55;
+mortalGenius.daoyunCap = 1600;
+mortalGenius.lvl = 70;
+assert.ok(Sim.effectiveDaoyunNeed(mortalGenius, 70) < Sim.effectiveDaoyunNeed({
+  physiqueId: 'mortal', innate: 1, daoGift: 2
+}, 70), 'a mortal peerless Dao genius must break bottlenecks more easily than a dull mortal');
+assert.ok(Sim.effectiveDaoyunNeed(mortalGenius, 70) <= 50,
+  'peerless Dao talent should let an ordinary body create methods and advance');
 
 assert.strictEqual(typeof Sim.emperorLifeSpanRange, 'function');
 const emperorLifeRanges = [
@@ -68,6 +89,7 @@ assert.strictEqual(typeof Sim.reversePathChance, 'function');
 function chaosAfterFirstEmperorLife(traitIds) {
   const g = Sim.createGame(0, traitIds);
   Sim.setPhysique(g, DATA.physiqueById('chaos'));
+  g.daoGift = 7;
   g.era = { id: 'normal', name: '平常时代', daog: 0.75, evt: 1, evf: 1 };
   Sim.gainDaoyun(g, 0.125 * (0.2 + g.innate * 0.5) * 400);
   Sim.becomeDi(g, [], 'force');
@@ -119,17 +141,25 @@ const lowDaoReverse = Sim.reverseLifeChance(reverseFixture(300, 1500, 2));
 const highDaoReverse = Sim.reverseLifeChance(reverseFixture(900, 1500, 2));
 assert.ok(highDaoReverse > lowDaoReverse, 'higher absolute Dao should improve reversal');
 assert.strictEqual(Sim.reverseLifeChance(reverseFixture(100, 100, 2)) < 0.25, true, 'a tiny full cap must not guarantee reversal');
-assert.ok(Sim.reverseLifeChance(reverseFixture(1500, 1500, 2)) < 0.65,
+assert.ok(Sim.reverseLifeChance(reverseFixture(1500, 1500, 2)) < 0.55,
   'a full Dao sea must not guarantee reversal in the first five lives');
 assert.ok(Sim.reverseLifeChance(reverseFixture(1500, 1500, 2)) >
   Sim.reverseLifeChance(reverseFixture(900, 1500, 2)),
   'filling the sea should still help the early lives');
 assert.ok(Sim.reverseLifeChance(reverseFixture(900, 1500, 3)) >
   Sim.reverseLifeChance(reverseFixture(900, 1500, 2)), 'later mastered techniques should be easier than the third-life bottleneck');
-assert.ok(Sim.reverseLifeChance(reverseFixture(1400, 2000, 5)) >= 0.85,
-  'from the sixth life onward reversal should stay reliable even without a full sea');
-assert.ok(Sim.reverseLifeChance(reverseFixture(2000, 2000, 6)) >= 0.9,
-  'a mastered later life may finish at very high odds');
+const earlyChain = [1, 2, 3, 4].reduce(function (prod, lifeNo) {
+  return prod * Sim.reverseLifeChance(reverseFixture(1500, 1500, lifeNo));
+}, 1);
+assert.ok(earlyChain < 0.08, 'chaining the first five lives must stay rare even with a full sea');
+assert.ok(Sim.reverseLifeChance(reverseFixture(1400, 2000, 5)) >= 0.68,
+  'from the sixth life onward reversal should be the stable stretch');
+assert.ok(Sim.reverseLifeChance(reverseFixture(1400, 2000, 5)) < 0.88,
+  'even the stable stretch must not lock in consecutive reversals');
+assert.ok(Sim.reverseLifeChance(reverseFixture(2000, 2000, 6)) >= 0.75,
+  'a mastered later life may finish at high but not certain odds');
+assert.ok(Sim.reverseLifeChance(reverseFixture(2000, 2000, 6)) < 1,
+  'later lives must still be able to fail without immortal medicine');
 const secondLifeByForce = reverseFixture(800, 1500, 1);
 secondLifeByForce.deathless = false;
 secondLifeByForce.deathlessUsed = false;
@@ -143,6 +173,7 @@ assert.strictEqual(typeof Sim.tryReverseLife, 'function');
 function longChaosFirstLife(traitIds) {
   const g = Sim.createGame(0, traitIds);
   Sim.setPhysique(g, DATA.physiqueById('chaos'));
+  g.daoGift = 7;
   g.era = { id: 'normal', name: '平常时代', daog: 0.75, evt: 1, evf: 1 };
   g.lvl = 91;
   Sim.gainDaoyun(g, 0.125 * (0.2 + g.innate * 0.5) * 2200);
@@ -366,14 +397,15 @@ weakAmbush.undeadCult = 2000000;
 weakAmbush.pm = {};
 weakAmbush.tm.ward = 0;
 weakAmbush.cult = 800000;
-assert.ok(Sim.strangeWorldAmbushChance(weakAmbush) <= 0.03,
-  'an unsupported challenger below half the emperor strength should almost certainly die');
+assert.ok(Sim.strangeWorldAmbushChance(weakAmbush) <= 0.12,
+  'an unsupported challenger far below the emperor should rarely escape');
 weakAmbush.cult = 1800000;
-assert.ok(Sim.strangeWorldAmbushChance(weakAmbush) <= 0.18,
-  'even a near-peer below the emperor strength should have low survival odds');
+const nearPeerEscape = Sim.strangeWorldAmbushChance(weakAmbush);
+assert.ok(nearPeerEscape >= 0.45 && nearPeerEscape <= 0.70,
+  'a smaller power gap must make escape much more likely');
 weakAmbush.cult = 2000000;
-assert.ok(Sim.strangeWorldAmbushChance(weakAmbush) >= 0.35,
-  'matching the emperor strength should restore a meaningful survival chance');
+assert.ok(Sim.strangeWorldAmbushChance(weakAmbush) > nearPeerEscape,
+  'closing the remaining gap should keep improving survival');
 
 assert.strictEqual(typeof Sim.applyStrangeAmbushWound, 'function');
 const woundedAmbush = Sim.createGame(0, []);
@@ -392,6 +424,63 @@ assert.strictEqual(woundedAmbush.cult, 660000);
 assert.strictEqual(woundedAmbush.daoyun, 800);
 assert.strictEqual(woundedAmbush.daoyunCap, 1380);
 assert.deepStrictEqual(woundedAmbush.redDustRoots, { body: 1, soul: 1, dao: 1 });
+
+assert.strictEqual(typeof Sim.resolveUndeadHunt, 'function');
+assert.strictEqual(typeof Sim.resolveUndeadHide, 'function');
+const huntGame = Sim.createGame(0, []);
+Sim.becomeDi(huntGame, [], 'force');
+huntGame.inStrangeWorld = true;
+huntGame.strangeWorldSituation = 'undead';
+huntGame.undeadHunting = true;
+huntGame.undeadCult = 3000000;
+huntGame.cult = 2900000;
+huntGame.strangeWorldInsight = 40;
+const hideLog = [];
+const cultBeforeHide = huntGame.cult;
+assert.strictEqual(Sim.resolveUndeadHide(huntGame, hideLog, 8000), true);
+assert.ok(huntGame.cult > cultBeforeHide, 'hiding must let the survivor grow stronger');
+assert.ok(huntGame.strangeWorldInsight > 40, 'hiding must accumulate longevity insight');
+assert.strictEqual(huntGame.defeatedUndead, false);
+assert.strictEqual(huntGame.undeadHunting, true);
+assert.ok(hideLog.some(function (row) { return /隐匿|藏|蛰伏/.test(row.text); }));
+
+const killHunt = Sim.createGame(0, []);
+Sim.becomeDi(killHunt, [], 'force');
+killHunt.inStrangeWorld = true;
+killHunt.strangeWorldSituation = 'undead';
+killHunt.undeadHunting = true;
+killHunt.undeadCult = 2000000;
+killHunt.cult = 3200000;
+killHunt.redDustRoots = { body: 2, soul: 2, dao: 2 };
+try {
+  Math.random = function () { return 0.01; };
+  assert.strictEqual(Sim.resolveUndeadHunt(killHunt, []), true);
+} finally {
+  Math.random = oldRandom;
+}
+assert.strictEqual(killHunt.defeatedUndead, true, 'a stronger escapee should be able to slay the hunter');
+assert.strictEqual(killHunt.undeadHunting, false);
+assert.strictEqual(killHunt.dead, false);
+
+const escapeHunt = Sim.createGame(0, []);
+Sim.becomeDi(escapeHunt, [], 'force');
+escapeHunt.inStrangeWorld = true;
+escapeHunt.strangeWorldSituation = 'undead';
+escapeHunt.undeadHunting = true;
+escapeHunt.undeadCult = 4000000;
+escapeHunt.cult = 3900000;
+escapeHunt.redDustRoots = { body: 1, soul: 1, dao: 1 };
+try {
+  var huntRolls = [0.20, 0.99];
+  var huntIdx = 0;
+  Math.random = function () { return huntRolls[Math.min(huntIdx++, huntRolls.length - 1)]; };
+  Sim.resolveUndeadHunt(escapeHunt, []);
+} finally {
+  Math.random = oldRandom;
+}
+assert.strictEqual(escapeHunt.dead, false, 'a close gap should let the player escape the chase');
+assert.strictEqual(escapeHunt.defeatedUndead, false, 'escape without a kill must keep the hunt going');
+assert.strictEqual(escapeHunt.undeadHunting, true);
 
 assert.strictEqual(typeof Sim.forbiddenPurgeChance, 'function');
 assert.strictEqual(Sim.forbiddenPurgeChance(0, true), 0.16);
