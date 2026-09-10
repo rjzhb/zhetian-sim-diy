@@ -47,6 +47,22 @@ longLifeDao.emperorLifeStart = 0;
 longLifeDao.emperorLifeEnd = 100000;
 assert.ok(Sim.emperorDaoyunGainPerYear(longLifeDao) * 100000 <= 810,
   'a long emperor life must not generate unlimited Dao merely from elapsed years');
+function emperorDaoBudget(lifeNo) {
+  const g = Sim.createGame(0, []);
+  g.innate = 10;
+  g.lifeNo = lifeNo;
+  g.emperorLifeStart = 0;
+  g.emperorLifeEnd = 20000;
+  return Sim.emperorDaoyunGainPerYear(g) * 20000;
+}
+assert.ok(emperorDaoBudget(2) < emperorDaoBudget(1) * 0.2,
+  'the second life must gain far less Dao from waiting than the first');
+assert.ok(emperorDaoBudget(3) < emperorDaoBudget(2),
+  'each extra life through the fifth must slow passive Dao further');
+assert.ok(emperorDaoBudget(5) < emperorDaoBudget(3),
+  'the fifth life must be slower still than the third');
+assert.ok(emperorDaoBudget(6) <= emperorDaoBudget(5) * 1.05,
+  'from the sixth life onward passive Dao stays low; stability comes from reversal mastery');
 
 assert.strictEqual(typeof Sim.reversePathChance, 'function');
 function chaosAfterFirstEmperorLife(traitIds) {
@@ -103,10 +119,17 @@ const lowDaoReverse = Sim.reverseLifeChance(reverseFixture(300, 1500, 2));
 const highDaoReverse = Sim.reverseLifeChance(reverseFixture(900, 1500, 2));
 assert.ok(highDaoReverse > lowDaoReverse, 'higher absolute Dao should improve reversal');
 assert.strictEqual(Sim.reverseLifeChance(reverseFixture(100, 100, 2)) < 0.25, true, 'a tiny full cap must not guarantee reversal');
-assert.strictEqual(Sim.reverseLifeChance(reverseFixture(1500, 1500, 2)), 1,
-  'absolute and personal Dao fullness should guarantee reversal');
+assert.ok(Sim.reverseLifeChance(reverseFixture(1500, 1500, 2)) < 0.65,
+  'a full Dao sea must not guarantee reversal in the first five lives');
+assert.ok(Sim.reverseLifeChance(reverseFixture(1500, 1500, 2)) >
+  Sim.reverseLifeChance(reverseFixture(900, 1500, 2)),
+  'filling the sea should still help the early lives');
 assert.ok(Sim.reverseLifeChance(reverseFixture(900, 1500, 3)) >
   Sim.reverseLifeChance(reverseFixture(900, 1500, 2)), 'later mastered techniques should be easier than the third-life bottleneck');
+assert.ok(Sim.reverseLifeChance(reverseFixture(1400, 2000, 5)) >= 0.85,
+  'from the sixth life onward reversal should stay reliable even without a full sea');
+assert.ok(Sim.reverseLifeChance(reverseFixture(2000, 2000, 6)) >= 0.9,
+  'a mastered later life may finish at very high odds');
 const secondLifeByForce = reverseFixture(800, 1500, 1);
 secondLifeByForce.deathless = false;
 secondLifeByForce.deathlessUsed = false;
@@ -142,11 +165,39 @@ const longGoldChaos = longChaosFirstLife(['o08']);
 assert.ok(longGoldChaos.daoyun / longGoldChaos.daoyunCap >= 0.85,
   'gold Dao-growth should still let chaos fill the sea across a long first life');
 
+function goldChaosLaterLifeWait(lifeNo, dao, cap) {
+  const g = Sim.createGame(0, ['o08']);
+  Sim.setPhysique(g, DATA.physiqueById('chaos'));
+  g.era = { id: 'normal', name: '平常时代', daog: 0.75, evt: 1, evf: 1 };
+  Sim.becomeDi(g, [], 'force');
+  g.lifeNo = lifeNo;
+  g.daoyun = dao;
+  g.daoyunCap = cap;
+  g.emperorLifeStart = g.age;
+  g.emperorLifeEnd = g.age + 20000;
+  Sim.gainDaoyun(g, Sim.emperorDaoyunGainPerYear(g) * 20000);
+  return g;
+}
+const goldChaosSecondWait = goldChaosLaterLifeWait(2, 1500, 1680);
+assert.ok(goldChaosSecondWait.daoyun / goldChaosSecondWait.daoyunCap < 0.995,
+  'later lives must not refill the raised cap by waiting alone');
+const laterEvent = Sim.createGame(0, ['o08']);
+Sim.setPhysique(laterEvent, DATA.physiqueById('chaos'));
+laterEvent.era = { id: 'normal', name: '平常时代', daog: 0.75, evt: 1, evf: 1 };
+Sim.becomeDi(laterEvent, [], 'force');
+laterEvent.lifeNo = 4;
+laterEvent.daoyun = 1600;
+laterEvent.daoyunCap = 1980;
+const daoBeforeEvent = laterEvent.daoyun;
+Sim.runEmperorExperience(laterEvent, 'time_scar', []);
+assert.ok(laterEvent.daoyun > daoBeforeEvent,
+  'later lives must still gain Dao from insights and opportunities');
+
 const reverseGame = reverseFixture(1500, 1500, 2);
 reverseGame.redDustPath = 'reverse';
 const reverseDaoBefore = reverseGame.daoyun;
 const reverseCapBefore = reverseGame.daoyunCap;
-assert.strictEqual(Sim.tryReverseLife(reverseGame, []), true);
+assert.strictEqual(Sim.tryReverseLife(reverseGame, [], true), true);
 assert.ok(reverseGame.daoyunCap > reverseCapBefore, 'successful reversal should raise Dao cap');
 assert.strictEqual(reverseGame.daoyun, reverseDaoBefore, 'successful reversal must not refill Dao');
 assert.strictEqual(reverseGame.redDustRoutes.length, 1);

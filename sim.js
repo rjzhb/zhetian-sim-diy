@@ -728,9 +728,18 @@
     return ranges[Math.min(7, Math.max(0, (lifeNo || 1) - 1))].slice();
   }
 
+  function emperorDaoyunLifePace(lifeNo) {
+    var n = lifeNo || 1;
+    if (n <= 1) return 1;
+    if (n === 2) return 0.07;
+    if (n === 3) return 0.045;
+    if (n === 4) return 0.035;
+    if (n === 5) return 0.028;
+    return 0.025;
+  }
   function emperorDaoyunGainPerYear(g) {
     var span = Math.max(1, g.emperorLifeEnd - g.emperorLifeStart);
-    var perLifeBudget = 270 * (0.5 + g.innate * 0.25);
+    var perLifeBudget = 270 * (0.5 + g.innate * 0.25) * emperorDaoyunLifePace(g.lifeNo);
     return perLifeBudget / span;
   }
 
@@ -1197,13 +1206,14 @@
     var baseByLife = [0, 0, 0.06, 0.03, 0.20, 0.35, 0.50, 0.65, 0.78, 0.88];
     var absoluteNeed = targetLife === 2 ? 800 : 1200;
     var daoPeak = g.daoyunCap > 0 ? clamp(g.daoyun / g.daoyunCap, 0, 1) : 0;
-    if (g.daoyun >= absoluteNeed && daoPeak >= 0.995) return 1;
+    if (g.daoyun >= absoluteNeed && daoPeak >= 0.995 && targetLife >= 6) return 1;
     var absoluteRatio = clamp(g.daoyun / absoluteNeed, 0, 1);
     var mastery = targetLife === 2 ? 0.16 : (targetLife === 3 ? 0.38 : 0.28);
     var chance = baseByLife[targetLife] + Math.pow(absoluteRatio, 3) * mastery +
       daoPeak * 0.12 + Math.min(0.08, total * 0.003);
     if (g.gotDiBing) chance += 0.02;
-    return clamp(chance, 0.02, 0.95);
+    if (targetLife >= 6 && g.daoyun >= 800 && daoPeak >= 0.55) chance = Math.max(chance, 0.88);
+    return clamp(chance, 0.02, targetLife >= 6 ? 0.98 : 0.88);
   }
 
   function tryReverseLife(g, log, confirmed) {
