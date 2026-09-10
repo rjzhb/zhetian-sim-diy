@@ -435,4 +435,17 @@ assert.ok(gameSource.indexOf('localStorage.setItem(KEY_FORCE_XIANTI') < 0, 'forc
 assert.ok(gameSource.indexOf('localStorage.getItem(KEY_GOLD_MODE') < 0, 'gold cheat mode must not reload a saved on-state');
 assert.ok(gameSource.indexOf('localStorage.getItem(KEY_FORCE_XIANTI') < 0, 'force-chaos cheat must not reload a saved on-state');
 
+const mortalClue = Sim.createGame(0, []);
+assert.strictEqual(mortalClue.emperor, false);
+const clueEvent = (Sim.EVENTS || []).filter(function (ev) { return ev.id === 'qiyishijie'; })[0];
+assert.ok(clueEvent, 'the old pre-emperor strange-world event should still exist so it can be gated');
+if (clueEvent.cond) assert.strictEqual(clueEvent.cond(mortalClue, Sim.U), false);
+clueEvent.ok(mortalClue, Sim.U, []);
+assert.strictEqual(mortalClue.knowsStrangeWorld, false, 'pre-emperor lives must not learn Strange World coordinates');
+assert.strictEqual(mortalClue.xianSource, false);
+assert.strictEqual(mortalClue.primordialStone, false);
+
+const eventsSource = fs.readFileSync(path.join(__dirname, '..', 'events.js'), 'utf8');
+assert.ok(!/T3_HERB = \[[^\]]*太初命石/.test(eventsSource), 'primordial stone must not appear as a pre-emperor herb drop');
+
 console.log('late-game: ok');
