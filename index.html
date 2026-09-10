@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<!-- saved from url=(0072)https://www.bilibilitoy.com/toy/zhetian/29080997294080-v12633/index.html -->
+<html lang="zh-CN"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0620">
+  <title>遮天模拟器</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div id="ach-toast" class="ach-toast" hidden=""></div>
+  <div id="app">
+
+    <!-- ============ 首页 ============ -->
+    <section id="view-home" class="view">
+      <div class="home-hero">
+        <h1 class="home-title">遮天模拟器</h1>
+        <div class="home-sub">—— 帝路争锋，长生险途，红尘为仙 ——</div>
+      </div>
+      <div class="home-count">已有 <b id="home-count">1799320</b> 位道友踏入修行路 · 今日共 <b id="home-chengdi-count">113</b> 位道友证道成帝</div>
+      <div class="home-lv">
+        <div class="lv-head">
+          <span class="lv-name">修士境界</span>
+          <b class="lv-lv" id="home-lv">[Lv.8]</b>
+          <span class="lv-bonus" id="home-lv-bonus">[高阶体质概率+0.8%]</span>
+          <span class="lv-exp" id="home-lv-exp">214/450</span>
+        </div>
+        <div class="lv-bar"><div class="lv-bar-fill" id="home-lv-fill" style="width: 47.5556%;"></div></div>
+      </div>
+      <div class="home-btns">
+        <button class="btn btn-primary btn-big" id="btn-start">开始证道</button>
+      </div>
+      <div class="admin-badge" id="admin-badge" hidden="">🛠 金色命格模式已开启</div>
+      <div class="home-ach-row">
+        <button class="btn btn-big" id="btn-rank">🏆 排行榜</button>
+        <button class="btn btn-big" id="btn-ach">
+          <span>⭐ 成就</span>
+          <span class="ach-btn-tip" id="ach-tip">成就增加高阶体质概率：1.2%</span>
+        </button>
+      </div>
+      <div class="home-link-btns">
+        <button class="btn btn-big" id="btn-settings">⚙ 设置</button>
+        <button class="btn btn-big" id="btn-about">📜 说明</button>
+      </div>
+      <div class="qr-area" id="qr-area">
+        <div class="qr-text">扫描二维码，开启你的证道人生！</div>
+        <img class="qr-img" id="qr-img" alt="二维码" src="data:image/png;base64,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">
+      </div>
+      <button class="btn btn-big btn-follow" id="btn-follow-bonus">👍 三连+关注，享高阶体质增益 [当前：3.5%]</button>
+    </section>
+
+    <!-- ============ 游戏 ============ -->
+    <section id="view-game" class="view" hidden="">
+      <div class="game-top">
+        <div class="game-title" id="game-title">遮天模拟器</div>
+        <button class="btn-pause" id="btn-pause">⏸</button>
+      </div>
+      <div class="attr-grid">
+        <div class="attr-card">
+          <div class="attr-name">体质</div>
+          <div class="attr-val attr-tizhi" id="attr-apt">--</div>
+          <div class="attr-sub" id="attr-apt-sub"></div>
+        </div>
+        <div class="attr-card">
+          <div class="attr-name">境界</div>
+          <div class="attr-val attr-realm" id="attr-title">--</div>
+          <div class="attr-sub" id="attr-stage-sub">第 <b id="attr-lvl">1</b> 层 · 共 100 层</div>
+        </div>
+        <div class="attr-card">
+          <div class="attr-name">寿元</div>
+          <div class="attr-val" id="attr-life">--</div>
+          <div class="attr-sub">年岁 / 命限</div>
+        </div>
+        <div class="attr-card">
+          <div class="attr-name">实力</div>
+          <div class="attr-val" id="attr-cult">--</div>
+          <div class="attr-sub">一身道行底蕴</div>
+        </div>
+        <div class="attr-card">
+          <div class="attr-name">道蕴</div>
+          <div class="attr-val" id="attr-daoyun">--</div>
+          <div class="attr-sub">悟道积累 / 上限</div>
+        </div>
+        <div class="attr-card">
+          <div class="attr-name">天时</div>
+          <div class="attr-val attr-realm" id="attr-era">--</div>
+          <div class="attr-sub">此世天地环境</div>
+        </div>
+      </div>
+      <div class="trait-line-wrap">
+        <span class="trait-line-label">命格</span>
+        <div class="trait-line" id="trait-line"></div>
+      </div>
+      <div class="log-box" id="log-box"></div>
+    </section>
+
+    <!-- ============ 结算 ============ -->
+    <section id="view-settle" class="view" hidden="">
+      <div class="settle-box">
+        <div class="settle-title" id="settle-title">--</div>
+        <div class="settle-wuhun" id="settle-wuhun">--</div>
+        <div class="settle-rows">
+          <div class="s-row"><span>境界</span><b id="settle-lvl">--</b></div>
+          <div class="s-row"><span>实力</span><b id="settle-cult">--</b></div>
+          <div class="s-row"><span id="settle-age-label">享年</span><b id="settle-age">--</b></div>
+          <div class="s-row"><span>获得境界点</span><b id="settle-exp">--</b></div>
+        </div>
+        <div class="settle-god" id="settle-god" hidden=""></div>
+        <div class="settle-rank" id="settle-rank">--</div>
+        <div class="settle-btns">
+          <button class="btn btn-primary btn-big" id="btn-settle-again">再证一世</button>
+          <button class="btn btn-big" id="btn-settle-review">📜 回顾人生</button>
+          <button class="btn btn-big" id="btn-settle-follow">❤ 关注作者</button>
+          <button class="btn btn-big" id="btn-settle-home">返回首页</button>
+        </div>
+        <div class="qr-area" id="qr-area-settle" hidden="">
+          <div class="qr-text">扫描二维码，开启你的证道人生！</div>
+          <img class="qr-img" id="qr-img-settle" alt="二维码">
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 排行榜 ============ -->
+    <section id="view-rank" class="view page-view" hidden="">
+      <header class="page-head">
+        <h2 class="page-title">🏆 排行榜</h2>
+        <button class="btn-close" id="btn-close-rank">✕</button>
+      </header>
+      <div class="tabs" id="rank-src"></div>
+      <div class="tabs" id="rank-board"></div>
+      <div class="tabs tabs-small" id="rank-period" hidden=""></div>
+      <div class="lb-note" id="rank-note">加载中…</div>
+      <div class="lb-body" id="rank-body"><div class="lb-tip">加载中…</div></div>
+    </section>
+
+    <!-- ============ 成就 ============ -->
+    <section id="view-ach" class="view page-view" hidden="">
+      <header class="page-head">
+        <h2 class="page-title">⭐ 成就</h2>
+        <button class="btn-close" id="btn-close-ach">✕</button>
+      </header>
+      <div class="ach-total" id="ach-total">成就加成：+1.2%</div>
+      <div class="ach-list" id="ach-list"></div>
+    </section>
+
+    <!-- ============ 设置 ============ -->
+    <section id="view-settings" class="view page-view" hidden="">
+      <header class="page-head">
+        <h2 class="page-title">⚙ 设置</h2>
+        <button class="btn-close" id="btn-close-settings">✕</button>
+      </header>
+      <div class="settings-body">
+        <div class="set-card">
+          <label class="set-row">
+            <span class="set-label">🔊 音效</span>
+            <span class="set-switch">
+              <input type="checkbox" id="home-sound" checked="">
+              <span class="track"></span>
+            </span>
+          </label>
+        </div>
+        <div class="set-card">
+          <div class="speed-label"><span>⏱ 每年速度</span><b id="speed-val">0.3s</b></div>
+          <input type="range" class="speed-range" id="speed-range" min="0.1" max="1" step="0.1" value="0.3">
+        </div>
+        <div class="set-card">
+          <label class="set-row">
+            <span class="set-label">🛠 只刷金色命格（本地专用）</span>
+            <span class="set-switch">
+              <input type="checkbox" id="gold-random-toggle">
+              <span class="track"></span>
+            </span>
+          </label>
+          <label class="set-row">
+            <span class="set-label">🛠 金色命格任选（本地专用）</span>
+            <span class="set-switch">
+              <input type="checkbox" id="gold-free-toggle">
+              <span class="track"></span>
+            </span>
+          </label>
+          <label class="set-row">
+            <span class="set-label">🛠 强制混沌体（本地专用）</span>
+            <span class="set-switch">
+              <input type="checkbox" id="force-xianti-toggle">
+              <span class="track"></span>
+            </span>
+          </label>
+          <div class="admin-desc">只刷金色：随机抽取 5 个金色命格，再从中选择 2 个。任选：从全部金色命格中直接选 2 个。两种模式互斥。强制混沌体可与任一金色模式搭配，且不影响联网榜单。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 说明 ============ -->
+    <section id="view-about" class="view page-view" hidden="">
+      <header class="page-head">
+        <h2 class="page-title">📜 说明</h2>
+        <button class="btn-close" id="btn-close-about">✕</button>
+      </header>
+      <div class="about-body">
+        <div class="about-text">
+          天地之间，修行之途从<b>轮海</b>开启，历经道宫、四极、化龙……一路通往大帝之巅。<br>
+          出生前，你将随机获得<b>两种命格</b>；六岁时觉醒体质，体质的优劣决定你的修行天赋与寿元。<br>
+          寿元有定数，唯有不断突破大境界方可延展命限；黄金帝路于八千岁闭合，须在血气鼎盛之年争渡。<br>
+          凡人亦能逆天！乱世之中机缘遍地——极道帝兵、不死神药、无上功法、生命禁区……步步惊心，步步登天。<br>
+          <b>证道成帝并非终点</b>：可融合天心、以力强证，也可能借合道花等机缘破关；成帝后将获得完整帝命，面对禁区、黑暗动乱与长生之谜。<br>
+          帝命晚年将自动寻找长生路。连续逆活九世是万古罕见的奇迹，每一世都是可能身死的蜕变大劫；另一条路需要先在<b>高阶机缘</b>中获知奇异世界的存在与坐标，再修炼到足以轰穿界壁的战力。成功入界后仍要面对拥有<b>三世天帝级战力</b>的不死天皇。能否破界、能否站稳脚跟，分别取决于信息、战力与帝者根基。两条道路皆可通向<b>红尘仙</b>，操作方式不变。<br>
+          第一世帝命将尽时，你还可选择<b>自斩一刀、入主禁区</b>：前提是成帝后寻得仙源或太初命石，以皇道果位与九世逆活资格为代价自封、跨时代沉睡。禁区至尊可在苏醒时获得仙路线索或冒险发动黑暗动乱续命，但血债会招致当世大帝清算。<br>
+          每局结束将获得境界点，提升修士境界；境界越高，来世觉醒高阶体质的几率越大——<br>
+          你是想成为一代天骄，还是蛰伏万古、于绝巅称尊的那个人？<br>
+          说明：<br>
+          体质：凡体、东荒神体、元灵体、先天道胎、太阴之体、太阳之体、荒古圣体、苍天霸体、混沌体、先天圣体道胎等原著体质。不同体质各有修行、战力、寿元、机缘与悟道倾向。<br>
+          道蕴与天时：道蕴代表一生悟道积累，决定仙台、圣人、准帝等后期瓶颈能否跨越；每世随机处于平常时代、修行盛世或黄金大世。命格可改变道蕴成长、盛世概率与传承路线，但不能直接替你走完帝路。<br>
+          境界：轮海四境、道宫五神藏、四极、化龙九变、仙台诸层、准帝九重天、大帝，以及终极目标——红尘仙。后台仍以 100 层自动推进，操作方式不变。<br>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ============ 词条（命格）选择弹层 ============ -->
+  <div id="trait-mask" class="mask">
+    <div class="mask-box trait-box">
+      <div class="mask-title trait-mask-title">🌈 天赐命格</div>
+      <div class="mask-info" id="trait-tip">从 5 种命格中挑选 2 种，成就你的大帝路</div>
+      <div class="trait-search-wrap" id="trait-search-wrap" hidden="">
+        <input type="text" id="trait-search" class="trait-search" placeholder="🔍 搜索命格名称，比如「帝」「龙」…">
+      </div>
+      <div class="trait-list" id="trait-list"><button class="trait-opt color-w" data-id="w14"><span class="trait-opt-top"><span class="trait-opt-name">精血充沛</span><span class="trait-opt-tag">白</span></span><span class="trait-opt-desc">体质保底为战体，初始实力+40</span></button><button class="trait-opt color-b" data-id="b24"><span class="trait-opt-top"><span class="trait-opt-name">眼明手快</span><span class="trait-opt-tag">蓝</span></span><span class="trait-opt-desc">高阶机缘×1.6，修行加速5%</span></button><button class="trait-opt color-w" data-id="w25"><span class="trait-opt-top"><span class="trait-opt-name">天生长寿</span><span class="trait-opt-tag">白</span></span><span class="trait-opt-desc">体质保底为战体，化险为夷+1%</span></button><button class="trait-opt color-w" data-id="w11"><span class="trait-opt-top"><span class="trait-opt-name">处世圆融</span><span class="trait-opt-tag">白</span></span><span class="trait-opt-desc">初始实力+30，化险为夷+1%</span></button><button class="trait-opt color-b" data-id="b21"><span class="trait-opt-top"><span class="trait-opt-name">机缘不小</span><span class="trait-opt-tag">蓝</span></span><span class="trait-opt-desc">初始实力+300，机缘概率+8%</span></button></div>
+      <button class="btn btn-primary btn-big" id="trait-confirm" disabled="">请先选择 2 种命格（0/2）</button>
+      <button class="btn btn-big" id="trait-cancel">退出</button>
+    </div>
+  </div>
+
+  <!-- ============ 管理员模式：开局方式选择 ============ -->
+  <div id="admin-mask" class="mask" hidden="">
+    <div class="mask-box admin-box">
+      <div class="mask-title">🛠 管理员模式</div>
+      <div class="mask-info">选择本局命格获取方式：</div>
+      <button class="btn btn-primary btn-big" id="admin-random-gold">🎲 随机金色命格（5 选 2）</button>
+      <button class="btn btn-primary btn-big" id="admin-pick-gold">🔍 自由挑选金色命格（全部 25 种）</button>
+      <button class="btn btn-big" id="admin-cancel">退出</button>
+    </div>
+  </div>
+
+  <!-- ============ 高阶体质增益弹窗 ============ -->
+  <div id="follow-mask" class="mask" hidden="">
+    <div class="mask-box follow-box">
+      <div class="mask-title">👍 高阶体质增益</div>
+      <div class="mask-info">给两条视频点赞+收藏+投币，再关注作者，可提升高阶体质抽取概率（最高 +3.5%）：</div>
+      <div class="follow-rows">
+        <div class="follow-grp">视频① · 三连合计 +1.0%</div>
+        <button class="btn btn-big follow-action" data-act="a_like">点赞视频①（+0.2%）<span class="fb-state done" id="fb-a_like">✓ 已完成</span></button>
+        <button class="btn btn-big follow-action" data-act="a_favorite">收藏视频①（+0.3%）<span class="fb-state done" id="fb-a_favorite">✓ 已完成</span></button>
+        <button class="btn btn-big follow-action" data-act="a_coin">投币视频①（+0.5%）<span class="fb-state done" id="fb-a_coin">✓ 已完成</span></button>
+        <div class="follow-grp">视频② · 三连合计 +1.0%</div>
+        <button class="btn btn-big follow-action" data-act="b_like">点赞视频②（+0.2%）<span class="fb-state done" id="fb-b_like">✓ 已完成</span></button>
+        <button class="btn btn-big follow-action" data-act="b_favorite">收藏视频②（+0.3%）<span class="fb-state done" id="fb-b_favorite">✓ 已完成</span></button>
+        <button class="btn btn-big follow-action" data-act="b_coin">投币视频②（+0.5%）<span class="fb-state done" id="fb-b_coin">✓ 已完成</span></button>
+        <button class="btn btn-big follow-action" data-act="follow">关注UP（+1.5%）<span class="fb-state done" id="fb-follow">✓ 已完成</span></button>
+      </div>
+      <div class="mask-info">两条视频三连全做最高 +2%，加关注 +1.5%，合计最多 +3.5%</div>
+      <div class="mask-info fb-total" id="fb-total">当前增益：3.5 / 3.5%</div>
+      <button class="btn btn-primary" id="btn-follow-close">关闭</button>
+    </div>
+  </div>
+
+  <!-- ============ 回顾人生弹窗 ============ -->
+  <div id="review-mask" class="mask" hidden="">
+    <div class="mask-box review-box">
+      <div class="mask-title">📜 这一世</div>
+      <div class="review-log" id="review-log"></div>
+      <button class="btn btn-primary" id="btn-review-close">关闭</button>
+    </div>
+  </div>
+
+  <!-- ============ 暂停遮罩 ============ -->
+  <div id="pause-mask" class="mask" hidden="">
+    <div class="mask-box">
+      <div class="mask-title">修行暂停</div>
+      <div class="mask-info" id="pause-info"></div>
+      <button class="btn btn-primary" id="btn-pause-resume">继续修行</button>
+      <button class="btn" id="btn-pause-settings">⚙ 设置</button>
+      <button class="btn" id="btn-pause-settle">提前结算</button>
+      <button class="btn btn-danger" id="btn-pause-exit">退出轮回</button>
+    </div>
+  </div>
+
+  <!-- ============ 帝命晚年：自斩抉择（唯一新增的主动选择） ============ -->
+  <div id="selfslash-mask" class="mask" hidden="">
+    <div class="mask-box selfslash-box">
+      <div class="mask-title">帝命将尽</div>
+      <div class="mask-info" id="selfslash-info"></div>
+      <div class="selfslash-note">自斩必须消耗仙源或太初命石。仙源可维持三道生命本源，太初命石可维持两道；两者齐备可维持四道。若不自斩，则保留完整帝身，继续寻找奇异世界与红尘仙路。</div>
+      <button class="btn btn-primary" id="btn-selfslash-decline">保全帝位，继续求仙</button>
+      <button class="btn btn-danger" id="btn-selfslash-accept">自斩一刀，入主禁区</button>
+    </div>
+  </div>
+
+  <script src="./data.js"></script>
+  <script src="./events.js"></script>
+  <script src="./sim.js"></script>
+  <script src="./game.js"></script>
+
+
+</body></html>
