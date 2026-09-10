@@ -511,6 +511,8 @@ button:disabled { opacity: .5; }
 }
 .mask-box.admin-box { width: 330px; max-width: 90vw; gap: 10px; }
 .admin-desc { font-size: 11.5px; color: var(--ink-dim); line-height: 1.5; padding: 2px 2px 0; }
+.test-physique-row { margin-top: 6px; }
+.test-physique-select { min-width: 150px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line-gold); color: var(--ink); background: rgba(22, 13, 52, .92); font-size: 13px; }
 .trait-search-wrap { padding: 0 0 2px; }
 .trait-search {
   width: 100%; box-sizing: border-box; padding: 10px 12px; font-size: 14px;

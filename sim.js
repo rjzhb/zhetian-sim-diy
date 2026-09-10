@@ -110,6 +110,17 @@
     g.daoyun = Math.min(fillCap, next);
     return round((g.daoyun - old) * 10) / 10;
   }
+  /* 帝者晚年：道行不会消失，但帝躯、血气和当前战力会随寿元衰败。
+   * 记录的 g.cult 仍是历史道行，真正出手时使用 currentCombatPower。 */
+  function currentCombatPower(g) {
+    if (!g || !g.emperor || g.redDustImmortal || g.inStrangeWorld || g.forbiddenLord) return g ? g.cult : 0;
+    var span = Math.max(1, (g.emperorLifeEnd || g.age + 1) - (g.emperorLifeStart || g.age));
+    var progress = clamp(((g.age || 0) - (g.emperorLifeStart || 0)) / span, 0, 1);
+    if (progress <= 0.55) return g.cult;
+    var decline = (progress - 0.55) / 0.45;
+    var resilience = Math.min(0.22, (g.tm && g.tm.latePower) || 0);
+    return round(g.cult * (1 - decline * (0.32 - resilience)));
+  }
   function setPhysique(g, p) {
     if (!p) return;
     if (p.id === 'innate_sacred_dao' && g.physiqueId && g.physiqueId !== 'innate_sacred_dao' &&
@@ -383,10 +394,21 @@
     return (D.DAO_GIFT_NAMES && D.DAO_GIFT_NAMES[tier]) || '寻常';
   }
   function daoGiftDaoyun(tier) {
-    return [0, 2, 4, 6, 8, 12, 18, 28, 40, 55, 80][tier] || 4;
+    /* 悟性是独立出生属性：档位只是概率与保底，实际道蕴仍会再随机。
+     * 极少数天纵异数出生便有千级道蕴，万古唯一者甚至可能直接触及大道极限。 */
+    return [0, 8, 16, 28, 45, 70, 105, 160, 240, 360, 1000][tier] || 16;
   }
   function daoGiftCap(tier) {
-    return [0, 420, 500, 580, 680, 800, 960, 1150, 1350, 1600, 1900][tier] || 500;
+    return [0, 480, 560, 680, 820, 1000, 1250, 1550, 1900, 2350, 3000][tier] || 560;
+  }
+  function daoGiftInitialDaoyun(tier) {
+    var base = daoGiftDaoyun(tier);
+    if (tier >= 10) {
+      if (Math.random() < 0.04) return D.DAO_ABSOLUTE_MAX;
+      return irand(1000, 2200);
+    }
+    if (tier >= 9 && Math.random() < 0.08) return irand(1000, 1800);
+    return base;
   }
   function drawDaoGift() {
     var w = D.DAO_GIFT_WEIGHTS || D.INNATE_WEIGHTS;
@@ -394,7 +416,7 @@
     for (i = 1; i <= 10; i++) total += w[i] || 0;
     var r = Math.random() * total, acc = 0, tier = 2;
     for (i = 1; i <= 10; i++) { acc += w[i] || 0; if (r < acc) { tier = i; break; } }
-    return { tier: tier, name: daoGiftName(tier) };
+    return { tier: tier, name: daoGiftName(tier), initialDaoyun: daoGiftInitialDaoyun(tier) };
   }
 
   /* ---------- 突破年数表 ---------- */
@@ -595,7 +617,7 @@
   function applyTraits(g, ids) {
     g.traits = ids || [];
     g.tm = {
-      evf: 1, evt: 1, xin: 1, ward: 0, zhx: 0, dlm: 0, daog: 1, era: 1, retry: 0,
+      evf: 1, evt: 1, xin: 1, ward: 0, zhx: 0, dlm: 0, daog: 1, era: 1, retry: 0, latePower: 0,
       retryKeep: 0, bodyChance: 0, bodyDao: 0, overflow: 0, upgradeEvent: 0,
       xinPity: 0, ignoreSuppression: 0
     };
@@ -605,7 +627,12 @@
       if (!t) continue;
       for (var j = 0; j < t.fx.length; j++) {
         var ty = t.fx[j][0], v = t.fx[j][1];
-        if (ty === 'life') g.lifeBonus += v;
+        if (ty === 'life') {
+          g.lifeBonus += v;
+          g.longevityTraitBonus = (g.longevityTraitBonus || 0) + v;
+          /* 高寿元命格同时意味着晚年血气更稳，寿元路线不再只是开局加几年。 */
+          g.tm.latePower = Math.min(0.22, g.tm.latePower + v / 500);
+        }
         else if (ty === 'floor') { if (v > floorMax) floorMax = v; }
         else if (ty === 'evf') g.tm.evf *= v;
         else if (ty === 'evt') g.tm.evt *= v;
@@ -661,13 +688,24 @@
       }
       if (!pool.length) continue;   /* 该色已抽空则换下一张（防死循环） */
       var pw = 0, pi;
-      for (pi = 0; pi < pool.length; pi++) pw += (pool[pi].path === 'dao' || pool[pi].path === 'body') ? 1.55 : 1;
+      for (pi = 0; pi < pool.length; pi++) {
+        pw += pool[pi].path === 'dao' ? 2.6 : (pool[pi].path === 'body' ? 1.2 : 1);
+      }
       var pr = Math.random() * pw, pacc = 0, it = pool[0];
       for (pi = 0; pi < pool.length; pi++) {
-        pacc += (pool[pi].path === 'dao' || pool[pi].path === 'body') ? 1.55 : 1;
+        pacc += pool[pi].path === 'dao' ? 2.6 : (pool[pi].path === 'body' ? 1.2 : 1);
         if (pr < pacc) { it = pool[pi]; break; }
       }
       used[it.id] = 1; out.push(it);
+    }
+    var hasDao = false;
+    for (ci = 0; ci < out.length; ci++) if (out[ci].path === 'dao') { hasDao = true; break; }
+    if (!hasDao && out.length) {
+      var daoPool = [];
+      for (i = 0; i < D.TRAITS.length; i++) {
+        if (D.TRAITS[i].path === 'dao' && !used[D.TRAITS[i].id]) daoPool.push(D.TRAITS[i]);
+      }
+      if (daoPool.length) out[out.length - 1] = daoPool[Math.floor(Math.random() * daoPool.length)];
     }
     return out;
   }
@@ -791,7 +829,8 @@
     if (n === 3) return 0.045;
     if (n === 4) return 0.035;
     if (n === 5) return 0.028;
-    return 0.025;
+    /* 六世以后主要靠新的蜕变法，单纯等待几乎不再灌满道海。 */
+    return 0.020;
   }
   function emperorDaoyunGainPerYear(g) {
     var span = Math.max(1, g.emperorLifeEnd - g.emperorLifeStart);
@@ -802,7 +841,8 @@
 
   function resetEmperorLife(g) {
     var range = emperorLifeSpanRange(g.lifeNo, g);
-    var span = irand(range[0], range[1]);
+    /* 寿元命格会转化为帝者路线的可规划余量，而不是在成帝时被清零。 */
+    var span = irand(range[0], range[1]) + Math.min(1200, Math.round((g.longevityTraitBonus || 0) * 4));
     g.emperorLifeStart = g.age;
     g.emperorLifeEnd = g.age + span;
     g.lifeBase = g.emperorLifeEnd;
@@ -912,7 +952,15 @@
     var unused = preferred.filter(function (id) { return !used[id]; });
     var pickFrom = unused.length ? unused : preferred;
     if (!pickFrom.length) return null;
-    return pickFrom[Math.floor(Math.random() * pickFrom.length)];
+    /* 帝者日常淬炼是最稳定的成长来源，略提高权重，避免被一次性大事件挤掉。 */
+    var totalWeight = 0, pick;
+    for (var wi = 0; wi < pickFrom.length; wi++) totalWeight += pickFrom[wi] === 'body_refine' ? 2 : 1;
+    var wr = Math.random() * totalWeight;
+    for (var wj = 0; wj < pickFrom.length; wj++) {
+      wr -= pickFrom[wj] === 'body_refine' ? 2 : 1;
+      if (wr < 0) { pick = pickFrom[wj]; break; }
+    }
+    return pick || pickFrom[pickFrom.length - 1];
   }
 
   function markBeat(g, id) {
@@ -1357,7 +1405,7 @@
 
   function strangeWorldBattleChance(g, withWushi) {
     var boss = g.undeadCult || D.UNDEAD_EMPEROR_CULT;
-    var ratio = g.cult / boss;
+    var ratio = currentCombatPower(g) / boss;
     var chance;
     if (ratio < 0.40) chance = 0.01;
     else if (ratio < 0.60) chance = 0.03 + (ratio - 0.40) * 0.60;
@@ -1375,7 +1423,7 @@
 
   function strangeWorldPowerRatio(g) {
     var boss = (g && g.undeadCult) || D.UNDEAD_EMPEROR_CULT;
-    return boss > 0 ? (g.cult || 0) / boss : 0;
+    return boss > 0 ? currentCombatPower(g) / boss : 0;
   }
   function strangeWorldAmbushChance(g) {
     var ratio = strangeWorldPowerRatio(g);
@@ -1940,7 +1988,7 @@
     if (g.resonanceState && g.resonanceState.overflowDao > 0) {
       m *= 1 + Math.min(0.15, g.resonanceState.overflowDao / 1000);
     }
-    return g.cult * m;
+    return currentCombatPower(g) * m;
   }
   function spendImperialRetry(g, log) {
     if (!g.tm || g.tm.retry <= 0) return false;
@@ -1964,7 +2012,7 @@
       push(log, { cls: 'rare', text: '第' + g.age + '岁，前代帝道烙印尚未消散，万道仍被镇压，此世无人能证道' });
       return false;
     }
-    if (g.physiqueId === 'sacred' && g.cult < D.OVERWHELM_DAO_CULT) {
+    if (g.physiqueId === 'sacred' && currentCombatPower(g) < D.OVERWHELM_DAO_CULT) {
       push(log, { cls: 'rare', text: '第' + g.age + '岁，荒古圣体未极，尚不足以破灭万道、问鼎天帝之位' });
       return false;
     }
@@ -1975,7 +2023,7 @@
       return false;
     }
     if (g.worldEmperor) {
-      if (g.cult < D.OVERWHELM_DAO_CULT) {
+      if (currentCombatPower(g) < D.OVERWHELM_DAO_CULT) {
         if (spendImperialRetry(g, log)) return true;
         push(log, { cls: 'dead', text: '第' + g.age + '岁，当世已有大帝镇压万道；你的实际战力' + Math.round(g.cult / 10000) +
           '万尚未达到破灭万道的90万硬门槛，帝兵等外物无法代替自身道行，帝关在道压中崩碎' });
@@ -2049,9 +2097,11 @@
   }
 
   /* ---------- 初始化一局：drawTalent 抽体质 → applyTraits 注入词条 ---------- */
-  function createGame(playerLv, traitIds) {
+  function createGame(playerLv, traitIds, giftOpt) {
     var t = drawTalent(playerLv);
-    var gift = drawDaoGift();
+    var gift = (giftOpt && giftOpt.tier) ?
+      { tier: giftOpt.tier, name: giftOpt.name || daoGiftName(giftOpt.tier), initialDaoyun: giftOpt.initialDaoyun } :
+      drawDaoGift();
     var g = {
       innate: t.innate,
       aptitude: t.innate,
@@ -2086,7 +2136,7 @@
       traits: [],
       daoGift: gift.tier,
       daoGiftName: gift.name,
-      daoyun: Math.max(daoGiftDaoyun(gift.tier), baseDaoyun(t.innate)),
+      daoyun: Math.max(gift.initialDaoyun || daoGiftDaoyun(gift.tier), baseDaoyun(t.innate)),
       daoyunCap: Math.max(daoGiftCap(gift.tier), baseDaoyunCap(t.innate)),
       era: null, swallowingArt: false, swallowState: null, swallowReady: false,
       traitPaths: [], resonance: null,
@@ -2124,7 +2174,10 @@
 
     /* 道蕴是可积累的后期根基；平常时代积累缓慢，黄金大世更易悟道。
      * 准帝空等不能单靠年数填满个人上限，除非带着金色道蕴成长。 */
-    var yearlyDao = 0.125 * (0.15 + (g.daoGift || 5) * 0.42 + (g.innate || 1) * 0.18);
+    /* 体质越强越易破境，但每次破境沉淀的道蕴反而更少；悟性天赋决定道蕴产量。 */
+    var bodyDaoYield = 1.22 - Math.min(0.72, (g.innate || 1) * 0.072);
+    var giftDaoYield = 0.55 + Math.min(1.65, (g.daoGift || 5) * 0.13);
+    var yearlyDao = 0.125 * (0.12 + giftDaoYield * bodyDaoYield);
     if (g.lvl >= 91 && !hasGoldDaoGrowth(g)) yearlyDao *= 0.35;
     gainDaoyun(g, yearlyDao);
     /* 吞天之路：按境界从低到高炼化诸般体质，集齐后才以旧日把握化混沌。 */
@@ -2292,6 +2345,7 @@
     applyTraits: applyTraits,
     resolveTraitResonance: resolveTraitResonance,
     gainDaoyun: gainDaoyun,
+    currentCombatPower: currentCombatPower,
     tryBodyEvolution: tryBodyEvolution,
     trySwallowPhysique: trySwallowPhysique,
     swallowSiegeDeathChance: swallowSiegeDeathChance,

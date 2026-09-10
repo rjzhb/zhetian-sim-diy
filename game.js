@@ -33,6 +33,15 @@
   /* ---------- 金色命格模式（纯本地，不联网、不影响任何榜单） ---------- */
   var GOLD_MODE = 'none';
   var FORCE_XIANTI = false;
+  var TEST_PHYSIQUE_ID = '';
+  var FORCE_MAX_DAO = false;
+  var pendingDaoGift = null;
+  function daoGiftTraitTip(prefix) {
+    if (FORCE_MAX_DAO) return '此世悟性『万古道心』。' + (prefix || '') + '出生道蕴已达到理论极限 3000，专用于测试极端悟道路线上限。';
+    if (!pendingDaoGift) pendingDaoGift = Sim.drawDaoGift();
+    return '此世悟性『' + pendingDaoGift.name + '』。' + (prefix || '') +
+      '道蕴/悟道命格能创法、压瓶颈、堆道海，与体质同等重要。';
+  }
   function clearPersistedCheats() {
     try {
       localStorage.removeItem('zt_gold_mode');
@@ -44,10 +53,24 @@
     if (random) random.checked = GOLD_MODE === 'random';
     if (free) free.checked = GOLD_MODE === 'free';
     var xianti = $('force-xianti-toggle'); if (xianti) xianti.checked = FORCE_XIANTI;
+    var maxDao = $('force-max-dao-toggle'); if (maxDao) maxDao.checked = FORCE_MAX_DAO;
+    var physiqueSelect = $('test-physique-select');
+    if (physiqueSelect) {
+      if (physiqueSelect.options.length <= 1) {
+        for (var pi = 0; pi < DATA.PHYSIQUES.length; pi++) {
+          var p = DATA.PHYSIQUES[pi], opt = document.createElement('option');
+          opt.value = p.id; opt.textContent = p.name + '（第' + p.tier + '档）';
+          physiqueSelect.appendChild(opt);
+        }
+      }
+      physiqueSelect.value = TEST_PHYSIQUE_ID;
+    }
     var badge = $('admin-badge');
     if (badge) {
-      badge.hidden = GOLD_MODE === 'none' && !FORCE_XIANTI;
-      badge.textContent = FORCE_XIANTI ? '🛠 强制混沌体 / 先天圣体道胎已开启' : '🛠 金色命格模式已开启';
+      badge.hidden = GOLD_MODE === 'none' && !FORCE_XIANTI && !TEST_PHYSIQUE_ID && !FORCE_MAX_DAO;
+      badge.textContent = FORCE_MAX_DAO ? '🧪 出生满级道蕴已开启' :
+        (TEST_PHYSIQUE_ID ? '🧪 测试体质：' + (DATA.physiqueById(TEST_PHYSIQUE_ID).name) :
+        (FORCE_XIANTI ? '🛠 强制混沌体 / 先天圣体道胎已开启' : '🛠 金色命格模式已开启'));
     }
   }
   var KEY_SPEED = 'zt_speed';
@@ -309,9 +332,10 @@
       return;
     }
     selectedTraits = [];
+    pendingDaoGift = Sim.drawDaoGift();
     var cands = Sim.drawTraits(5);
     renderTraitPick(cands, false);
-    $('trait-tip').textContent = '从 5 种命格中挑选 2 种，成就你的大帝路';
+    $('trait-tip').textContent = daoGiftTraitTip('从 5 种命格中挑选 2 种。');
     renderTraitConfirm();
     $('pause-mask').hidden = true;
     show('home');
@@ -334,8 +358,9 @@
   }
   function openTraitPickWith(cands, tip, searchable) {
     selectedTraits = [];
+    if (!pendingDaoGift) pendingDaoGift = Sim.drawDaoGift();
     renderTraitPick(cands, searchable);
-    $('trait-tip').textContent = tip;
+    $('trait-tip').textContent = daoGiftTraitTip(tip ? tip + '。' : '');
     renderTraitConfirm();
     $('trait-mask').hidden = false;
   }
@@ -443,12 +468,21 @@
   /* ---------- 正式开局 ---------- */
   function beginGame(traitIds) {
     ensureAudio(); blip(880, 0.1, 'triangle', 0.1);
-    G = Sim.createGame(player.lv, traitIds);
+    var birthGift = FORCE_MAX_DAO ? { tier: 10, name: '万古道心', initialDaoyun: DATA.DAO_ABSOLUTE_MAX } : pendingDaoGift;
+    G = Sim.createGame(player.lv, traitIds, birthGift);
+    pendingDaoGift = null;
     if (FORCE_XIANTI) {
       var peakId = Math.random() < 0.5 ? 'chaos' : 'innate_sacred_dao';
       Sim.setPhysique(G, DATA.physiqueById(peakId));
       G.aptitude = 10;
       G.cult = Math.max(G.cult, 10);
+    }
+    if (TEST_PHYSIQUE_ID) {
+      var testPhysique = DATA.physiqueById(TEST_PHYSIQUE_ID);
+      if (testPhysique) {
+        Sim.setPhysique(G, testPhysique);
+        G.aptitude = testPhysique.tier;
+      }
     }
     $('game-title').textContent = physiqueName(G);
     $('selfslash-mask').hidden = true;
@@ -651,7 +685,10 @@
     }
     $('attr-life').textContent = G.inStrangeWorld ? '入界 ' + fmt(G.strangeWorldYears) + '年' :
       (G.forbiddenLord ? (G.forbiddenSleepLeft > 0 ? '沉睡余 ' + fmt(G.forbiddenSleepLeft) : '封源 ' + G.forbiddenEssence) : (G.emperor ? (G.age - G.emperorLifeStart) + '/' + (G.emperorLifeEnd - G.emperorLifeStart) : G.age + '/' + G.lifespan));
-    $('attr-cult').textContent = fmt(G.cult);
+    var currentPower = Sim.currentCombatPower ? Sim.currentCombatPower(G) : G.cult;
+    $('attr-cult').textContent = fmt(currentPower);
+    var cultSub = document.querySelector('#attr-cult + .attr-sub');
+    if (cultSub) cultSub.textContent = currentPower < G.cult ? '当前战力 · 道行底蕴 ' + fmt(G.cult) : '一身道行底蕴';
     $('attr-daoyun').textContent = Math.round(G.daoyun) + '/' + Math.round(G.daoyunCap);
     $('attr-daoyun-sub').textContent = '悟性 · ' + (G.daoGiftName || '寻常') + ' · 大道极限 3000';
     $('attr-era').textContent = G.inStrangeWorld ? '奇异世界' : (G.era ? G.era.name : '--');
@@ -1293,6 +1330,11 @@
     $('gold-random-toggle').addEventListener('change', function () { GOLD_MODE = this.checked ? 'random' : 'none'; syncAdminUI(); });
     $('gold-free-toggle').addEventListener('change', function () { GOLD_MODE = this.checked ? 'free' : 'none'; syncAdminUI(); });
     $('force-xianti-toggle').addEventListener('change', function () { FORCE_XIANTI = this.checked; syncAdminUI(); });
+    $('force-max-dao-toggle').addEventListener('change', function () { FORCE_MAX_DAO = this.checked; syncAdminUI(); });
+    $('test-physique-select').addEventListener('change', function () {
+      TEST_PHYSIQUE_ID = this.value || '';
+      syncAdminUI();
+    });
     $('trait-search').addEventListener('input', filterTraitList);
     $('speed-range').addEventListener('input', setSpeed);
     $('speed-range').addEventListener('change', setSpeed);

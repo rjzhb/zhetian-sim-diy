@@ -143,7 +143,7 @@
     [2600, 3400],         /* 7 王者 */
     [3500, 4500],         /* 8 圣人 */
     [5000, 6500],         /* 9 大圣 */
-    [6500, 8000]          /* 10 准帝；正常帝路八千岁关闭 */
+    [8000, 10000]         /* 10 准帝；寿元可到九千乃至一万 */
   ];
 
   var TRAIT_PATHS = {
@@ -218,11 +218,11 @@
     { id: 'p03', name: '玄玉之躯', color: 'p', path: 'body', fx: [['floor', 5], ['ward', 7]] },
     { id: 'p04', name: '脱胎换骨', color: 'p', path: 'body', fx: [['bodyChance', 0.35], ['dao', 15]] },
     { id: 'p05', name: '万劫炼身', color: 'p', path: 'body', fx: [['bodyDao', 20], ['daog', 1.3]] },
-    { id: 'p06', name: '天纵其才', color: 'p', path: 'dao', fx: [['dao', 20], ['daocap', 100]] },
-    { id: 'p07', name: '智珠在握', color: 'p', path: 'dao', fx: [['daog', 1.4], ['dao', 12]] },
+    { id: 'p06', name: '天纵其才', color: 'p', path: 'dao', fx: [['dao', 28], ['daocap', 100]] },
+    { id: 'p07', name: '智珠在握', color: 'p', path: 'dao', fx: [['daog', 1.4], ['dao', 22]] },
     { id: 'p08', name: '长生近道', color: 'p', path: 'dao', fx: [['life', 45], ['daog', 1.35]] },
     { id: 'p09', name: '道海生潮', color: 'p', path: 'dao', fx: [['overflow', 0.4], ['daocap', 100]] },
-    { id: 'p10', name: '万法留痕', color: 'p', path: 'dao', fx: [['evt', 1.8], ['dao', 18]] },
+    { id: 'p10', name: '万法留痕', color: 'p', path: 'dao', fx: [['evt', 1.8], ['dao', 24]] },
     { id: 'p11', name: '大气运者', color: 'p', path: 'fortune', fx: [['era', 2.2], ['evt', 2]] },
     { id: 'p12', name: '秘境宠儿', color: 'p', path: 'fortune', fx: [['evf', 1.2], ['evt', 2.1]] },
     { id: 'p13', name: '鸿运当头', color: 'p', path: 'fortune', fx: [['upgradeEvent', 1], ['evt', 1.8]] },
@@ -245,11 +245,11 @@
     { id: 'o03', name: '魔胎', color: 'o', path: 'body', fx: [['swallow', 1], ['daocap', 200]] },
     { id: 'o04', name: '天资纵横', color: 'o', path: 'body', fx: [['bodyChance', 0.45], ['evt', 2.5]] },
     { id: 'o05', name: '万法归一', color: 'o', path: 'body', fx: [['bodyChance', 0.42], ['bodyDao', 25], ['daocap', 140]] },
-    { id: 'o06', name: '悟道绝伦', color: 'o', path: 'dao', fx: [['dao', 35], ['daog', 1.65]] },
+    { id: 'o06', name: '悟道绝伦', color: 'o', path: 'dao', fx: [['dao', 55], ['daog', 1.65]] },
     { id: 'o07', name: '道蕴天成', color: 'o', path: 'dao', fx: [['dao', 45], ['daocap', 220]] },
     { id: 'o08', name: '一念通玄', color: 'o', path: 'dao', fx: [['daog', 1.8], ['evt', 2.2]] },
     { id: 'o09', name: '帝经残页', color: 'o', path: 'dao', fx: [['overflow', 0.6], ['daocap', 180]] },
-    { id: 'o10', name: '道果垂青', color: 'o', path: 'dao', fx: [['dao', 30], ['dlm', 30], ['zhx', 0.06]] },
+    { id: 'o10', name: '道果垂青', color: 'o', path: 'dao', fx: [['dao', 50], ['dlm', 30], ['zhx', 0.06]] },
     { id: 'o11', name: '黄金大世', color: 'o', path: 'fortune', fx: [['era', 5], ['evt', 2.8]] },
     { id: 'o12', name: '福泽深厚', color: 'o', path: 'fortune', fx: [['ward', 16], ['evf', 1.4]] },
     { id: 'o13', name: '帝兵护身', color: 'o', path: 'fortune', fx: [['evt', 4], ['upgradeEvent', 1]] },
@@ -259,7 +259,7 @@
     { id: 'o17', name: '心合大道', color: 'o', path: 'tianxin', fx: [['dlm', 40], ['xin', 1.8]] },
     { id: 'o18', name: '天道酬帝', color: 'o', path: 'tianxin', fx: [['ignoreSuppression', 0.5], ['dlm', 30]] },
     { id: 'o19', name: '大道无碍', color: 'o', path: 'tianxin', fx: [['xinPity', 0.00007], ['daog', 1.5]] },
-    { id: 'o20', name: '我道合天', color: 'o', path: 'tianxin', fx: [['xin', 1.8], ['zhx', 0.06], ['dao', 20]] },
+    { id: 'o20', name: '我道合天', color: 'o', path: 'tianxin', fx: [['xin', 1.8], ['zhx', 0.06], ['dao', 40]] },
     { id: 'o21', name: '帝路独行', color: 'o', path: 'imperial', fx: [['retry', 1], ['retryKeep', 0.5]] },
     { id: 'o22', name: '万古独尊', color: 'o', path: 'imperial', fx: [['zhx', 0.08], ['retryKeep', 0.5]] },
     { id: 'o23', name: '命与天齐', color: 'o', path: 'imperial', fx: [['life', 180], ['ward', 12]] },
@@ -274,7 +274,7 @@
     var s = [], k;
     function cat(type, v) {
       switch (type) {
-        case 'life': return '寿元+' + v;
+        case 'life': return '寿元+' + v + '，帝者晚年血气更稳';
         case 'floor': return '体质保底为' + TALENTS[v];
         case 'evf': return '机缘概率+' + Math.round((v - 1) * 100) + '%';
         case 'evt': return '高阶机缘×' + v;
@@ -368,8 +368,8 @@
     /* 持天心但未修炼至圆满（未到准帝巅峰/战力不足）强行融合天心：即便战力达标也只有 15% 把握 */
     TIANXIN_EARLY_CHANCE: 0.15,
     /* 人道与帝者时间线 */
-    EMPEROR_PATH_FADE_AGE: 6000,
-    EMPEROR_PATH_CLOSE_AGE: 8000,
+    EMPEROR_PATH_FADE_AGE: 7500,
+    EMPEROR_PATH_CLOSE_AGE: 10000,
     /* 除主角外，路人帝最早也要在玩家超过六千年未证道后才可能出现。 */
     WORLD_RIVAL_EMPEROR_MIN_YEAR: 6000,
     WORLD_RIVAL_EMPEROR_YEARLY: 0.0002,

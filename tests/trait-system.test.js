@@ -121,6 +121,10 @@ for (let i = 0; i < 80; i++) {
 assert.ok(daoDraws + bodyDraws > 0);
 assert.ok(daoDraws >= bodyDraws * 0.75,
   'Dao-path cards must be drawn at least as often as physique cards');
+for (let i = 0; i < 40; i++) {
+  assert.ok(SIM.drawTraits(5).some(function (trait) { return trait.path === 'dao'; }),
+    'every opening hand must include at least one Dao/comprehension card');
+}
 const initialRandom = Math.random;
 try {
   Math.random = function () { return 0; };

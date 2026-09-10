@@ -8,6 +8,10 @@ const oldRandom = Math.random;
 assert.strictEqual(DATA.DAO_ABSOLUTE_MAX, 3000);
 assert.strictEqual(Sim.baseDaoyunCap(1), 500);
 assert.strictEqual(Sim.baseDaoyunCap(10), 1500);
+assert.ok(DATA.REALM_LIFE[10][0] >= 8000 && DATA.REALM_LIFE[10][1] >= 9000,
+  'a quasi-emperor life must be able to reach about 9000 years');
+assert.ok(DATA.EMPEROR_PATH_CLOSE_AGE >= 9000,
+  'the imperial road must stay open through a full quasi-emperor lifespan');
 assert.strictEqual(typeof Sim.drawDaoGift, 'function');
 assert.strictEqual(typeof Sim.daoGiftName, 'function');
 assert.strictEqual(Sim.daoGiftName(9), '绝世天才');

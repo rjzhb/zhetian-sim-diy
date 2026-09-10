@@ -190,7 +190,19 @@
               <span class="track"></span>
             </span>
           </label>
+          <label class="set-row">
+            <span class="set-label">🧪 出生满级道蕴（理论上限 3000）</span>
+            <span class="set-switch">
+              <input type="checkbox" id="force-max-dao-toggle">
+              <span class="track"></span>
+            </span>
+          </label>
           <div class="admin-desc">只刷金色：随机抽取 5 个金色命格，再从中选择 2 个。任选：从全部金色命格中直接选 2 个。两种模式互斥。强制巅峰体质会在混沌体与先天圣体道胎中随机其一，可与任一金色模式搭配，且不影响联网榜单。</div>
+          <label class="set-row test-physique-row">
+            <span class="set-label">🧪 测试指定体质</span>
+            <select id="test-physique-select" class="test-physique-select"><option value="">随机体质</option></select>
+          </label>
+          <div class="admin-desc">选择后，下一局会直接以该体质开局，悟性和命格仍照常随机；选“随机体质”即可恢复正常玩法。</div>
         </div>
       </div>
     </section>
@@ -204,8 +216,8 @@
       <div class="about-body">
         <div class="about-text">
           天地之间，修行之途从<b>轮海</b>开启，历经道宫、四极、化龙……一路通往大帝之巅。<br>
-          出生前，你将随机获得<b>两种命格</b>；六岁时觉醒体质，体质的优劣决定你的修行天赋与寿元。<br>
-          寿元有定数，唯有不断突破大境界方可延展命限；黄金帝路于八千岁闭合，须在血气鼎盛之年争渡。<br>
+          出生前先现悟性，再随机获得<b>两种命格</b>；悟性完全独立随机，极少数天纵异数出生便有千级道蕴，甚至可能触及大道极限。道蕴/悟道命格与体质同等重要，可创法、压瓶颈、堆道海。六岁时觉醒体质。<br>
+          寿元有定数，唯有不断突破大境界方可延展命限；准帝寿元约八千至一万，黄金帝路约万岁闭合。<br>
           凡人亦能逆天！乱世之中机缘遍地——极道帝兵、不死神药、无上功法、生命禁区……步步惊心，步步登天。<br>
           <b>证道成帝并非终点</b>：可融合天心、以力强证，也可能借合道花等机缘破关；成帝后将获得完整帝命，面对禁区、黑暗动乱与长生之谜。<br>
           帝命晚年将自动寻找长生路。连续逆活九世是万古罕见的奇迹，每一世都是可能身死的蜕变大劫；另一条路须<b>成帝之后</b>才可能在帝者机缘中获知奇异世界坐标，再修炼到足以轰穿界壁的战力。界壁之后仍是一片未知天地，可能存在机缘，也可能潜伏着无法想象的强者。两条道路皆有机会通向<b>红尘仙</b>，操作方式不变。<br>
@@ -226,7 +238,7 @@
   <div id="trait-mask" class="mask" hidden="">
     <div class="mask-box trait-box">
       <div class="mask-title trait-mask-title">🌈 天赐命格</div>
-      <div class="mask-info" id="trait-tip">从 5 种命格中挑选 2 种，成就你的大帝路</div>
+          <div class="mask-info" id="trait-tip">此世悟性将在此显现。道蕴/悟道命格与体质同等重要，请从 5 种命格中挑选 2 种。</div>
       <div class="trait-search-wrap" id="trait-search-wrap" hidden="">
         <input type="text" id="trait-search" class="trait-search" placeholder="🔍 搜索命格名称，比如「帝」「龙」…">
       </div>
