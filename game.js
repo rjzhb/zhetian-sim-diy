@@ -823,7 +823,7 @@
       else if (G.deadCause === 'strange_world_tribulation') gd.textContent = '你在奇异世界积累了' + G.strangeWorldInsight + '点长生感悟，却最终倒在第二次红尘仙蜕变中';
       else if (G.deadCause === 'strange_world_accident') gd.textContent = '你在奇异世界遭逢毫无预兆的仙道横祸，漫长积累毁于一旦';
       else if (G.deadCause === 'immortal_road') gd.textContent = '你选择等待成仙路，却在仙路崩裂时未能跨过天堑';
-      else if (G.deadCause === 'waited_immortal_road') gd.textContent = '你放弃奇异世界之门，终其一世也未等到成仙路开启';
+      else if (G.deadCause === 'waited_immortal_road') gd.textContent = '成仙路需近一纪元才会显现，你放弃奇异世界之门后，终其一世也未等到';
       else if (G.deadCause === 'forbidden_exhausted') gd.textContent = '你曾自斩入主禁区，却在漫长沉睡后耗尽了最后一缕生命本源';
       else if (G.deadCause === 'forbidden_battle') gd.textContent = '你曾自斩化为禁区至尊，最终被当世大帝平定';
       else if (G.deadCause === 'no_strange_world_info') gd.textContent = '你曾证道成帝，却始终未能获得奇异世界的信息';

@@ -714,7 +714,13 @@
     return round((1000000 + cult) * rate);
   }
 
-  function emperorLifeSpanRange(lifeNo) {
+  function isSacredBody(g) {
+    var id = g && g.physiqueId;
+    return id === 'sacred' || id === 'origin_sacred' || id === 'innate_sacred_dao';
+  }
+
+  function emperorLifeSpanRange(lifeNo, g) {
+    if ((lifeNo || 1) === 1 && isSacredBody(g)) return [20000, 26000];
     var ranges = [
       [8000, 12000], [15000, 25000], [30000, 45000], [50000, 70000],
       [70000, 95000], [90000, 120000], [110000, 145000], [130000, 170000]
@@ -729,7 +735,7 @@
   }
 
   function resetEmperorLife(g) {
-    var range = emperorLifeSpanRange(g.lifeNo);
+    var range = emperorLifeSpanRange(g.lifeNo, g);
     var span = irand(range[0], range[1]);
     g.emperorLifeStart = g.age;
     g.emperorLifeEnd = g.age + span;
@@ -1539,18 +1545,35 @@
     if (_fast) chooseImmortalPath(g, 'strange', log);
     return true;
   }
+  function canOpenImmortalRoad(g) {
+    return !!(g && g.waitingImmortalRoad && (g.worldYear || 0) >= (D.IMMORTAL_ROAD_MIN_YEAR || 3600000));
+  }
+  function immortalRoadAppearChance(g) {
+    if (!canOpenImmortalRoad(g)) return 0;
+    if (g.forbiddenLord) return 0.10;
+    var span = Math.max(1, (g.emperorLifeEnd || 0) - (g.emperorLifeStart || 0));
+    return (D.IMMORTAL_ROAD_EVENT_TARGET || 0.08) / span;
+  }
+  function immortalRoadChance(g) {
+    var daoPeak = g && g.daoyunCap > 0 ? g.daoyun / g.daoyunCap : 0;
+    var chance = 0.010 + Math.min(0.045, (g && g.cult || 0) / 8000000 * 0.045) +
+      Math.min(0.025, daoPeak * 0.025);
+    if (g && isPeakPhysique(g.physiqueId)) chance += 0.008;
+    return clamp(chance, 0.008, 0.09);
+  }
   function tryImmortalRoad(g, log) {
-    var daoPeak = g.daoyunCap > 0 ? g.daoyun / g.daoyunCap : 0;
-    var chance = clamp(0.08 + Math.min(0.30, g.cult / D.UNDEAD_EMPEROR_CULT * 0.30) + Math.min(0.32, daoPeak * 0.32), 0.08, 0.70);
-    push(log, { cls: 'rainbow', text: '成仙路于这一世开启，你携帝道冲关；凭当前战力与道蕴，闯关把握约' + Math.round(chance * 100) + '%' });
+    if (!canOpenImmortalRoad(g)) return false;
+    var chance = immortalRoadChance(g);
+    push(log, { cls: 'rainbow', text: '近一纪元后，成仙路终于自虚无中显现；你携帝道冲关，凭当前战力与道蕴，横渡把握约' + Math.round(chance * 100) + '%' });
     if (Math.random() >= chance) {
       g.dead = true; g.deadCause = 'immortal_road';
       push(log, { cls: 'dead', text: '成仙路崩裂，你未能跨过那一道天堑，帝躯消散于仙路尽头' });
-      return;
+      return false;
     }
     g.redDustImmortal = true; g.ascended = true; g.immortalMode = 'immortal_road';
     g.cult = round(g.cult * rand(1.8, 2.3));
     push(log, { cls: 'god', text: '你横渡成仙路，万法归一，终成红尘仙！' });
+    return true;
   }
   function chooseImmortalPath(g, path, log) {
     if (!g || !g.awaitingImmortalPath) return false;
@@ -1560,7 +1583,7 @@
       enterStrangeWorld(g, log);
     } else {
       g.waitingImmortalRoad = true;
-      push(log, { cls: 'rare', text: '你放弃眼前奇异世界之门，选择静候成仙路；此路不知何时开启，也可能此生无缘' });
+      push(log, { cls: 'rare', text: '你放弃眼前奇异世界之门，选择静候成仙路；此路需近一纪元、数百万年才可能显现，一世帝命几乎等不到' });
     }
     return true;
   }
@@ -1638,7 +1661,7 @@
     if (!g.knowsStrangeWorld && Math.random() < strangeWorldLearnChance(g)) {
       learnStrangeWorld(g, log, '你从仙路残片与古代至尊遗骸中，终于获知奇异世界坐标');
     }
-    if (g.waitingImmortalRoad && Math.random() < 0.18) {
+    if (g.waitingImmortalRoad && Math.random() < immortalRoadAppearChance(g)) {
       tryImmortalRoad(g, log);
       return;
     }
@@ -1737,7 +1760,7 @@
     }
     if (g.waitingImmortalRoad) {
       g.dead = true; g.deadCause = 'waited_immortal_road';
-      push(log, { cls: 'dead', text: '帝命耗尽，成仙路始终未在此世开启；你错过奇异世界之门，最终坐化' });
+      push(log, { cls: 'dead', text: '帝命耗尽，成仙路需近一纪元才会开启，此世终究等不到；你错过奇异世界之门，最终坐化' });
       return;
     }
     if (Math.random() < reversePathChance(g)) {
@@ -1770,8 +1793,7 @@
     if (g.forbiddenLord) { stepForbiddenLord(g, log); return; }
     if (g.awaitingImmortalPath) return;
     if (g.waitingImmortalRoad) {
-      var waitSpan = Math.max(1, g.emperorLifeEnd - g.emperorLifeStart);
-      if (Math.random() < D.IMMORTAL_ROAD_EVENT_TARGET / waitSpan) { tryImmortalRoad(g, log); return; }
+      if (Math.random() < immortalRoadAppearChance(g)) { tryImmortalRoad(g, log); return; }
     } else if (canChooseImmortalPath(g)) {
       openImmortalPathChoice(g, log);
       return;
@@ -2166,6 +2188,10 @@
     reverseLifeChance: reverseLifeChance,
     reversePathChance: reversePathChance,
     learnStrangeWorld: learnStrangeWorld,
+    canOpenImmortalRoad: canOpenImmortalRoad,
+    immortalRoadAppearChance: immortalRoadAppearChance,
+    immortalRoadChance: immortalRoadChance,
+    tryImmortalRoad: tryImmortalRoad,
     strangeWorldLearnChance: strangeWorldLearnChance,
     emperorEvent: emperorEvent,
     tryReverseLife: tryReverseLife,

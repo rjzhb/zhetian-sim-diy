@@ -21,6 +21,24 @@ emperorLifeRanges.forEach(function (range, index) {
   eightLifeMax += range[1];
 });
 assert.ok(eightLifeMin >= 500000 && eightLifeMax >= 650000);
+assert.deepStrictEqual(Sim.emperorLifeSpanRange(1, { physiqueId: 'sacred' }), [20000, 26000]);
+assert.deepStrictEqual(Sim.emperorLifeSpanRange(1, { physiqueId: 'origin_sacred' }), [20000, 26000]);
+assert.deepStrictEqual(Sim.emperorLifeSpanRange(1, { physiqueId: 'innate_sacred_dao' }), [20000, 26000]);
+assert.deepStrictEqual(Sim.emperorLifeSpanRange(1, { physiqueId: 'chaos' }), [8000, 12000]);
+assert.deepStrictEqual(Sim.emperorLifeSpanRange(2, { physiqueId: 'sacred' }), [15000, 25000],
+  'later sacred-body lives keep the ordinary reverse-life spans');
+['sacred', 'origin_sacred', 'innate_sacred_dao'].forEach(function (id) {
+  const g = Sim.createGame(0, []);
+  Sim.setPhysique(g, DATA.physiqueById(id));
+  Sim.becomeDi(g, [], 'force');
+  const span = g.emperorLifeEnd - g.emperorLifeStart;
+  assert.ok(span >= 20000 && span <= 26000, id + ' first emperor life must last more than 20,000 years');
+});
+const chaosLife = Sim.createGame(0, []);
+Sim.setPhysique(chaosLife, DATA.physiqueById('chaos'));
+Sim.becomeDi(chaosLife, [], 'force');
+assert.ok(chaosLife.emperorLifeEnd - chaosLife.emperorLifeStart <= 12000,
+  'chaos first emperor life stays on the ordinary span');
 
 assert.strictEqual(typeof Sim.emperorDaoyunGainPerYear, 'function');
 const longLifeDao = Sim.createGame(0, []);
@@ -593,6 +611,36 @@ const openChoiceEnd = gameSource.indexOf('function resolveImmortalPath', openCho
 const openChoiceSource = gameSource.slice(openChoiceStart, openChoiceEnd);
 assert.ok(openChoiceSource.indexOf('UNDEAD_EMPEROR') < 0);
 assert.ok(openChoiceSource.indexOf('不死天皇') < 0);
+
+assert.ok(DATA.IMMORTAL_ROAD_MIN_YEAR >= 3000000, 'the immortal road must wait nearly an epoch');
+assert.strictEqual(typeof Sim.canOpenImmortalRoad, 'function');
+assert.strictEqual(typeof Sim.immortalRoadChance, 'function');
+const roadWait = Sim.createGame(0, []);
+Sim.becomeDi(roadWait, [], 'force');
+roadWait.waitingImmortalRoad = true;
+roadWait.worldYear = 200000;
+assert.strictEqual(Sim.canOpenImmortalRoad(roadWait), false,
+  'an emperor life must not see the immortal road before an epoch has passed');
+assert.strictEqual(Sim.immortalRoadAppearChance(roadWait), 0);
+const earlyLog = [];
+assert.strictEqual(Sim.tryImmortalRoad(roadWait, earlyLog), false);
+assert.strictEqual(roadWait.redDustImmortal, false);
+assert.strictEqual(roadWait.dead, false);
+roadWait.worldYear = DATA.IMMORTAL_ROAD_MIN_YEAR;
+assert.strictEqual(Sim.canOpenImmortalRoad(roadWait), true);
+roadWait.cult = 2000000;
+roadWait.daoyun = 900;
+roadWait.daoyunCap = 1500;
+assert.ok(Sim.immortalRoadChance(roadWait) < 0.08, 'crossing the immortal road must stay unlikely for an ordinary emperor');
+roadWait.cult = 8000000;
+roadWait.daoyun = 1500;
+Sim.setPhysique(roadWait, DATA.physiqueById('chaos'));
+assert.ok(Sim.immortalRoadChance(roadWait) <= 0.10, 'even a peak emperor must find the crossing extremely hard');
+roadWait.forbiddenLord = true;
+assert.ok(Math.abs(Sim.immortalRoadAppearChance(roadWait) - 0.10) < 1e-9,
+  'a forbidden lord who has waited nearly an epoch still only rarely sees the road');
+assert.ok(choice.indexOf('近一纪元') >= 0 || html.indexOf('数百万年') >= 0,
+  'the wait option must tell the player the road takes nearly an epoch');
 
 assert.ok(/id="gold-random-toggle"/.test(html));
 assert.ok(/id="gold-free-toggle"/.test(html));

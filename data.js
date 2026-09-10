@@ -30,11 +30,11 @@
     { id: 'lunar', name: '太阴之体', tier: 7, weight: 1, fx: pm({ xin: 1.25, evt: 1.4 }), desc: '亲近太阴大道，悟道机缘非凡' },
     { id: 'feathered', name: '羽化仙体', tier: 8, weight: 1, fx: pm({ brk: 1.15, cgt: 1.15 }), desc: '秘境神藏不断开启，潜力深厚' },
     { id: 'dao_fetus', name: '先天道胎', tier: 8, weight: 1, fx: pm({ brk: 1.18, xin: 1.4, dlm: 5 }), desc: '天生近道，最擅悟道与感应天心' },
-    { id: 'sacred', name: '荒古圣体', tier: 9, weight: 1, fx: pm({ cgt: 1.3, ward: 10, zhx: 0.02, life: 80 }), desc: '金色苦海、血气如海，大成可叫板大帝' },
+    { id: 'sacred', name: '荒古圣体', tier: 9, weight: 1, fx: pm({ cgt: 1.3, ward: 10, zhx: 0.02, life: 80 }), desc: '金色苦海、血气如海，大成可叫板大帝；成帝一世寿元悠长' },
     { id: 'overlord', name: '苍天霸体', tier: 9, weight: 1, fx: pm({ brk: 1.05, cgt: 1.28, ward: 12 }), desc: '紫色苦海、神形无双，与圣体争锋' },
-    { id: 'origin_sacred', name: '元灵圣体', tier: 9, weight: 1, fx: pm({ brk: 1.18, cgt: 1.3, evf: 1.2 }), desc: '圣体肉身与元灵法力合一' },
+    { id: 'origin_sacred', name: '元灵圣体', tier: 9, weight: 1, fx: pm({ brk: 1.18, cgt: 1.3, evf: 1.2 }), desc: '圣体肉身与元灵法力合一；成帝一世寿元悠长' },
     { id: 'chaos', name: '混沌体', tier: 10, weight: 1, fx: pm({ brk: 1.3, cgt: 1.4, evt: 1.5, xin: 1.5, dlm: 10, zhx: 0.70 }), desc: '万道交融，不受寻常大道压制' },
-    { id: 'innate_sacred_dao', name: '先天圣体道胎', tier: 10, weight: 1, fx: pm({ brk: 1.35, cgt: 1.35, xin: 1.6, dlm: 10, ward: 10, zhx: 0.65, daog: 1.28 }), desc: '圣体肉身与道胎悟性合一，悟道更快' }
+    { id: 'innate_sacred_dao', name: '先天圣体道胎', tier: 10, weight: 1, fx: pm({ brk: 1.35, cgt: 1.35, xin: 1.6, dlm: 10, ward: 10, zhx: 0.65, daog: 1.28 }), desc: '圣体肉身与道胎悟性合一，悟道更快；成帝一世寿元悠长' }
   ];
   function physiqueById(id) {
     for (var i = 0; i < PHYSIQUES.length; i++) if (PHYSIQUES[i].id === id) return PHYSIQUES[i];
@@ -381,8 +381,9 @@
     STRANGE_WORLD_BREAK_CULT: 1500000,
     STRANGE_WORLD_YEARS_MIN: 200000,
     STRANGE_WORLD_YEARS_MAX: 500000,
-    /* 等待成仙路：一世帝命中出现的目标次数；开启后仍要以战力、道蕴闯关。 */
-    IMMORTAL_ROAD_EVENT_TARGET: 0.22,
+    /* 成仙路需近一纪元才会显现；开启后横渡仍极难。 */
+    IMMORTAL_ROAD_MIN_YEAR: 3600000,
+    IMMORTAL_ROAD_EVENT_TARGET: 0.08,
     /* 以力证道/融合天心 证道后的实力增幅倍率（随机 1.15~1.45） */
     CHENGDI_BONUS_MIN: 1.15,
     CHENGDI_BONUS_MAX: 1.45,
