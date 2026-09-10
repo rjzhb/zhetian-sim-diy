@@ -30,7 +30,7 @@
     { id: 'lunar', name: '太阴之体', tier: 7, weight: 1, fx: pm({ xin: 1.25, evt: 1.4 }), desc: '亲近太阴大道，悟道机缘非凡' },
     { id: 'feathered', name: '羽化仙体', tier: 8, weight: 1, fx: pm({ brk: 1.15, cgt: 1.15 }), desc: '秘境神藏不断开启，潜力深厚' },
     { id: 'dao_fetus', name: '先天道胎', tier: 8, weight: 1, fx: pm({ brk: 1.18, xin: 1.4, dlm: 5 }), desc: '天生近道，最擅悟道与感应天心' },
-    { id: 'sacred', name: '荒古圣体', tier: 9, weight: 1, fx: pm({ cgt: 1.3, ward: 10, zhx: 0.02, life: 80 }), desc: '金色苦海、血气如海。需极道机缘大成；无帝之世即为宇宙第一极道至尊。成帝极难，一旦证道则道蕴暴涨、直达天帝' },
+    { id: 'sacred', name: '荒古圣体', tier: 9, weight: 1, fx: pm({ cgt: 1.3, ward: 10, zhx: 0.02, life: 80 }), desc: '金色苦海、血气如海。准帝九重天即大成，无帝之世为宇宙第一极道至尊。成帝极难，一旦证道则道蕴暴涨、直达天帝' },
     { id: 'overlord', name: '苍天霸体', tier: 9, weight: 1, fx: pm({ brk: 1.05, cgt: 1.28, ward: 12 }), desc: '紫色苦海、神形无双，与圣体争锋' },
     { id: 'origin_sacred', name: '元灵圣体', tier: 9, weight: 1, fx: pm({ brk: 1.18, cgt: 1.3, evf: 1.2 }), desc: '圣体肉身与元灵法力合一；成帝一世寿元悠长' },
     { id: 'chaos', name: '混沌体', tier: 10, weight: 1, fx: pm({ brk: 1.3, cgt: 1.4, evt: 1.5, xin: 1.5, dlm: 10, zhx: 0.70 }), desc: '万道交融，不受寻常大道压制' },

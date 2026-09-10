@@ -91,7 +91,9 @@ assert.ok(emperorDaoBudget(6) <= emperorDaoBudget(5) * 1.05,
 
 assert.strictEqual(typeof Sim.reversePathChance, 'function');
 function chaosAfterFirstEmperorLife(traitIds) {
-  const g = Sim.createGame(0, traitIds);
+  const g = Sim.createGame(0, traitIds, {
+    tier: 7, name: Sim.daoGiftName(7), initialDaoyun: 160
+  });
   Sim.setPhysique(g, DATA.physiqueById('chaos'));
   g.daoGift = 7;
   g.era = { id: 'normal', name: '平常时代', daog: 0.75, evt: 1, evf: 1 };
@@ -135,7 +137,6 @@ assert.strictEqual(typeof Sim.reverseLifeChance, 'function');
 function reverseFixture(dao, cap, lifeNo) {
   const g = Sim.createGame(0, ['w06', 'w11']);
   Sim.setPhysique(g, DATA.physiqueById('mortal'));
-  g.sacredEmperorBurst = false;
   Sim.becomeDi(g, [], 'force');
   g.daoyun = dao;
   g.daoyunCap = cap;
@@ -147,37 +148,110 @@ const lowDaoReverse = Sim.reverseLifeChance(reverseFixture(300, 1500, 2));
 const highDaoReverse = Sim.reverseLifeChance(reverseFixture(900, 1500, 2));
 assert.ok(highDaoReverse > lowDaoReverse, 'higher absolute Dao should improve reversal');
 assert.strictEqual(Sim.reverseLifeChance(reverseFixture(100, 100, 2)) < 0.25, true, 'a tiny full cap must not guarantee reversal');
-assert.ok(Sim.reverseLifeChance(reverseFixture(1500, 1500, 2)) < 0.55,
-  'a full Dao sea must not guarantee reversal in the first five lives');
-assert.ok(Sim.reverseLifeChance(reverseFixture(1500, 1500, 2)) >
-  Sim.reverseLifeChance(reverseFixture(900, 1500, 2)),
-  'filling the sea should still help the early lives');
-assert.ok(Sim.reverseLifeChance(reverseFixture(900, 1500, 3)) >
-  Sim.reverseLifeChance(reverseFixture(900, 1500, 2)), 'later mastered techniques should be easier than the third-life bottleneck');
-const earlyChain = [1, 2, 3, 4].reduce(function (prod, lifeNo) {
-  return prod * Sim.reverseLifeChance(reverseFixture(1500, 1500, lifeNo));
-}, 1);
-assert.ok(earlyChain < 0.08, 'chaining the first five lives must stay rare even with a full sea');
-assert.ok(Sim.reverseLifeChance(reverseFixture(1400, 2000, 5)) >= 0.68,
-  'from the sixth life onward reversal should be the stable stretch');
-assert.ok(Sim.reverseLifeChance(reverseFixture(1400, 2000, 5)) < 0.88,
-  'even the stable stretch must not lock in consecutive reversals');
-assert.ok(Sim.reverseLifeChance(reverseFixture(2000, 2000, 6)) >= 0.75,
-  'a mastered later life may finish at high but not certain odds');
-assert.ok(Sim.reverseLifeChance(reverseFixture(2000, 2000, 6)) < 1,
-  'later lives must still be able to fail without immortal medicine');
+assert.strictEqual(typeof Sim.reverseMethodReady, 'function');
+function readyReverseFixture(dao, cap, lifeNo) {
+  const g = reverseFixture(dao, cap, lifeNo);
+  g.redDustPath = 'reverse';
+  g.reverseMethodReadyFor = lifeNo + 1;
+  return g;
+}
+const fullSeaRates = [];
+for (let lifeNo = 1; lifeNo <= 8; lifeNo++) {
+  const full = readyReverseFixture(2000, 2000, lifeNo);
+  fullSeaRates.push(Sim.reverseLifeChance(full));
+  assert.ok(Sim.reverseLifeChance(full) >= 0.98,
+    'full Dao plus the new method should almost guarantee life ' + (lifeNo + 1));
+}
+const fullSeaChain = fullSeaRates.reduce(function (prod, chance) { return prod * chance; }, 1);
+assert.ok(fullSeaChain >= 0.85,
+  'keeping the Dao sea full and learning every new method should make the complete chain highly likely');
+const noThirdLifeMethod = reverseFixture(2000, 2000, 2);
+noThirdLifeMethod.redDustPath = 'reverse';
+assert.strictEqual(Sim.reverseMethodReady(noThirdLifeMethod), false);
+assert.ok(Sim.reverseLifeChance(noThirdLifeMethod) <= 0.08,
+  'a full Dao sea cannot replace learning the next distinct longevity method');
+const almostFullWithMethod = readyReverseFixture(1800, 2000, 2);
+assert.ok(Sim.reverseLifeChance(almostFullWithMethod) < Sim.reverseLifeChance(readyReverseFixture(2000, 2000, 2)),
+  'the hard part after each reversal must be refilling the newly enlarged Dao sea');
 const secondLifeByForce = reverseFixture(800, 1500, 1);
 secondLifeByForce.deathless = false;
 secondLifeByForce.deathlessUsed = false;
-assert.ok(Sim.reverseLifeChance(secondLifeByForce) <= 0.35,
+assert.ok(Sim.reverseLifeChance(secondLifeByForce) <= 0.45,
   'without immortal medicine, brute-forcing the second life must remain unlikely');
 secondLifeByForce.deathless = true;
-assert.strictEqual(Sim.reverseLifeChance(secondLifeByForce), 1,
-  'an unused immortal medicine should still guarantee the second life');
+assert.ok(Sim.reverseLifeChance(secondLifeByForce) < 1,
+  'merely owning immortal medicine must not silently consume it or overwrite the displayed natural chance');
+
+assert.strictEqual(typeof Sim.grantEmperorDeathless, 'function');
+assert.strictEqual(typeof Sim.openDeathlessChoice, 'function');
+assert.strictEqual(typeof Sim.chooseDeathless, 'function');
+const medicineGranted = Sim.createGame(0, []);
+try {
+  Math.random = function () { return 0.399; };
+  assert.strictEqual(Sim.grantEmperorDeathless(medicineGranted, []), true);
+} finally {
+  Math.random = oldRandom;
+}
+assert.strictEqual(medicineGranted.deathless, true,
+  'roughly forty percent of emperors should possess immortal medicine');
+const medicineMissed = Sim.createGame(0, []);
+try {
+  Math.random = function () { return 0.401; };
+  assert.strictEqual(Sim.grantEmperorDeathless(medicineMissed, []), false);
+} finally {
+  Math.random = oldRandom;
+}
+assert.strictEqual(medicineMissed.deathless, false);
+
+const medicineChoice = reverseFixture(900, 1500, 1);
+medicineChoice.deathless = true;
+medicineChoice.deathlessUsed = false;
+medicineChoice.redDustPath = null;
+assert.strictEqual(Sim.openDeathlessChoice(medicineChoice, []), true);
+assert.strictEqual(medicineChoice.awaitingDeathlessChoice, true);
+assert.strictEqual(medicineChoice.lifeNo, 1, 'opening the choice must pause before resolving the first emperor life');
+assert.strictEqual(Sim.chooseDeathless(medicineChoice, true, []), true);
+assert.strictEqual(medicineChoice.awaitingDeathlessChoice, false);
+assert.strictEqual(medicineChoice.deathlessUsed, true);
+assert.strictEqual(medicineChoice.reverseMedicineUsed, true);
+assert.strictEqual(medicineChoice.redDustPath, 'reverse');
+assert.strictEqual(medicineChoice.lifeNo, 2,
+  'accepting the choice must consume the medicine and guarantee the second life');
+
+const medicineDeclined = reverseFixture(1500, 1500, 1);
+medicineDeclined.deathless = true;
+medicineDeclined.deathlessUsed = false;
+medicineDeclined.redDustPath = 'reverse';
+Sim.openDeathlessChoice(medicineDeclined, []);
+try {
+  Math.random = function () { return 0; };
+  assert.strictEqual(Sim.chooseDeathless(medicineDeclined, false, []), true);
+} finally {
+  Math.random = oldRandom;
+}
+assert.strictEqual(medicineDeclined.deathlessUsed, false,
+  'declining must preserve the medicine and use the natural reverse-life resolution');
+assert.strictEqual(medicineDeclined.lifeNo, 2);
+
+const htmlSource = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+assert.ok(htmlSource.indexOf('deathless-mask') >= 0 &&
+  htmlSource.indexOf('btn-deathless-use') >= 0 &&
+  htmlSource.indexOf('btn-deathless-decline') >= 0,
+  'the first emperor-life ending must expose a visible immortal-medicine choice');
+
+const sacredDaoBurst = Sim.createGame(0, []);
+Sim.setPhysique(sacredDaoBurst, DATA.physiqueById('sacred'));
+Sim.becomeDi(sacredDaoBurst, [], 'force');
+sacredDaoBurst.deathless = false;
+assert.ok(sacredDaoBurst.daoyun >= 2400, 'sacred-body emperor Dao must still erupt');
+assert.ok(Sim.reverseLifeChance(sacredDaoBurst) < 0.98,
+  'the sacred Dao eruption helps greatly but is not a full sea by itself');
 
 assert.strictEqual(typeof Sim.tryReverseLife, 'function');
 function longChaosFirstLife(traitIds) {
-  const g = Sim.createGame(0, traitIds);
+  const g = Sim.createGame(0, traitIds, {
+    tier: 7, name: Sim.daoGiftName(7), initialDaoyun: 160
+  });
   Sim.setPhysique(g, DATA.physiqueById('chaos'));
   g.daoGift = 7;
   g.era = { id: 'normal', name: '平常时代', daog: 0.75, evt: 1, evf: 1 };
@@ -603,25 +677,37 @@ try {
 assert.strictEqual(tianxinFallback.dead, false, 'ninth-layer Tianxin below the fusion line must not use the 15% early-fusion death');
 assert.ok(tianxinFallback.becameEmperor, 'ninth-layer Tianxin below the fusion line should fall back to force proof');
 
-const sacredBlocked = Sim.createGame(0, []);
-Sim.setPhysique(sacredBlocked, DATA.physiqueById('sacred'));
-sacredBlocked.lvl = 99;
-sacredBlocked.cult = 400000;
-sacredBlocked.daoyun = Sim.effectiveDaoyunNeed(sacredBlocked, 99);
-sacredBlocked.worldEmperor = null;
-try {
-  Math.random = function () { return 0; };
-  Sim.tryZhengdao(sacredBlocked, []);
-} finally {
-  Math.random = oldRandom;
-}
-assert.strictEqual(sacredBlocked.becameEmperor, false, 'a sacred body below the overwhelm line cannot become emperor');
-assert.strictEqual(sacredBlocked.dead, false, 'a sacred body should keep tempering instead of dying at a normal emperor gate');
+const sacredEighth = Sim.createGame(0, []);
+Sim.setPhysique(sacredEighth, DATA.physiqueById('sacred'));
+sacredEighth.lvl = 98;
+sacredEighth.cult = 180000;
+sacredEighth.worldEmperor = null;
+assert.strictEqual(sacredEighth.sacredPeakAwakened, false);
+const ninthLog = [];
+Sim.levelUp(sacredEighth, ninthLog);
+assert.strictEqual(sacredEighth.lvl, 99);
+assert.strictEqual(sacredEighth.sacredPeakAwakened, true,
+  'a sacred body at the ninth quasi-emperor heaven is already a completed sacred body');
+assert.ok(sacredEighth.cult >= DATA.SACRED_JIDAO_CULT,
+  'a completed sacred body in a world without an emperor is already the universe’s first extreme-dao supreme');
+assert.ok(ninthLog.some(function (line) { return /大成|极道至尊|宇宙第一/.test(line.text); }),
+  'reaching the ninth heaven must announce 大成, not wait for another opportunity');
+
+const sacredContested = Sim.createGame(0, []);
+Sim.setPhysique(sacredContested, DATA.physiqueById('sacred'));
+sacredContested.lvl = 99;
+sacredContested.cult = 180000;
+sacredContested.worldEmperor = { name: '当世大帝' };
+Sim.completeSacredBody(sacredContested, []);
+assert.ok(sacredContested.cult >= DATA.OVERWHELM_DAO_CULT,
+  '大成 in an occupied heaven must still reach the 90万 line');
+assert.ok(sacredContested.cult < DATA.SACRED_JIDAO_CULT,
+  'a living emperor still denies the sacred body uncontested supremacy');
 
 const sacredHeavenly = Sim.createGame(0, []);
 Sim.setPhysique(sacredHeavenly, DATA.physiqueById('sacred'));
 sacredHeavenly.lvl = 99;
-sacredHeavenly.cult = DATA.OVERWHELM_DAO_CULT;
+sacredHeavenly.cult = 180000;
 sacredHeavenly.daoyun = Sim.effectiveDaoyunNeed(sacredHeavenly, 99);
 sacredHeavenly.worldEmperor = null;
 try {
@@ -630,57 +716,35 @@ try {
 } finally {
   Math.random = oldRandom;
 }
-assert.ok(sacredHeavenly.becameEmperor, 'a sacred body that can overwhelm the myriad daos may become emperor');
+assert.ok(sacredHeavenly.sacredPeakAwakened, 'knocking on the emperor gate at the ninth heaven completes the sacred body');
+assert.ok(sacredHeavenly.becameEmperor, 'a completed sacred body may still force the once-in-an-era emperor gate');
 assert.ok(sacredHeavenly.cult >= DATA.HEAVENLY_EMPEROR_CULT, 'a sacred-body emperor must start at heavenly-emperor power');
 assert.ok(sacredHeavenly.daoyun >= 2400 && sacredHeavenly.daoyunCap >= 2800,
-  'a sacred-body emperor must erupt with enough Dao to nearly guarantee the next life');
+  'a sacred-body emperor must still receive the promised Dao eruption');
 assert.ok(sacredHeavenly.daoyun / sacredHeavenly.daoyunCap >= 0.88,
   'sacred-body success should fill the Dao sea almost to the brim');
-assert.ok(Sim.reverseLifeChance(sacredHeavenly) >= 0.85,
-  'Ye-Fan-like sacred success should almost guarantee reversing into the next life');
-assert.ok(Sim.reverseLifeChance(sacredHeavenly) < 1,
-  'even a sacred-body emperor must not lock a 100% reversal');
+assert.ok(Sim.reverseLifeChance(sacredHeavenly) >= 0.50 &&
+  Sim.reverseLifeChance(sacredHeavenly) < 0.98,
+  'the sacred Dao eruption should help greatly without counting as a completely full sea');
 
-const sacredNoDarkPeak = Sim.createGame(0, []);
-Sim.setPhysique(sacredNoDarkPeak, DATA.physiqueById('sacred'));
-sacredNoDarkPeak.lvl = 99;
-sacredNoDarkPeak.cult = 400000;
-sacredNoDarkPeak.daoyun = Sim.effectiveDaoyunNeed(sacredNoDarkPeak, 99);
-sacredNoDarkPeak.worldEmperor = null;
-try {
-  Math.random = function () { return 0; };
-  Sim.tryZhengdao(sacredNoDarkPeak, []);
-} finally {
-  Math.random = oldRandom;
-}
-assert.strictEqual(sacredNoDarkPeak.sacredPeakAwakened, false,
-  'knocking on the emperor gate must not secretly complete the sacred body');
-assert.ok(sacredNoDarkPeak.cult < DATA.OVERWHELM_DAO_CULT,
-  '90万战力必须来自可见机缘，不能靠叩关暗骰');
-
-assert.strictEqual(typeof Sim.sacredStepChance, 'function');
 assert.strictEqual(typeof Sim.sacredEmperorChance, 'function');
-assert.strictEqual(typeof Sim.awakenSacredPeak, 'function');
+assert.strictEqual(typeof Sim.completeSacredBody, 'function');
 const sacredBare = Sim.createGame(0, []);
 Sim.setPhysique(sacredBare, DATA.physiqueById('sacred'));
-sacredBare.lvl = 96;
+sacredBare.lvl = 99;
 sacredBare.daoyun = 400;
 sacredBare.daoGift = 5;
 const sacredGold = Sim.createGame(0, ['o01', 'o04', 'o25']);
 Sim.setPhysique(sacredGold, DATA.physiqueById('sacred'));
-sacredGold.lvl = 96;
+sacredGold.lvl = 99;
 sacredGold.daoyun = 400;
 sacredGold.daoGift = 5;
-sacredGold.sacredKuhai = true;
-sacredGold.sacredBloodSea = true;
-assert.ok(Sim.sacredStepChance(sacredGold, 'dacheng') > Sim.sacredStepChance(sacredBare, 'dacheng') * 1.35,
-  'matching gold physique/fortune cards must raise the sacred-peak opportunity');
 assert.ok(Sim.sacredEmperorChance(sacredGold) > Sim.sacredEmperorChance(sacredBare) * 1.35,
   'matching gold cards must raise the sacred emperor rate');
 assert.ok(Sim.sacredEmperorChance(sacredBare) < 0.05,
-  'a bare sacred body almost never becomes emperor');
+  'a bare completed sacred body almost never becomes emperor');
 assert.ok(Sim.sacredEmperorChance(sacredGold) >= 0.25 && Sim.sacredEmperorChance(sacredGold) <= 0.32,
-  'matching gold cards should lift a sacred body to about a 30% emperor chance');
+  'matching gold cards should lift a completed sacred body to about a 30% emperor chance');
 const sacredTianxin = Sim.createGame(0, []);
 Sim.setPhysique(sacredTianxin, DATA.physiqueById('sacred'));
 sacredTianxin.lvl = 99;
@@ -696,33 +760,9 @@ try {
 }
 assert.strictEqual(sacredTianxin.becameEmperor, false,
   'Tianxin must not let a sacred body skip the once-in-an-era emperor gate');
-assert.ok(Sim.sacredStepChance(sacredBare, 'dacheng') < 0.35,
-  'a bare sacred body should still find 大成 rare');
-
-const sacredJidao = Sim.createGame(0, []);
-Sim.setPhysique(sacredJidao, DATA.physiqueById('sacred'));
-sacredJidao.lvl = 96;
-sacredJidao.cult = 180000;
-sacredJidao.worldEmperor = null;
-const jidaoLog = [];
-Sim.awakenSacredPeak(sacredJidao, jidaoLog);
-assert.strictEqual(sacredJidao.sacredPeakAwakened, true);
-assert.ok(sacredJidao.cult >= DATA.SACRED_JIDAO_CULT,
-  'a completed sacred body in a world without an emperor is already the universe’s first extreme-dao supreme');
-assert.ok(jidaoLog.some(function (line) { return /宇宙第一|极道至尊/.test(line.text); }),
-  '大成 must be a visible extreme-dao opportunity, not a hidden stat bump');
-
-const sacredContested = Sim.createGame(0, []);
-Sim.setPhysique(sacredContested, DATA.physiqueById('sacred'));
-sacredContested.cult = 180000;
-sacredContested.worldEmperor = { name: '当世大帝' };
-Sim.awakenSacredPeak(sacredContested, []);
-assert.ok(sacredContested.cult >= DATA.OVERWHELM_DAO_CULT,
-  '大成 in an occupied heaven must still reach the 90万 line');
-assert.ok(sacredContested.cult < DATA.SACRED_JIDAO_CULT,
-  'a living emperor still denies the sacred body uncontested supremacy');
 
 const suppressedGame = Sim.createGame(0, []);
+Sim.setPhysique(suppressedGame, DATA.physiqueById('mortal'));
 suppressedGame.lvl = 99;
 suppressedGame.cult = DATA.OVERWHELM_DAO_CULT - 1;
 suppressedGame.daoyun = Sim.effectiveDaoyunNeed(suppressedGame, 99);
@@ -913,39 +953,73 @@ assert.ok(!/T3_HERB = \[[^\]]*太初命石/.test(eventsSource), 'primordial ston
 
 const experienceEvents = {};
 (Sim.EVENTS || []).forEach(function (ev) { experienceEvents[ev.id] = ev; });
-['xingkong_gulu', 'dilu_zhengfeng', 'quasi_heavenly_tribulation', 'forbidden_gaze',
-  'sacred_kuhai', 'sacred_blood', 'sacred_dacheng'].forEach(function (id) {
+['xingkong_gulu', 'dilu_zhengfeng', 'quasi_heavenly_tribulation', 'forbidden_gaze'].forEach(function (id) {
   assert.ok(experienceEvents[id], 'missing pre-emperor experience event: ' + id);
   assert.strictEqual(typeof experienceEvents[id].available, 'function',
     'stage-specific events must declare when they can enter the event pool: ' + id);
 });
-const sacredEventHost = Sim.createGame(0, []);
-Sim.setPhysique(sacredEventHost, DATA.physiqueById('sacred'));
-sacredEventHost.lvl = 70;
-assert.strictEqual(Sim.eventAvailable(sacredEventHost, experienceEvents.sacred_kuhai), true,
-  'the golden bitter sea should open once a sacred body reaches the high mortal stages');
-assert.strictEqual(Sim.eventAvailable(sacredEventHost, experienceEvents.sacred_dacheng), false,
-  '大成 must wait until the quasi-emperor stage');
-sacredEventHost.lvl = 91;
-assert.strictEqual(Sim.eventAvailable(sacredEventHost, experienceEvents.sacred_dacheng), true);
-const mortalHost = Sim.createGame(0, []);
-Sim.setPhysique(mortalHost, DATA.physiqueById('mortal'));
-mortalHost.lvl = 96;
-assert.strictEqual(Sim.eventAvailable(mortalHost, experienceEvents.sacred_dacheng), false,
-  'sacred-peak events must not leak into other physiques');
-const peakFromEvent = Sim.createGame(0, []);
-Sim.setPhysique(peakFromEvent, DATA.physiqueById('sacred'));
-peakFromEvent.lvl = 96;
-peakFromEvent.cult = 200000;
-peakFromEvent.worldEmperor = null;
+[
+  'dao_epiphany', 'dao_create_scripture', 'dao_create_nine_secret', 'dao_create_swallowing',
+  'mythic_battlefield', 'chaos_thunder_pool', 'imperial_tomb_open', 'ancient_road_ambush',
+  'forbidden_fragment', 'star_sea_auction', 'dao_companion_debate', 'heavenly_omen'
+].forEach(function (id) {
+  assert.ok(experienceEvents[id], 'missing new opportunity event: ' + id);
+});
+
+assert.strictEqual(typeof Sim.isHighDaoyun, 'function');
+const insightBreak = Sim.createGame(0, []);
+insightBreak.lvl = 20;
+insightBreak.daoyun = 900;
+insightBreak.daoyunCap = 1000;
+const insightBreakLog = [];
+Sim.levelUp(insightBreak, insightBreakLog);
+assert.ok(insightBreakLog.some(function (line) { return /悟道/.test(line.text); }),
+  'every breakthrough by a high-Dao cultivator must be narrated as enlightenment');
+
+const selfCreator = Sim.createGame(0, []);
+Sim.setPhysique(selfCreator, DATA.physiqueById('mortal'));
+selfCreator.lvl = 71;
+selfCreator.daoyun = 1200;
+selfCreator.daoyunCap = 1500;
+assert.strictEqual(Sim.eventAvailable(selfCreator, experienceEvents.dao_create_scripture), true);
+assert.strictEqual(Sim.eventAvailable(selfCreator, experienceEvents.dao_create_swallowing), true);
+experienceEvents.dao_create_nine_secret.ok(selfCreator, Sim.U, []);
+assert.ok(selfCreator.createdNineSecrets >= 1,
+  'a high-Dao cultivator must be able to create a Nine-Secrets-grade art');
+experienceEvents.dao_create_swallowing.ok(selfCreator, Sim.U, []);
+assert.strictEqual(selfCreator.swallowingArt, true,
+  'only the explicit self-created swallowing route should enable its extra mortality');
+
+const ordinaryInjury = Sim.createGame(0, []);
+Sim.setPhysique(ordinaryInjury, DATA.physiqueById('mortal'));
+ordinaryInjury.age = 99;
+ordinaryInjury.lifeBase = 100;
+ordinaryInjury.lifeBonus = 0;
+ordinaryInjury.lifespan = 100;
 try {
-  Math.random = function () { return 0; };
-  experienceEvents.sacred_dacheng.ok(peakFromEvent, Sim.U, []);
+  Math.random = function () { return 0.99; };
+  Sim.U.hurt(ordinaryInjury, 20, 20);
 } finally {
   Math.random = oldRandom;
 }
-assert.strictEqual(peakFromEvent.sacredPeakAwakened, true, 'the 大成 event must complete the sacred body');
-assert.ok(peakFromEvent.cult >= DATA.OVERWHELM_DAO_CULT, 'the 大成 event is the path to 90万');
+assert.ok(ordinaryInjury.lifespan > ordinaryInjury.age,
+  'ordinary injuries must not make a non-swallowing mortal die more often merely because its lifespan is short');
+
+const swallowingInjury = Sim.createGame(0, ['o03']);
+Sim.setPhysique(swallowingInjury, DATA.physiqueById('mortal'));
+swallowingInjury.age = 99;
+swallowingInjury.lifeBase = 100;
+swallowingInjury.lifeBonus = 0;
+swallowingInjury.lifespan = 100;
+try {
+  Math.random = function () { return 0.99; };
+  Sim.U.hurt(swallowingInjury, 20, 20);
+} finally {
+  Math.random = oldRandom;
+}
+assert.ok(swallowingInjury.lifespan <= swallowingInjury.age,
+  'the swallowing route may retain extra lethal risk');
+
 assert.strictEqual(typeof Sim.eventAvailable, 'function');
 const eventBoundary = Sim.createGame(0, []);
 eventBoundary.lvl = 70;
@@ -977,7 +1051,7 @@ assert.strictEqual(typeof Sim.pickEmperorBeat, 'function');
 assert.ok(Sim.emperorBeatIds().length >= 24,
   'the emperor life must have a large enough beat pool to survive nine lives without looping four sentences');
 ['lecture_beings', 'establish_heaven', 'star_voyage', 'predecessor_trace',
-  'faith_incense', 'imperial_god', 'disciple_rise', 'time_scar'].forEach(function (id) {
+  'faith_incense', 'imperial_god', 'disciple_rise', 'time_scar', 'reverse_deduction'].forEach(function (id) {
   assert.ok(Sim.emperorBeatIds().indexOf(id) >= 0, 'missing emperor beat: ' + id);
 });
 const emperorExperience = Sim.createGame(0, []);
@@ -992,6 +1066,21 @@ assert.ok(emperorExperience.redDustRoots.soul > originalRoots.soul,
 assert.strictEqual(Sim.runEmperorExperience(emperorExperience, 'suppress_forbidden', []), true);
 assert.ok(emperorExperience.emperorLegacy.forbiddenSuppressed >= 1,
   'suppressing forbidden zones should persist as an emperor legacy');
+
+const nextLifeMethod = Sim.createGame(0, ['o08']);
+Sim.becomeDi(nextLifeMethod, [], 'force');
+nextLifeMethod.redDustPath = 'reverse';
+nextLifeMethod.lifeNo = 2;
+nextLifeMethod.daoyun = 900;
+nextLifeMethod.daoyunCap = 1680;
+const methodDaoBefore = nextLifeMethod.daoyun;
+assert.strictEqual(Sim.reverseMethodReady(nextLifeMethod), false);
+assert.strictEqual(Sim.runEmperorExperience(nextLifeMethod, 'reverse_deduction', []), true);
+assert.strictEqual(nextLifeMethod.reverseMethodReadyFor, 3,
+  'a life-specific opportunity must reveal how to reverse into the next life');
+assert.ok(nextLifeMethod.daoyun > methodDaoBefore,
+  'learning the new longevity method must also provide a major Dao opportunity');
+assert.strictEqual(Sim.reverseMethodReady(nextLifeMethod), true);
 assert.strictEqual(Sim.runEmperorExperience(emperorExperience, 'late_ambush', []), true);
 assert.ok(emperorExperience.emperorLegacy.lateAmbushes >= 1,
   'late-life assaults should be recorded instead of becoming generic flavor text');
@@ -1106,7 +1195,7 @@ assert.strictEqual(sawBeat(perLifeMethod, 'self_method', 80), false,
 perLifeMethod.emperorLegacy.usedThisLife = {};
 perLifeMethod.emperorLegacy.lastBeat = null;
 perLifeMethod.lifeNo = 4;
-assert.ok(sawBeat(perLifeMethod, 'self_method', 80),
+assert.ok(sawBeat(perLifeMethod, 'self_method', 500),
   'each later life may still open a different longevity method');
 
 console.log('late-game: ok');

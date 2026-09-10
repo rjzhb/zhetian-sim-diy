@@ -134,6 +134,9 @@
       id: 'heian', weight: 0.15, maxCount: 1,
       name: '黑暗动乱', tier: 4, desc: '禁区至尊出世，天地染血',
       minAge: 2500, maxAge: 1000000,
+      available: function (g) {
+        return !g.becameEmperor && g.lvl >= 75 && g.cult >= 75000;
+      },
       cond: function (g, U) { return g.lvl >= U.irand(75, 85) && g.cult > U.rand(0.3, 0.8) * U.data.XINTIAN_NEED_MIN; },
       ok: function (g, U, log) {
         var lf = U.gainLife(g, 1000, 2000);
@@ -143,8 +146,126 @@
         U.up(g, U.irand(2, 5), log);
       },
       fail: function (g, U) {
-        g.dead = true;
-        U.printlog('黑暗动乱降临，至尊收割众生，你未能幸免，身死道消');
+        U.kill(g, '黑暗动乱降临，至尊收割众生，你未能幸免，身死道消');
+      }
+    },
+    {
+      id: 'dao_create_nine_secret', weight: 0.7, maxCount: 2,
+      name: '自创九秘', tier: 4, desc: '不循前人旧路，于万道中开创盖世秘术',
+      minAge: 120, maxAge: 10000,
+      available: function (g, U) {
+        return !g.becameEmperor && g.lvl >= 81 && U.isHighDaoyun(g) &&
+          (g.createdNineSecrets || 0) < 2;
+      },
+      cond: function (g, U) {
+        return U.isHighDaoyun(g) && Math.random() < Math.min(0.55, 0.16 + g.daoyun / U.data.DAO_ABSOLUTE_MAX * 0.32);
+      },
+      ok: function (g, U) {
+        g.createdNineSecrets = (g.createdNineSecrets || 0) + 1;
+        var c = U.cultPct(g, 0.10, 0.18, 12000);
+        U.gainDao(g, U.irand(35, 65), 20);
+        U.printlog('你不借古人遗泽，自万道变化中创出第' + g.createdNineSecrets +
+          '式九秘级禁术，一念运转皆字秘般的极尽升华，实力+' + c);
+      },
+      fail: function (g, U) {
+        var h = U.hurt(g, 80, 220);
+        U.printlog(h.loss ? '推演禁忌秘术时大道反噬，寿元 -' + h.loss :
+          '禁忌法雏形崩散，你及时斩断推演，保住道基');
+      }
+    },
+    {
+      id: 'dao_create_swallowing', weight: 0.35, maxCount: 1,
+      name: '自创吞天魔功', tier: 4, desc: '凡躯观万法本源，开创吞噬诸体的逆天魔功',
+      minAge: 100, maxAge: 10000,
+      available: function (g, U) {
+        return !g.becameEmperor && !g.swallowingArt && g.innate <= 2 &&
+          g.lvl >= 71 && U.isHighDaoyun(g);
+      },
+      cond: function (g, U) {
+        return U.isHighDaoyun(g) && Math.random() < Math.min(0.28, 0.05 + g.daoyun / U.data.DAO_ABSOLUTE_MAX * 0.20);
+      },
+      ok: function (g, U) {
+        g.swallowingArt = true;
+        g.selfCreatedSwallowing = true;
+        U.gainDao(g, U.irand(25, 45), 24);
+        U.printlog('你以凡体推演诸般本源，竟自创吞天魔功！从此可吞噬特殊体质，但举世皆敌与反噬也将真正致命');
+      },
+      fail: function (g, U) {
+        var h = U.hurt(g, 60, 180);
+        U.printlog(h.loss ? '你欲以凡躯吞纳万道，功法雏形反噬，寿元 -' + h.loss :
+          '吞天法雏形一闪即灭，你没有强行踏上魔路');
+      }
+    },
+    {
+      id: 'mythic_battlefield', weight: 0.75, maxCount: 2,
+      name: '神话战场重开', tier: 4, desc: '古天庭战场自虚空浮现，帝阵与残兵共鸣',
+      minAge: 300, maxAge: 10000,
+      available: function (g) { return !g.becameEmperor && g.lvl >= 81 && g.lvl < 100; },
+      cond: function (g) { return g.cult >= 180000 || Math.random() < 0.30; },
+      ok: function (g, U) {
+        var c = U.cultPct(g, 0.12, 0.24, 18000);
+        U.gainDao(g, U.irand(24, 44), 16);
+        g.mythicMarks = (g.mythicMarks || 0) + 1;
+        U.printlog('你穿过破碎帝阵，在神话战场中与古代烙印鏖战，道与法皆被逼至极境，实力+' + c);
+      },
+      fail: function (g, U) {
+        var h = U.hurt(g, 180, 520);
+        U.printlog(h.loss ? '古帝杀阵复苏，你斩断半截道基逃出，寿元 -' + h.loss :
+          '帝阵将要闭合时，你舍弃机缘全身而退');
+      }
+    },
+    {
+      id: 'chaos_thunder_pool', weight: 0.6, maxCount: 2,
+      name: '混沌雷池', tier: 4, desc: '准帝劫深处浮现混沌雷池，生灭同源',
+      minAge: 400, maxAge: 10000,
+      available: function (g) { return !g.becameEmperor && g.lvl >= 91 && g.lvl < 100; },
+      cond: function (g, U) {
+        return Math.random() < Math.min(0.75, 0.24 + g.cult / 1200000 + (U.isHighDaoyun(g) ? 0.16 : 0));
+      },
+      ok: function (g, U) {
+        var c = U.cultPct(g, 0.15, 0.28, 26000);
+        U.gainDao(g, U.irand(30, 55), 20);
+        U.printlog('你踏入混沌雷池，以生灭雷液重铸准帝躯，大道雏形越发完整，实力+' + c);
+      },
+      fail: function (g, U) {
+        var h = U.hurt(g, 220, 650);
+        U.printlog(h.loss ? '混沌雷霆劈裂道躯，你拖着残体冲出雷海，寿元 -' + h.loss :
+          '雷池杀意超出预料，你没有贪取池中造化');
+      }
+    },
+    {
+      id: 'imperial_tomb_open', weight: 0.55, maxCount: 1,
+      name: '帝坟夜开', tier: 4, desc: '古帝陵寝短暂洞开，道痕与杀机同时苏醒',
+      minAge: 180, maxAge: 10000,
+      available: function (g) { return !g.becameEmperor && g.lvl >= 81 && g.lvl < 100; },
+      cond: function (g, U) { return g.cult >= 150000 || U.isHighDaoyun(g); },
+      ok: function (g, U) {
+        var c = U.cultPct(g, 0.09, 0.17, 14000);
+        U.gainDao(g, U.irand(28, 48), 28);
+        g.imperialTombInsight = true;
+        U.printlog('你只观帝坟道痕，不取陪葬重器，由古帝残道反照己身，实力+' + c + '，道蕴上限增长');
+      },
+      fail: function (g, U) {
+        var h = U.hurt(g, 140, 420);
+        U.printlog(h.loss ? '帝坟杀念惊醒，你被一道帝痕扫中，寿元 -' + h.loss :
+          '帝坟中传出心跳般的震动，你立刻退走');
+      }
+    },
+    {
+      id: 'forbidden_fragment', weight: 0.45, maxCount: 2,
+      name: '禁区法则碎片', tier: 4, desc: '禁区裂隙逸出一角皇道法则，可悟亦可引祸',
+      minAge: 500, maxAge: 10000,
+      available: function (g) { return !g.becameEmperor && g.lvl >= 91 && g.lvl < 100; },
+      cond: function (g, U) { return U.isHighDaoyun(g) || Math.random() < 0.25; },
+      ok: function (g, U) {
+        U.gainDao(g, U.irand(38, 70), 32);
+        g.forbiddenKarma = (g.forbiddenKarma || 0) + 1;
+        U.printlog('你炼化一角皇道法则，以他人极道反证自己的路；道蕴大涨，也被禁区至尊记住气息');
+      },
+      fail: function (g, U) {
+        var h = U.hurt(g, 160, 480);
+        U.printlog(h.loss ? '皇道碎片忽然化作杀念，斩去你部分寿元 -' + h.loss :
+          '禁区深处有目光睁开，你放弃碎片遁入星海');
       }
     },
     {
@@ -160,32 +281,114 @@
       },
       fail: null
     },
-    {
-      id: 'sacred_dacheng', weight: 4.2, maxCount: 2,
-      name: '圣体大成', tier: 4, desc: '极道机缘贯通金色苦海，成就极道至尊',
-      minAge: 400, maxAge: 10000,
-      available: function (g) {
-        return g.physiqueId === 'sacred' && !g.becameEmperor && !g.sacredPeakAwakened &&
-          g.lvl >= 91 && g.lvl < 100;
-      },
-      cond: function (g, U) {
-        return g.physiqueId === 'sacred' && !g.sacredPeakAwakened && g.lvl >= 91 &&
-          Math.random() < U.sacredStepChance(g, 'dacheng');
-      },
-      ok: function (g, U, log) {
-        U.awakenSacredPeak(g, log);
-        U.gainDao(g, U.irand(40, 80), 24);
-        U.printlog('荒古圣体大成！极道血气横压星空，战力暴涨至' + Math.round(g.cult / 10000) + '万');
-      },
-      fail: function (g, U) {
-        var h = U.hurt(g, 80, 220);
-        U.printlog(h.exempt ?
-          '金色苦海剧烈震荡，大成之机擦肩而过，你强自压下血气，未受重创' :
-          '大成之机擦肩而过，金色血气反冲己身，寿元 -' + h.loss);
-      }
-    },
 
     /* ===================== tier 3 稀有 ===================== */
+    {
+      id: 'dao_epiphany', weight: 1.6, maxCount: 8,
+      name: '万道顿悟', tier: 3, desc: '积累深厚者偶见天地脉络，自然而然再进一步',
+      minAge: 30, maxAge: 10000,
+      available: function (g, U) {
+        return !g.becameEmperor && g.lvl >= 41 && g.lvl < 100 && U.isHighDaoyun(g);
+      },
+      cond: null,
+      ok: function (g, U) {
+        var c = U.cultPct(g, 0.04, 0.08, 2200);
+        U.gainDao(g, U.irand(16, 30), 8);
+        U.printlog('你静观天地运转，万法脉络在心中自行铺开；一场悟道令旧有经文焕然一新，实力+' + c);
+      },
+      fail: null
+    },
+    {
+      id: 'dao_create_scripture', weight: 1.35, maxCount: 6,
+      name: '自创经文', tier: 3, desc: '道蕴充盈，不再照搬前人经义',
+      minAge: 60, maxAge: 10000,
+      available: function (g, U) {
+        return !g.becameEmperor && g.lvl >= 61 && g.lvl < 100 && U.isHighDaoyun(g);
+      },
+      cond: null,
+      ok: function (g, U) {
+        var names = ['苦海卷', '四极篇', '化龙真解', '仙台古章', '星海经', '万道书'];
+        var name = PICK(names);
+        g.createdMethods = (g.createdMethods || 0) + 1;
+        var c = U.cultPct(g, 0.05, 0.10, 3500);
+        U.gainDao(g, U.irand(20, 36), 12);
+        U.printlog('你删尽所学中的前人痕迹，自创『' + name + '』，这是只属于自己的第' +
+          g.createdMethods + '门法，实力+' + c);
+      },
+      fail: null
+    },
+    {
+      id: 'dao_companion_debate', weight: 1.1, maxCount: 4,
+      name: '星空论道', tier: 3, desc: '与另一位近道者争论三年，胜负皆有所得',
+      minAge: 80, maxAge: 10000,
+      available: function (g, U) {
+        return !g.becameEmperor && g.lvl >= 51 && g.lvl < 100 && U.isHighDaoyun(g);
+      },
+      cond: function (g) { return Math.random() < 0.62 + Math.min(0.20, (g.daoGift || 5) * 0.015); },
+      ok: function (g, U) {
+        U.gainDao(g, U.irand(24, 42), 12);
+        U.printlog('你与一位星空奇才坐而论道三年，以自己的法驳尽对方经义，道心愈发澄明');
+      },
+      fail: function (g, U) {
+        g.daoyun = Math.max(0, g.daoyun - U.irand(8, 20));
+        U.printlog('对方提出的道问击中你经文缺口，你闭关数年重整体系，道蕴暂时受损');
+      }
+    },
+    {
+      id: 'ancient_road_ambush', weight: 1.2, maxCount: 3,
+      name: '古路绝杀局', tier: 3, desc: '数位帝路天骄联手布阵，只为提前除掉强敌',
+      minAge: 100, maxAge: 9000,
+      available: function (g) { return !g.becameEmperor && g.lvl >= 71 && g.lvl < 100; },
+      cond: function (g, U) {
+        return Math.random() < Math.min(0.82, 0.30 + g.cult / 700000 + (U.isHighDaoyun(g) ? 0.10 : 0));
+      },
+      ok: function (g, U) {
+        var c = U.cultPct(g, 0.07, 0.14, 6000);
+        U.gainDao(g, U.irand(12, 28));
+        U.printlog('帝路群雄布下绝杀阵，你反借杀阵磨砺己道，逐一击溃围猎者，实力+' + c);
+      },
+      fail: function (g, U) {
+        var h = U.hurt(g, 100, 320);
+        U.printlog(h.loss ? '你在古路绝杀局中血战脱身，寿元 -' + h.loss :
+          '你提前看破阵纹，没有踏入群雄围猎之地');
+      }
+    },
+    {
+      id: 'star_sea_auction', weight: 1.15, maxCount: 3,
+      name: '星海暗市', tier: 3, desc: '跨星域暗市开门，真宝与骗局混杂',
+      minAge: 80, maxAge: 9000,
+      available: function (g) { return !g.becameEmperor && g.lvl >= 61 && g.lvl < 100; },
+      cond: function () { return Math.random() < 0.62; },
+      ok: function (g, U) {
+        var gains = ['一卷圣贤手札', '一块悟道古玉', '一滴真龙髓', '半页准帝阵图'];
+        var c = U.cultPct(g, 0.04, 0.09, 2800);
+        U.gainDao(g, U.irand(10, 24), 8);
+        U.printlog('你在星海暗市辨出真品，换得' + PICK(gains) + '，实力+' + c);
+      },
+      fail: function (g, U) {
+        g.cult = Math.max(1, U.round(g.cult * 0.97));
+        U.printlog('暗市卖家以古阵设局，你虽脱身，却损失大量修行资源，实力略降');
+      }
+    },
+    {
+      id: 'heavenly_omen', weight: 1.0, maxCount: 3,
+      name: '天象争夺', tier: 3, desc: '九星连珠映出大道奇景，诸教强者齐聚',
+      minAge: 50, maxAge: 9000,
+      available: function (g) { return !g.becameEmperor && g.lvl >= 51 && g.lvl < 100; },
+      cond: function (g, U) {
+        return Math.random() < Math.min(0.78, 0.38 + g.lvl / 250 + (U.isHighDaoyun(g) ? 0.10 : 0));
+      },
+      ok: function (g, U) {
+        var c = U.cultPct(g, 0.05, 0.11, 4000);
+        U.gainDao(g, U.irand(14, 30), 10);
+        U.printlog('你在诸教争夺中占据天象中心，将九星道图烙入仙台，实力+' + c);
+      },
+      fail: function (g, U) {
+        var h = U.hurt(g, 60, 180);
+        U.printlog(h.loss ? '争夺天象失败，你被数位教主围攻，寿元 -' + h.loss :
+          '群雄杀意太盛，你只在外围观摩天象');
+      }
+    },
     {
       id: 'xingkong_gulu', weight: 0.9, maxCount: 2,
       name: '星空古路启程', tier: 3, desc: '横渡星域，与诸天人杰争渡',
@@ -253,55 +456,6 @@
       fail: function (g, U) {
         var h = U.hurt(g, 100, 260);
         U.printlog(h.exempt ? '至尊神念扫过星空，并未在你身上久留' : '一道皇道神念跨域压落，你强撑不跪，寿元 -' + h.loss);
-      }
-    },
-    {
-      id: 'sacred_kuhai', weight: 2.8, maxCount: 2,
-      name: '金色苦海圆满', tier: 3, desc: '荒古圣体苦海金辉大盛，血气初成渊海',
-      minAge: 80, maxAge: 10000,
-      available: function (g) {
-        return g.physiqueId === 'sacred' && !g.becameEmperor && !g.sacredKuhai &&
-          g.lvl >= 61 && g.lvl < 100;
-      },
-      cond: function (g, U) {
-        return g.physiqueId === 'sacred' && !g.sacredKuhai && g.lvl >= 61 &&
-          Math.random() < U.sacredStepChance(g, 'kuhai');
-      },
-      ok: function (g, U) {
-        g.sacredKuhai = true;
-        if (g.cult < 120000) g.cult = U.irand(120000, 180000);
-        else U.cultPct(g, 0.18, 0.32, 20000);
-        U.gainDao(g, U.irand(16, 28));
-        U.printlog('金色苦海彻底圆满，万丈金辉吞没星域，血气暴涨，战力达' + Math.round(g.cult / 10000) + '万');
-      },
-      fail: function (g, U) {
-        U.printlog('苦海金辉闪过又寂，圣体机缘未成，还需继续淬炼血气');
-      }
-    },
-    {
-      id: 'sacred_blood', weight: 2.4, maxCount: 2,
-      name: '圣体血气如海', tier: 3, desc: '大成前夜，血气镇压一方星空',
-      minAge: 200, maxAge: 10000,
-      available: function (g) {
-        return g.physiqueId === 'sacred' && !g.becameEmperor && !g.sacredBloodSea &&
-          g.lvl >= 81 && g.lvl < 100;
-      },
-      cond: function (g, U) {
-        return g.physiqueId === 'sacred' && !g.sacredBloodSea && g.lvl >= 81 &&
-          Math.random() < U.sacredStepChance(g, 'blood');
-      },
-      ok: function (g, U) {
-        g.sacredBloodSea = true;
-        if (g.cult < 360000) g.cult = U.irand(360000, 480000);
-        else U.cultPct(g, 0.16, 0.28, 40000);
-        U.gainDao(g, U.irand(22, 36));
-        U.printlog('圣体血气如海，隔空一拳震退禁区余威，战力攀至' + Math.round(g.cult / 10000) + '万，离大成只差一场极道机缘');
-      },
-      fail: function (g, U) {
-        var h = U.hurt(g, 60, 160);
-        U.printlog(h.exempt ?
-          '你欲以血气镇压星空，终究还差一线，及时收势' :
-          '强行催动未成之圣体，血气逆乱，寿元 -' + h.loss);
       }
     },
     {

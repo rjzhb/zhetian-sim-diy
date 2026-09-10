@@ -574,10 +574,30 @@
 
   function openPendingChoiceIfNeeded() {
     if (!G) return false;
+    if (G.awaitingDeathlessChoice) return openDeathlessChoice();
     if (G.awaitingStrangeWorldChoice) return openStrangeWorldChoice();
     if (G.awaitingDarkTurmoil) return openDarkTurmoilChoice();
     if (G.awaitingImmortalPath) return openImmortalPathChoice();
     return openSelfSlashChoiceIfNeeded();
+  }
+  function openDeathlessChoice() {
+    stopPlay();
+    $('deathless-info').textContent = '第一世帝命即将结束 · 当前道蕴 ' +
+      Math.round(G.daoyun) + '/' + Math.round(G.daoyunCap) +
+      ' · 若不用神药，自身逆活把握约 ' + Math.round(Sim.reverseLifeChance(G) * 100) + '%';
+    $('deathless-mask').hidden = false;
+    return true;
+  }
+  function resolveDeathlessChoice(useMedicine) {
+    if (!G || !G.awaitingDeathlessChoice) return;
+    ensureAudio(); blip(useMedicine ? 760 : 430, 0.15, useMedicine ? 'triangle' : 'sawtooth', 0.12);
+    var log = [];
+    if (!Sim.chooseDeathless(G, useMedicine, log)) return;
+    $('deathless-mask').hidden = true;
+    for (var i = 0; i < log.length; i++) fullLog.push(log[i]);
+    renderLog(log); renderAttrs();
+    if (G.dead || G.ascended) { stopPlay(); finishGame(G.dead ? 'dead' : 'god'); }
+    else startPlay();
   }
   function openDarkTurmoilChoice() {
     stopPlay();
@@ -673,6 +693,8 @@
     else if (G.emperor) $('attr-stage-sub').textContent = G.immortalMode === 'strange_world' ? '奇异世界 · 红尘为仙' :
       (G.immortalMode === 'immortal_road' ? '成仙路 · 红尘为仙' :
       (G.redDustPath === 'reverse' ? '红尘印 ' + G.redDustMarks + '/' + (DATA.RED_DUST_LIVES - 1) +
+        ' · 新法' + (Sim.reverseMethodReady(G) ? '已悟' : '未悟') +
+        ' · 道海' + Math.round(G.daoyun / Math.max(1, G.daoyunCap) * 100) + '%' +
         ' · 下世逆活约' + Math.round(Sim.reverseLifeChance(G) * 100) + '%' : '帝命第一世 · 长生路未定'));
     else $('attr-stage-sub').innerHTML = G.lvl >= 99 ? '准帝九重天 · 闭关参悟帝关' :
       ('第 <b id="attr-lvl">' + G.lvl + '</b> 层 · 共 100 层');
@@ -1311,6 +1333,8 @@
     $('btn-close-ach').addEventListener('click', function () { blip(400, 0.06, 'triangle', 0.08); closeAch(); });
     $('btn-pause').addEventListener('click', function () { blip(400, 0.06, 'triangle', 0.08); pauseGame(); });
     $('btn-pause-resume').addEventListener('click', function () { blip(600, 0.06, 'triangle', 0.08); resumeGame(); });
+    $('btn-deathless-use').addEventListener('click', function () { resolveDeathlessChoice(true); });
+    $('btn-deathless-decline').addEventListener('click', function () { resolveDeathlessChoice(false); });
     $('btn-selfslash-decline').addEventListener('click', function () { resolveSelfSlash(false); });
     $('btn-selfslash-accept').addEventListener('click', function () { resolveSelfSlash(true); });
     $('btn-darkturmoil-refuse').addEventListener('click', function () { resolveDarkTurmoil(false); });
