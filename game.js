@@ -649,7 +649,8 @@
     $('attr-era').textContent = G.inStrangeWorld ? '奇异世界' : (G.era ? G.era.name : '--');
     $('attr-world-year').textContent = '第 ' + fmt(Math.round(G.worldYear || 0)) + ' 年';
     $('attr-world-emperor').textContent = G.playerEmperorActive ? '你正镇压当世万道' :
-      (G.worldEmperor ? G.worldEmperor.name + '在世' : '天心无主 · 帝路可争');
+      (G.worldEmperor ? G.worldEmperor.name + '在世' :
+      (G.daoSuppressed ? '帝痕未散 · 无人能证道' : '天心无主 · 帝路可争'));
     /* 同步体质 */
     var gt = $('game-title'); if (gt) gt.textContent = physiqueName(G);
     renderTraitLine();

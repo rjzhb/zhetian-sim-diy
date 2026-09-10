@@ -186,19 +186,106 @@ assert.strictEqual(Sim.forbiddenPurgeChance(99, false), 0, 'there is no emperor 
 
 assert.strictEqual(typeof Sim.initWorldCalendar, 'function');
 assert.strictEqual(typeof Sim.advanceWorldCalendar, 'function');
-const calendarGame = Sim.createGame(0, []);
-calendarGame.worldYear = 0;
-calendarGame.worldEmperor = null;
-calendarGame.playerEmperorActive = false;
-calendarGame.nextWorldEmperorYear = 10;
+const freshCalendar = Sim.createGame(0, []);
+Sim.initWorldCalendar(freshCalendar);
+assert.strictEqual(freshCalendar.worldEmperor, null, 'a new life should not start under another emperor');
+assert.ok(freshCalendar.nextWorldEmperorYear == null || freshCalendar.nextWorldEmperorYear >= 6000,
+  'rival emperors must not be scheduled before the 6000-year fade');
+
+const earlyCalendar = Sim.createGame(0, []);
+earlyCalendar.worldYear = 0;
+earlyCalendar.worldEmperor = null;
+earlyCalendar.becameEmperor = false;
+earlyCalendar.playerEmperorActive = false;
+earlyCalendar.nextWorldEmperorYear = 10;
 try {
   Math.random = function () { return 0.5; };
-  Sim.advanceWorldCalendar(calendarGame, 10, []);
+  Sim.advanceWorldCalendar(earlyCalendar, 500, []);
 } finally {
   Math.random = oldRandom;
 }
-assert.ok(calendarGame.worldEmperor, 'an independent emperor should arise on the world calendar');
-assert.strictEqual(calendarGame.daoSuppressed, true);
+assert.strictEqual(earlyCalendar.worldEmperor, null, 'a 500-year prodigy must not be scooped by a background emperor');
+
+const lateCalendar = Sim.createGame(0, []);
+lateCalendar.worldYear = 0;
+lateCalendar.worldEmperor = null;
+lateCalendar.becameEmperor = false;
+lateCalendar.playerEmperorActive = false;
+lateCalendar.nextWorldEmperorYear = 6000;
+try {
+  Math.random = function () { return 0.5; };
+  Sim.advanceWorldCalendar(lateCalendar, 6000, []);
+} finally {
+  Math.random = oldRandom;
+}
+assert.ok(lateCalendar.worldEmperor, 'after 6000 years without the player taking the throne, a rival may arise');
+assert.strictEqual(lateCalendar.daoSuppressed, true);
+
+const traceCalendar = Sim.createGame(0, []);
+traceCalendar.worldYear = 0;
+traceCalendar.becameEmperor = false;
+traceCalendar.playerEmperorActive = false;
+traceCalendar.worldEmperor = { name: '测试大帝', start: 0, end: 10000, cult: 1500000 };
+traceCalendar.nextWorldEmperorYear = null;
+traceCalendar.daoTraceUntil = null;
+Sim.advanceWorldCalendar(traceCalendar, 10000, []);
+assert.strictEqual(traceCalendar.worldEmperor, null, 'an NPC emperor should sit in transformation at the end of their life');
+assert.strictEqual(traceCalendar.daoSuppressed, true, 'dao traces must keep suppressing the cosmos after the emperor dies');
+assert.ok(traceCalendar.daoTraceUntil >= 19000 && traceCalendar.daoTraceUntil <= 22000,
+  'dao traces should linger about ten thousand years after death');
+traceCalendar.lvl = 99;
+traceCalendar.cult = 800000;
+try {
+  Math.random = function () { return 0; };
+  Sim.tryZhengdao(traceCalendar, []);
+} finally {
+  Math.random = oldRandom;
+}
+assert.strictEqual(traceCalendar.becameEmperor, false, 'nobody can become emperor while lingering dao traces remain');
+assert.strictEqual(traceCalendar.dead, false, 'waiting for traces to fade must not kill the challenger');
+
+const tianxinFallback = Sim.createGame(0, []);
+Sim.setPhysique(tianxinFallback, DATA.physiqueById('chaos'));
+tianxinFallback.lvl = 99;
+tianxinFallback.cult = 180000;
+tianxinFallback.xintian = true;
+tianxinFallback.worldEmperor = null;
+try {
+  Math.random = function () { return 0.5; };
+  Sim.tryZhengdao(tianxinFallback, []);
+} finally {
+  Math.random = oldRandom;
+}
+assert.strictEqual(tianxinFallback.dead, false, 'ninth-layer Tianxin below the fusion line must not use the 15% early-fusion death');
+assert.ok(tianxinFallback.becameEmperor, 'ninth-layer Tianxin below the fusion line should fall back to force proof');
+
+const sacredBlocked = Sim.createGame(0, []);
+Sim.setPhysique(sacredBlocked, DATA.physiqueById('sacred'));
+sacredBlocked.lvl = 99;
+sacredBlocked.cult = 400000;
+sacredBlocked.worldEmperor = null;
+try {
+  Math.random = function () { return 0; };
+  Sim.tryZhengdao(sacredBlocked, []);
+} finally {
+  Math.random = oldRandom;
+}
+assert.strictEqual(sacredBlocked.becameEmperor, false, 'a sacred body below the overwhelm line cannot become emperor');
+assert.strictEqual(sacredBlocked.dead, false, 'a sacred body should keep tempering instead of dying at a normal emperor gate');
+
+const sacredHeavenly = Sim.createGame(0, []);
+Sim.setPhysique(sacredHeavenly, DATA.physiqueById('sacred'));
+sacredHeavenly.lvl = 99;
+sacredHeavenly.cult = DATA.OVERWHELM_DAO_CULT;
+sacredHeavenly.worldEmperor = null;
+try {
+  Math.random = function () { return 0; };
+  Sim.tryZhengdao(sacredHeavenly, []);
+} finally {
+  Math.random = oldRandom;
+}
+assert.ok(sacredHeavenly.becameEmperor, 'a sacred body that can overwhelm the myriad daos may become emperor');
+assert.ok(sacredHeavenly.cult >= DATA.HEAVENLY_EMPEROR_CULT, 'a sacred-body emperor must start at heavenly-emperor power');
 
 const suppressedGame = Sim.createGame(0, []);
 suppressedGame.lvl = 99;
@@ -321,5 +408,16 @@ const openChoiceEnd = gameSource.indexOf('function resolveImmortalPath', openCho
 const openChoiceSource = gameSource.slice(openChoiceStart, openChoiceEnd);
 assert.ok(openChoiceSource.indexOf('UNDEAD_EMPEROR') < 0);
 assert.ok(openChoiceSource.indexOf('不死天皇') < 0);
+
+assert.ok(/id="gold-random-toggle"/.test(html));
+assert.ok(/id="gold-free-toggle"/.test(html));
+assert.ok(/id="force-xianti-toggle"/.test(html));
+assert.ok(!/id="gold-random-toggle"[^>]*checked/.test(html), 'gold-random cheat must default off');
+assert.ok(!/id="gold-free-toggle"[^>]*checked/.test(html), 'gold-free cheat must default off');
+assert.ok(!/id="force-xianti-toggle"[^>]*checked/.test(html), 'force-chaos cheat must default off');
+assert.ok(gameSource.indexOf('localStorage.setItem(KEY_GOLD_MODE') < 0, 'gold cheat mode must not persist across downloads or reloads');
+assert.ok(gameSource.indexOf('localStorage.setItem(KEY_FORCE_XIANTI') < 0, 'force-chaos cheat must not persist across downloads or reloads');
+assert.ok(gameSource.indexOf('localStorage.getItem(KEY_GOLD_MODE') < 0, 'gold cheat mode must not reload a saved on-state');
+assert.ok(gameSource.indexOf('localStorage.getItem(KEY_FORCE_XIANTI') < 0, 'force-chaos cheat must not reload a saved on-state');
 
 console.log('late-game: ok');

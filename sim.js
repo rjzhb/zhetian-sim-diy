@@ -97,27 +97,41 @@
     g.worldHistory.push({ year: Math.round(year), text: text });
     if (g.worldHistory.length > 40) g.worldHistory.shift();
   }
+  function daoTraceSpan() { return irand(D.DAO_TRACE_MIN, D.DAO_TRACE_MAX); }
+  function markDaoTraces(g, fromYear) {
+    g.daoTraceUntil = (fromYear || 0) + daoTraceSpan();
+    if (g.nextWorldEmperorYear == null || g.nextWorldEmperorYear < g.daoTraceUntil) {
+      g.nextWorldEmperorYear = g.daoTraceUntil;
+    }
+  }
+  function rivalEmperorEarliestYear(g) {
+    var min = g.becameEmperor ? 0 : D.WORLD_RIVAL_EMPEROR_MIN_YEAR;
+    if (g.daoTraceUntil != null) min = Math.max(min, g.daoTraceUntil);
+    return min;
+  }
+  function refreshDaoSuppression(g) {
+    if (g.playerEmperorActive) { g.daoSuppressed = false; return; }
+    g.daoSuppressed = !!(g.worldEmperor || (g.daoTraceUntil != null && (g.worldYear || 0) < g.daoTraceUntil));
+  }
+  function tracesStillActive(g) {
+    return !!(g.daoTraceUntil != null && (g.worldYear || 0) < g.daoTraceUntil);
+  }
   function createWorldEmperor(g, startYear) {
     g.worldEmperorSeq = (g.worldEmperorSeq || 0) + 1;
-    var duration = irand(9000, 12000);
+    var duration = irand(D.WORLD_EMPEROR_LIFE_MIN, D.WORLD_EMPEROR_LIFE_MAX);
     g.worldEmperor = {
       name: '当世第' + g.worldEmperorSeq + '位大帝',
       start: startYear,
       end: startYear + duration,
       cult: irand(1300000, 2200000)
     };
+    g.daoTraceUntil = null;
     recordWorldEvent(g, startYear, g.worldEmperor.name + '证道，天心有主');
   }
   function initWorldCalendar(g) {
     g.worldYear = 0; g.worldHistory = []; g.worldEmperorSeq = 0;
     g.playerEmperorActive = false; g.worldEmperor = null;
-    if (Math.random() < 0.12) {
-      createWorldEmperor(g, -irand(0, 8000));
-      g.nextWorldEmperorYear = null;
-    } else {
-      g.nextWorldEmperorYear = irand(500, 6000);
-    }
-    g.daoSuppressed = !!g.worldEmperor;
+    g.nextWorldEmperorYear = null; g.daoTraceUntil = null; g.daoSuppressed = false;
   }
   function advanceWorldCalendar(g, years, log) {
     if (!g || years <= 0) return;
@@ -130,13 +144,14 @@
       if (g.worldEmperor) {
         if (g.worldEmperor.end > target) break;
         var ended = g.worldEmperor;
-        recordWorldEvent(g, ended.end, ended.name + '帝命终结，万道重归无主');
-        if (years <= 1) push(log, { cls: 'rare', text: '万古历' + ended.end + '年，' + ended.name + '坐化，天心重归无主' });
+        recordWorldEvent(g, ended.end, ended.name + '坐化，帝道烙印仍镇压万道');
+        if (years <= 1) push(log, { cls: 'rare', text: '万古历' + ended.end + '年，' + ended.name + '坐化；帝痕未散，万道仍被压制' });
         g.worldEmperor = null;
-        g.nextWorldEmperorYear = ended.end + irand(800, 5000);
+        markDaoTraces(g, ended.end);
       } else {
-        if (g.nextWorldEmperorYear == null) g.nextWorldEmperorYear = (g.worldYear || 0) + irand(800, 5000);
-        if (g.nextWorldEmperorYear > target) break;
+        var earliest = rivalEmperorEarliestYear(g);
+        if (g.nextWorldEmperorYear != null && g.nextWorldEmperorYear < earliest) g.nextWorldEmperorYear = earliest;
+        if (g.nextWorldEmperorYear == null || g.nextWorldEmperorYear > target) break;
         var start = g.nextWorldEmperorYear;
         createWorldEmperor(g, start);
         g.nextWorldEmperorYear = null;
@@ -144,7 +159,7 @@
       }
     }
     g.worldYear = target;
-    g.daoSuppressed = !!g.worldEmperor;
+    refreshDaoSuppression(g);
   }
 
   /* 抽取体质：玩家等级 lv 奖励：高阶体质（6-10）整体概率 +lv×0.1 个百分点 */
@@ -558,6 +573,7 @@
     if (mode === 'jidao' || mode === 'hedao') rate = D.CHENGDI_BONUS_JIDAO;
     else rate = D.CHENGDI_BONUS_MIN + Math.random() * (D.CHENGDI_BONUS_MAX - D.CHENGDI_BONUS_MIN);
     g.cult = xianCult(g.cult, rate);
+    if (g.physiqueId === 'sacred') g.cult = Math.max(g.cult, D.HEAVENLY_EMPEROR_CULT);
     resetEmperorLife(g);
     return g.cult;
   }
@@ -776,7 +792,7 @@
     g.strangeWorldImmortalAttempts = 0;
     if (g.playerEmperorActive) {
       g.playerEmperorActive = false;
-      g.nextWorldEmperorYear = (g.worldYear || 0) + irand(800, 5000);
+      markDaoTraces(g, g.worldYear || 0);
     }
     var situationRoll = Math.random();
     g.strangeWorldSituation = strangeWorldSituationForRoll(situationRoll);
@@ -1030,7 +1046,7 @@
     g.redDustPath = 'forbidden';
     g.xintian = false;
     g.playerEmperorActive = false;
-    g.nextWorldEmperorYear = (g.worldYear || 0) + irand(800, 5000);
+    markDaoTraces(g, g.worldYear || 0);
     g.cult = round(g.cult * 0.75);
     push(log, { cls: 'dead', text: '你自斩一刀，皇道果位残缺，战力跌落至' + g.cult + '；以' + g.sealingMaterial + '自封，化为一代禁区至尊' });
     push(log, { cls: 'rainbow', text: '禁区之路：拥有' + g.forbiddenEssence + '道生命本源，可跨数十万乃至百万年沉睡；但封印仍会衰减，且已永失九世逆活之资格' });
@@ -1241,6 +1257,14 @@
   function tryZhengdao(g, log) {
     var extra = g.tm.zhx + pval(g, 'zhx', 0);
     var eff = zhengdaoEff(g);     /* 判定用战力：含隐藏的帝兵/不死药加持 */
+    if (!g.worldEmperor && tracesStillActive(g)) {
+      push(log, { cls: 'rare', text: '第' + g.age + '岁，前代帝道烙印尚未消散，万道仍被镇压，此世无人能证道' });
+      return false;
+    }
+    if (g.physiqueId === 'sacred' && g.cult < D.OVERWHELM_DAO_CULT) {
+      push(log, { cls: 'rare', text: '第' + g.age + '岁，荒古圣体未极，尚不足以破灭万道、问鼎天帝之位' });
+      return false;
+    }
     if (g.worldEmperor) {
       if (g.cult < D.OVERWHELM_DAO_CULT) {
         if (spendImperialRetry(g, log)) return true;
@@ -1276,16 +1300,18 @@
         push(log, { cls: 'god', text: '第' + g.age + '岁，天心合一，我道即天道，证道成帝！' });
         return true;
       }
-      /* 未修炼至圆满（未到准帝巅峰或战力不足）也可强行融合天心：即便战力达标也只有 15% 把握，失败即身陨 */
-      if (Math.random() < D.TIANXIN_EARLY_CHANCE) {
-        becomeDi(g, log, 'tianxin');
-        push(log, { cls: 'god', text: '第' + g.age + '岁，虽然没有修炼到圆满，但你还是尝试融合天心，成功证道！' });
+      /* 九重天后战力未达融合线：回退以力证道，不再走十五成的强融死门。 */
+      if (g.lvl < 99) {
+        if (Math.random() < D.TIANXIN_EARLY_CHANCE) {
+          becomeDi(g, log, 'tianxin');
+          push(log, { cls: 'god', text: '第' + g.age + '岁，虽然没有修炼到圆满，但你还是尝试融合天心，成功证道！' });
+          return true;
+        }
+        if (spendImperialRetry(g, log)) return true;
+        push(log, { cls: 'dead', text: '第' + g.age + '岁，虽然没有修炼到圆满，但你还是尝试融合天心，失败身陨' });
+        g.dead = true; g.deadCause = 'zhengdao';
         return true;
       }
-      if (spendImperialRetry(g, log)) return true;
-      push(log, { cls: 'dead', text: '第' + g.age + '岁，虽然没有修炼到圆满，但你还是尝试融合天心，失败身陨' });
-      g.dead = true; g.deadCause = 'zhengdao';
-      return true;
     }
     /* 无天心：以力证道（按判定战力查概率曲线） */
     var latePenalty = g.age > D.EMPEROR_PATH_FADE_AGE ? 1 - 0.5 * (g.age - D.EMPEROR_PATH_FADE_AGE) / (D.EMPEROR_PATH_CLOSE_AGE - D.EMPEROR_PATH_FADE_AGE) : 1;
@@ -1339,7 +1365,7 @@
       ascendMode: null, deadCause: null,
       daoSuppressed: false,
       worldYear: 0, worldHistory: [], worldEmperor: null, worldEmperorSeq: 0,
-      nextWorldEmperorYear: null, playerEmperorActive: false,
+      nextWorldEmperorYear: null, playerEmperorActive: false, daoTraceUntil: null,
       xintian: false, deathless: false, deathlessUsed: false, reverseMedicineUsed: false,
       xianSource: false, primordialStone: false, sealingMaterial: '',
       knowsStrangeWorld: false,

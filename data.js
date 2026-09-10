@@ -363,6 +363,13 @@
     /* 人道与帝者时间线 */
     EMPEROR_PATH_FADE_AGE: 6000,
     EMPEROR_PATH_CLOSE_AGE: 8000,
+    /* 除主角外，路人帝最早也要在玩家超过六千年未证道后才可能出现。 */
+    WORLD_RIVAL_EMPEROR_MIN_YEAR: 6000,
+    /* 路人大帝一世约一万至一万四千年；坐化后道痕再压约一万年，此间无人能成帝。 */
+    WORLD_EMPEROR_LIFE_MIN: 10000,
+    WORLD_EMPEROR_LIFE_MAX: 14000,
+    DAO_TRACE_MIN: 9000,
+    DAO_TRACE_MAX: 11000,
     EMPEROR_LIFE_MIN: 9000,
     EMPEROR_LIFE_MAX: 11000,
     EMPEROR_EVENT_TARGET: 18,
