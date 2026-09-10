@@ -172,6 +172,7 @@
         var c = U.cultPct(g, 0.05, 0.10, 1800);
         U.gainDao(g, U.irand(10, 20));
         U.printlog('踏上人族古路，横渡星域、连战诸天人杰，实力+' + c + '，悟道能力随之精进');
+        if (g.swallowingArt && Math.random() < 0.55) U.trySwallowPhysique(g, log);
         U.up(g, 1, log);
       },
       fail: function (g, U) {
@@ -189,6 +190,7 @@
         var c = U.cultPct(g, 0.07, 0.13, 3500);
         U.gainDao(g, U.irand(14, 24));
         U.printlog('与帝子级人杰鏖战数百合，于生死间验证己道，实力+' + c);
+        if (g.swallowingArt && Math.random() < 0.6) U.trySwallowPhysique(g, log);
         U.up(g, 1, log);
       },
       fail: function (g, U) {
@@ -309,6 +311,7 @@
       ok: function (g, U, log) {
         var c = U.cultPct(g, 0.05, 0.11, 1000);
         U.printlog('斩遍同代天骄，一战成名！实力+' + c);
+        if (g.swallowingArt && Math.random() < 0.55) U.trySwallowPhysique(g, log);
         U.up(g, U.irand(1, 2), log);
       },
       fail: function (g, U) {
@@ -441,15 +444,36 @@
       fail: null
     },
     {
+      id: 'tunti_yiti', weight: 3.4, maxCount: 22,
+      name: '异体天骄', tier: 2, desc: '遇上身怀特殊体质的同代或古族后裔',
+      minAge: 12, maxAge: 1000000,
+      available: function (g, U) {
+        return !!(g.swallowingArt && g.physiqueId !== 'chaos' && U.nextSwallowTarget(g));
+      },
+      cond: function (g, U) {
+        return !!(g.swallowingArt && g.physiqueId !== 'chaos' && U.nextSwallowTarget(g));
+      },
+      ok: function (g, U, log) {
+        var c = U.cultPct(g, 0.012, 0.03, 160);
+        U.printlog('对方身怀异体，你与之争锋，实力+' + c);
+        U.trySwallowPhysique(g, log);
+      },
+      fail: function (g, U) {
+        var h = U.hurt(g, 12, 40);
+        U.printlog(h.exempt ? '异体本源太烈，你及时收手，未敢强吞' : '强吞异体反噬己身，寿元 -' + h.loss);
+      }
+    },
+    {
       id: 'tianjiao', weight: 3, maxCount: 4,
       name: '同辈争锋', tier: 2, desc: '遇上一位心高气傲的天骄',
       minAge: 15, maxAge: 1000000,
       cond: function (g, U) { return g.lvl >= lvNeed(g, U, 25); },
-      ok: function (g, U) {
+      ok: function (g, U, log) {
         var c = U.cultPct(g, 0.018, 0.04, 250);
         U.printlog('战胜天骄，夺其气运，实力+' + c);
         var lf = U.gainLife(g, 10, 30);
         if (lf) U.printlog('胜势养气，寿元+' + lf);
+        if (g.swallowingArt && Math.random() < 0.5) U.trySwallowPhysique(g, log);
       },
       fail: function (g, U) {
         var h = U.hurt(g, 20, 70);

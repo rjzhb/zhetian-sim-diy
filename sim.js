@@ -107,7 +107,131 @@
       g.daoyunCap = Math.max(g.daoyunCap, baseDaoyunCap(p.tier));
       g.daoyun = Math.max(g.daoyun || 0, baseDaoyun(p.tier));
     }
+    if (g.swallowingArt && p.id !== 'chaos' && p.id !== 'innate_sacred_dao') {
+      initSwallowState(g);
+      g.swallowState.taken[p.id] = true;
+    }
     syncLife(g);
+  }
+
+  function swallowTargets() {
+    var out = [], i;
+    for (i = 0; i < D.PHYSIQUES.length; i++) {
+      var p = D.PHYSIQUES[i];
+      if (p.id !== 'chaos' && p.id !== 'innate_sacred_dao') out.push(p);
+    }
+    return out;
+  }
+
+  function swallowTierCap(lvl) {
+    if (lvl < 21) return 2;
+    if (lvl < 31) return 4;
+    if (lvl < 41) return 5;
+    if (lvl < 51) return 6;
+    if (lvl < 71) return 7;
+    if (lvl < 81) return 8;
+    return 9;
+  }
+
+  function initSwallowState(g) {
+    if (!g.swallowState) g.swallowState = { taken: {} };
+    if (!g.swallowState.taken) g.swallowState.taken = {};
+    if (g.physiqueId && g.physiqueId !== 'chaos' && g.physiqueId !== 'innate_sacred_dao') {
+      g.swallowState.taken[g.physiqueId] = true;
+    }
+    return g.swallowState;
+  }
+
+  function swallowProgress(g) {
+    if (!g) return { have: 0, need: 0 };
+    if (g.swallowingArt) initSwallowState(g);
+    var need = swallowTargets().length, have = 0, taken = (g.swallowState && g.swallowState.taken) || {}, i;
+    var list = swallowTargets();
+    for (i = 0; i < list.length; i++) if (taken[list[i].id]) have++;
+    return { have: have, need: need };
+  }
+
+  function nextSwallowTarget(g) {
+    if (!g || !g.swallowingArt || g.physiqueId === 'chaos') return null;
+    initSwallowState(g);
+    var cap = swallowTierCap(g.lvl || 1);
+    var taken = g.swallowState.taken;
+    var list = swallowTargets(), i, minTier = 99, pool = [];
+    for (i = 0; i < list.length; i++) {
+      if (taken[list[i].id] || list[i].tier > cap) continue;
+      if (list[i].tier < minTier) minTier = list[i].tier;
+    }
+    for (i = 0; i < list.length; i++) {
+      if (!taken[list[i].id] && list[i].tier === minTier && list[i].tier <= cap) pool.push(list[i]);
+    }
+    if (!pool.length) return null;
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function swallowNarrate(g, log, text, cls) {
+    if (_curEv && _curEv.log) {
+      printlog(text);
+      return;
+    }
+    push(log, { cls: cls || 'rainbow', text: '第' + g.age + '岁，遇到异体天骄，' + text });
+  }
+
+  function applySwallowGrowth(g, target) {
+    var cultGain = round(Math.max(80, g.cult * (0.014 + target.tier * 0.006)) * pval(g, 'cgt', 1));
+    g.cult += cultGain;
+    var upgraded = false;
+    if (target.tier > (g.innate || 1)) {
+      setPhysique(g, target);
+      upgraded = true;
+    }
+    return { cultGain: cultGain, upgraded: upgraded };
+  }
+
+  function swallowStepChance(g, target) {
+    var base = g.gotRuthless ? 0.28 : 0.16;
+    if (target.tier >= 9) return base * 0.55;
+    if (target.tier >= 8) return base * 0.75;
+    return base;
+  }
+
+  function trySwallowPhysique(g, log) {
+    if (!g || !g.swallowingArt || g.physiqueId === 'chaos') return false;
+    var target = nextSwallowTarget(g);
+    if (!target) return false;
+    g.swallowState.taken[target.id] = true;
+    var growth = applySwallowGrowth(g, target);
+    var prog = swallowProgress(g);
+    var text = '你以吞天魔功炼化『' + target.name + '』本源（' + prog.have + '/' + prog.need + '），实力+' + growth.cultGain;
+    if (growth.upgraded) text += '，体质蜕变为『' + g.physiqueName + '』';
+    swallowNarrate(g, log, text);
+    if (prog.have >= prog.need) {
+      g.swallowReady = true;
+      if (!becomeChaosFromSwallow(g, log) && (g.lvl < 71 || g.daoyun < 85)) {
+        swallowNarrate(g, log, '诸般体质本源已入炉，只待圣人境熔炼万法、化作混沌', 'rare');
+      }
+    }
+    return true;
+  }
+
+  function becomeChaosFromSwallow(g, log) {
+    if (!g || !g.swallowingArt || g.physiqueId === 'chaos') return false;
+    var prog = swallowProgress(g);
+    if (prog.have < prog.need) return false;
+    if (g.lvl < 71 || g.daoyun < 85) return false;
+    setPhysique(g, D.physiqueById('chaos'));
+    g.daoyunCap = Math.max(g.daoyunCap, 1500);
+    swallowNarrate(g, log, '万法归炉，你熔炼所吞诸般体质本源，褪去旧躯，蜕变为混沌体！');
+    return true;
+  }
+
+  function stepSwallowPath(g, log) {
+    if (!g.swallowingArt || g.physiqueId === 'chaos') return false;
+    var prog = swallowProgress(g);
+    if (prog.have >= prog.need) return becomeChaosFromSwallow(g, log);
+    var target = nextSwallowTarget(g);
+    if (!target || g.lvl < 21) return false;
+    if (Math.random() >= swallowStepChance(g, target)) return false;
+    return trySwallowPhysique(g, log);
   }
   /* 道蕴是后天成果而非另一种先天体质：起点差距小，体质主要决定积累速度与可望见的天花板。 */
   function baseDaoyun(tier) { return [0, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16][tier] || 4; }
@@ -363,7 +487,10 @@
       return v;
     },
     drawHighTalent: drawHighTalent,
-    printlog: printlog
+    printlog: printlog,
+    trySwallowPhysique: trySwallowPhysique,
+    nextSwallowTarget: nextSwallowTarget,
+    swallowProgress: swallowProgress
   };
   /* 体质异变：按体质 7-10 权重抽取，替换先天体质/资质 */
   function drawHighTalent(g) {
@@ -443,6 +570,7 @@
     g.daoyunCap = Math.min(D.DAO_ABSOLUTE_MAX, g.daoyunCap + daoCapAdd);
     g.daoyun += daoAdd;
     g.daoyun = Math.min(g.daoyun, g.daoyunCap);
+    if (g.swallowingArt) initSwallowState(g);
     syncLife(g);
   }
 
@@ -630,20 +758,30 @@
     if (!g.emperorLegacy) {
       g.emperorLegacy = {
         order: 0, forbiddenSuppressed: 0, lateAmbushes: 0, farewells: 0,
-        usedThisLife: {}, lastBeat: null
+        usedThisLife: {}, usedEver: {}, lastBeat: null
       };
     }
     if (!g.emperorLegacy.usedThisLife) g.emperorLegacy.usedThisLife = {};
+    if (!g.emperorLegacy.usedEver) g.emperorLegacy.usedEver = {};
     return g.emperorLegacy;
   }
 
   var EMPEROR_BEAT_META = {
-    late_ambush: { lateOnly: true },
-    establish_heaven: { oncePerLife: true },
-    emperor_tomb: { oncePerLife: true, minLife: 2 },
-    reincarnation_dream: { minLife: 2 },
-    self_method: { minLife: 3 },
-    lonely_throne: { minLife: 5 }
+    late_ambush: { lateOnly: true, oncePerLife: true },
+    establish_heaven: { once: true },
+    emperor_tomb: { once: true, minLife: 2 },
+    imperial_god: { once: true },
+    blood_pact: { once: true },
+    underworld_edge: { once: true },
+    reincarnation_dream: { once: true, minLife: 2 },
+    mortal_farewell: { oncePerLife: true },
+    faith_incense: { oncePerLife: true },
+    self_method: { oncePerLife: true, minLife: 3 },
+    lonely_throne: { oncePerLife: true, minLife: 5 },
+    nine_secret: { max: 3 },
+    predecessor_trace: { max: 3 },
+    sealed_world: { max: 2 },
+    reforge_weapon: { max: 2 }
   };
 
   function emperorBeatIds() {
@@ -658,6 +796,10 @@
     ];
   }
 
+  function beatUsedEver(legacy, id) {
+    return (legacy.usedEver && legacy.usedEver[id]) || 0;
+  }
+
   function pickEmperorBeat(g) {
     var legacy = emperorLegacy(g);
     var lifeNo = g.lifeNo || 1;
@@ -666,9 +808,12 @@
     var used = legacy.usedThisLife || {};
     var pool = emperorBeatIds().filter(function (id) {
       var m = EMPEROR_BEAT_META[id] || {};
+      var ever = beatUsedEver(legacy, id);
       if (m.minLife && lifeNo < m.minLife) return false;
       if (m.maxLife && lifeNo > m.maxLife) return false;
       if (m.lateOnly && progress < 0.65) return false;
+      if (m.once && ever) return false;
+      if (m.max && ever >= m.max) return false;
       if (m.oncePerLife && used[id]) return false;
       return true;
     });
@@ -683,6 +828,7 @@
   function markBeat(g, id) {
     var legacy = emperorLegacy(g);
     legacy.usedThisLife[id] = (legacy.usedThisLife[id] || 0) + 1;
+    legacy.usedEver[id] = (legacy.usedEver[id] || 0) + 1;
     legacy.lastBeat = id;
     return legacy.usedThisLife[id];
   }
@@ -1742,7 +1888,7 @@
       traits: [],
       daoyun: baseDaoyun(t.innate),
       daoyunCap: baseDaoyunCap(t.innate),
-      era: null, swallowingArt: false,
+      era: null, swallowingArt: false, swallowState: null, swallowReady: false,
       traitPaths: [], resonance: null,
       resonanceState: { bodyUsed: false, overflowDao: 0, eventUpgraded: false, tianxinPity: 0, imperialRetryUsed: false },
       tm: {
@@ -1781,15 +1927,8 @@
     var yearlyDao = 0.125 * (0.2 + g.innate * 0.5);
     if (g.lvl >= 91 && !hasGoldDaoGrowth(g)) yearlyDao *= 0.35;
     gainDaoyun(g, yearlyDao);
-    /* 凡体的逆天线：继承/自创吞天魔功后，积累足够道蕴可蜕为混沌体。 */
-    if (g.swallowingArt && g.physiqueId !== 'chaos' && g.lvl >= 71 && g.daoyun >= 85) {
-      var swallowChance = g.gotRuthless ? 0.004 : 0.001;
-      if (Math.random() < swallowChance) {
-        setPhysique(g, D.physiqueById('chaos'));
-        g.daoyunCap = Math.max(g.daoyunCap, 1500);
-        push(log, { cls: 'rainbow', text: '第' + g.age + '岁，你以吞天魔功熔炼万法，褪去旧躯，蜕变为混沌体！' });
-      }
-    }
+    /* 吞天之路：按境界从低到高炼化诸般体质，集齐后才以旧日把握化混沌。 */
+    stepSwallowPath(g, log);
     if (!g.swallowingArt && g.innate <= 2 && g.lvl >= 71 && g.daoyun >= 120 && Math.random() < 0.00001 * ((g.era && g.era.daog) || 1)) {
       g.swallowingArt = true;
       push(log, { cls: 'rainbow', text: '第' + g.age + '岁，你观万法而自创吞天之意；此路逆天，唯有熔炼万体才可继续前行' });
@@ -1952,6 +2091,11 @@
     resolveTraitResonance: resolveTraitResonance,
     gainDaoyun: gainDaoyun,
     tryBodyEvolution: tryBodyEvolution,
+    trySwallowPhysique: trySwallowPhysique,
+    swallowProgress: swallowProgress,
+    swallowTargets: swallowTargets,
+    nextSwallowTarget: nextSwallowTarget,
+    becomeChaosFromSwallow: becomeChaosFromSwallow,
     eventDaoyunTier: eventDaoyunTier,
     eventAvailable: eventAvailable,
     tianxinChance: tianxinChance,

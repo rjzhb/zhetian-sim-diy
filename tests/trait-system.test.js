@@ -196,4 +196,40 @@ assert.ok(gameSource.indexOf('TRAIT_PATHS') >= 0, 'game UI should render trait p
 assert.ok(gameSource.indexOf('trait.path') >= 0, 'game UI should inspect each trait path');
 assert.ok(gameSource.indexOf('resonance') >= 0, 'game UI should preview resonance');
 
+assert.strictEqual(typeof SIM.trySwallowPhysique, 'function', 'demon embryo should expose a devour helper');
+assert.strictEqual(typeof SIM.swallowProgress, 'function');
+assert.strictEqual(typeof SIM.becomeChaosFromSwallow, 'function');
+const motai = SIM.createGame(0, ['o03']);
+assert.strictEqual(motai.swallowingArt, true, '魔胎 must open the swallowing art');
+SIM.setPhysique(motai, DATA.physiqueById('mortal'));
+const swallowStart = SIM.swallowProgress(motai);
+assert.ok(swallowStart.need >= 18, 'chaos requires devouring the named physiques');
+assert.ok(swallowStart.have >= 1 && swallowStart.have < swallowStart.need,
+  'the starting physique already counts, but chaos still waits for the rest');
+motai.lvl = 20;
+const swallowLog = [];
+const cultBefore = motai.cult;
+assert.strictEqual(SIM.trySwallowPhysique(motai, swallowLog), true);
+assert.ok(swallowLog.some(function (row) {
+  return /吞天魔功/.test(row.text) && /炼化/.test(row.text) && /\d+\/\d+/.test(row.text);
+}), 'devouring a physique must appear as an event line with progress');
+assert.ok(motai.cult > cultBefore, 'each swallowed physique must make the body stronger');
+assert.ok(motai.innate >= 2, 'a mortal demon embryo should climb as it swallows higher bodies');
+motai.lvl = 40;
+for (let i = 0; i < 40; i++) SIM.trySwallowPhysique(motai, []);
+assert.ok(!motai.swallowState.taken.sacred && !motai.swallowState.taken.overlord,
+  'Saint-tier physiques must stay locked until the Saint realm');
+assert.ok(motai.innate >= 5 && motai.innate < 9,
+  'swallowing should step the physique upward, not jump to a Saint body early');
+assert.notStrictEqual(motai.physiqueId, 'chaos');
+motai.lvl = 71;
+motai.daoyun = 200;
+assert.strictEqual(SIM.becomeChaosFromSwallow(motai, []), false,
+  'collecting only part of the physiques must not skip to chaos');
+SIM.swallowTargets().forEach(function (p) { motai.swallowState.taken[p.id] = true; });
+assert.strictEqual(SIM.becomeChaosFromSwallow(motai, []), true);
+assert.strictEqual(motai.physiqueId, 'chaos');
+assert.ok(SIM.EVENTS.some(function (ev) { return ev.id === 'tunti_yiti'; }),
+  'swallowing must have a visible encounter event');
+
 console.log('trait-system: ok');

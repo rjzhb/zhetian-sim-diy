@@ -632,4 +632,43 @@ const nextBeat = Sim.pickEmperorBeat(pickGame);
 assert.ok(nextBeat && nextBeat !== 'world_order',
   'the next emperor beat should not immediately repeat the last one');
 
+function sawBeat(g, id, rolls) {
+  for (let i = 0; i < rolls; i++) {
+    if (Sim.pickEmperorBeat(g) === id) return true;
+  }
+  return false;
+}
+
+const onceHeaven = Sim.createGame(0, []);
+Sim.becomeDi(onceHeaven, [], 'force');
+assert.strictEqual(Sim.runEmperorExperience(onceHeaven, 'establish_heaven', []), true);
+assert.strictEqual(Sim.runEmperorExperience(onceHeaven, 'imperial_god', []), true);
+onceHeaven.emperorLegacy.usedThisLife = {};
+onceHeaven.emperorLegacy.lastBeat = null;
+onceHeaven.lifeNo = 2;
+assert.strictEqual(sawBeat(onceHeaven, 'establish_heaven', 80), false,
+  'founding the heavenly court is a once-in-an-era event');
+assert.strictEqual(sawBeat(onceHeaven, 'imperial_god', 80), false,
+  'an imperial weapon-god can only awaken once');
+assert.ok(sawBeat(onceHeaven, 'body_refine', 80),
+  'daily emperor cultivation must remain available after unique beats are spent');
+
+const secretCap = Sim.createGame(0, []);
+Sim.becomeDi(secretCap, [], 'force');
+for (let i = 0; i < 3; i++) Sim.runEmperorExperience(secretCap, 'nine_secret', []);
+assert.strictEqual(sawBeat(secretCap, 'nine_secret', 80), false,
+  'nine-secret fragments must dry up after a few insights');
+
+const perLifeMethod = Sim.createGame(0, []);
+Sim.becomeDi(perLifeMethod, [], 'force');
+perLifeMethod.lifeNo = 3;
+assert.strictEqual(Sim.runEmperorExperience(perLifeMethod, 'self_method', []), true);
+assert.strictEqual(sawBeat(perLifeMethod, 'self_method', 80), false,
+  'a life should not invent the same longevity method twice');
+perLifeMethod.emperorLegacy.usedThisLife = {};
+perLifeMethod.emperorLegacy.lastBeat = null;
+perLifeMethod.lifeNo = 4;
+assert.ok(sawBeat(perLifeMethod, 'self_method', 80),
+  'each later life may still open a different longevity method');
+
 console.log('late-game: ok');

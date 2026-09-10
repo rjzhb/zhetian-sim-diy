@@ -281,7 +281,7 @@
         case 'daog': return '道蕴成长×' + v;
         case 'daocap': return '道蕴上限+' + v;
         case 'era': return '生于盛世概率×' + v;
-        case 'swallow': return '吞天魔功机缘开启';
+        case 'swallow': return '吞天魔功：需炼化诸般体质方可化混沌';
         case 'retry': return '帝关重修机会+1';
         case 'retryKeep': return '帝关重修损失减轻' + Math.round(v * 100) + '%';
         case 'bodyChance': return '后天体质蜕变概率+' + Math.round(v * 100) + '%';

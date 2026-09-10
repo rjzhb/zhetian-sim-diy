@@ -636,7 +636,12 @@
     else $('attr-stage-sub').innerHTML = G.lvl >= 99 ? '准帝九重天 · 闭关参悟帝关' :
       ('第 <b id="attr-lvl">' + G.lvl + '</b> 层 · 共 100 层');
     $('attr-apt').textContent = physiqueName(G);
-    $('attr-apt-sub').textContent = '修行根基第 ' + G.aptitude + ' 档';
+    if (G.swallowingArt && G.physiqueId !== 'chaos' && Sim.swallowProgress) {
+      var swallow = Sim.swallowProgress(G);
+      $('attr-apt-sub').textContent = '修行根基第 ' + G.aptitude + ' 档 · 吞天 ' + swallow.have + '/' + swallow.need;
+    } else {
+      $('attr-apt-sub').textContent = '修行根基第 ' + G.aptitude + ' 档';
+    }
     $('attr-life').textContent = G.inStrangeWorld ? '入界 ' + fmt(G.strangeWorldYears) + '年' :
       (G.forbiddenLord ? '封源 ' + G.forbiddenEssence : (G.emperor ? (G.age - G.emperorLifeStart) + '/' + (G.emperorLifeEnd - G.emperorLifeStart) : G.age + '/' + G.lifespan));
     $('attr-cult').textContent = fmt(G.cult);
