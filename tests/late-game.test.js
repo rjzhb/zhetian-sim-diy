@@ -200,6 +200,43 @@ assert.deepStrictEqual(Sim.forbiddenSleepRange({ sealingMaterial: '太初命石'
 assert.deepStrictEqual(Sim.forbiddenSleepRange({ sealingMaterial: '仙源' }), [150000, 400000]);
 assert.deepStrictEqual(Sim.forbiddenSleepRange({ sealingMaterial: '仙源与太初命石' }), [250000, 600000]);
 
+function sealedLord() {
+  const g = Sim.createGame(0, []);
+  Sim.becomeDi(g, [], 'force');
+  g.xianSource = true;
+  g.primordialStone = true;
+  g.awaitingSelfSlash = true;
+  Sim.chooseSelfSlash(g, true, []);
+  return g;
+}
+Sim.setFast(false);
+const firstSleep = sealedLord();
+const firstSleepLog = Sim.rollYear(firstSleep) || [];
+assert.ok((firstSleep.forbiddenSleepLeft || 0) > 0, 'self-slash must begin a long sleep instead of skipping it');
+assert.strictEqual(firstSleep.awaitingDarkTurmoil, false,
+  'the first year after sealing must not jump to a dark-turmoil prompt');
+assert.ok(firstSleepLog.some(function (row) { return /沉/.test(row.text); }),
+  'the player should see that the forbidden sleep has started');
+let sleepTicks = 0;
+while (firstSleep.forbiddenSleepLeft > 0 && sleepTicks++ < 80) Sim.rollYear(firstSleep);
+assert.ok(sleepTicks >= 3, 'forbidden sleep must take several visible years to finish');
+assert.ok(firstSleep.forbiddenSleepLeft === 0, 'the sleep should eventually end');
+const afterTurmoil = sealedLord();
+afterTurmoil.forbiddenSleepLeft = 0;
+afterTurmoil.forbiddenSleepTotal = 0;
+afterTurmoil.awaitingDarkTurmoil = true;
+Sim.chooseDarkTurmoil(afterTurmoil, true, []);
+Sim.rollYear(afterTurmoil);
+assert.ok((afterTurmoil.forbiddenSleepLeft || 0) > 0,
+  'after a dark turmoil the lord must fall asleep again instead of instantly seeing the next prompt');
+assert.strictEqual(afterTurmoil.awaitingDarkTurmoil, false);
+Sim.setFast(true);
+const fastSleep = sealedLord();
+Sim.rollYear(fastSleep);
+assert.ok(!fastSleep.forbiddenSleepLeft,
+  'fast calibration may still resolve a forbidden sleep in one step');
+Sim.setFast(false);
+
 assert.strictEqual(typeof Sim.undeadEmperorForRoll, 'function');
 assert.deepStrictEqual(Sim.undeadEmperorForRoll(0), { lives: 2, cult: 1650000 });
 assert.deepStrictEqual(Sim.undeadEmperorForRoll(0.1), { lives: 3, cult: 2100000 });

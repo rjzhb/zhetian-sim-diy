@@ -232,5 +232,8 @@ assert.strictEqual(SIM.becomeChaosFromSwallow(motai, []), true);
 assert.strictEqual(motai.physiqueId, 'chaos');
 assert.ok(SIM.EVENTS.some(function (ev) { return ev.id === 'tunti_yiti'; }),
   'swallowing must have a visible encounter event');
+assert.ok(SIM.swallowTargets().every(function (p) {
+  return p.id !== 'chaos' && p.id !== 'innate_sacred_dao';
+}), 'peak physiques cannot be swallowed as fuel for the other peak');
 
 console.log('trait-system: ok');

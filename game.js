@@ -628,7 +628,11 @@
       var strangeRoute = G.strangeWorldAlliance === 'wushi' ? '与无始并肩' : (G.strangeWorldAlliance === 'hide' ? '隐世蛰伏' : '探索未知');
       $('attr-stage-sub').textContent = '入界 ' + fmt(G.strangeWorldYears) + ' 年 · 长生感悟 ' + Math.round(G.strangeWorldInsight) + ' · ' + strangeRoute;
     }
-    else if (G.forbiddenLord) $('attr-stage-sub').textContent = '生命本源 ' + G.forbiddenEssence + ' · 血债 ' + G.forbiddenKarma;
+    else if (G.forbiddenLord) {
+      $('attr-stage-sub').textContent = (G.forbiddenSleepLeft > 0 ?
+        '沉睡中 · 尚余' + fmt(G.forbiddenSleepLeft) + '年' :
+        '苏醒于禁区') + ' · 本源 ' + G.forbiddenEssence + ' · 血债 ' + G.forbiddenKarma;
+    }
     else if (G.emperor) $('attr-stage-sub').textContent = G.immortalMode === 'strange_world' ? '奇异世界 · 红尘为仙' :
       (G.immortalMode === 'immortal_road' ? '成仙路 · 红尘为仙' :
       (G.redDustPath === 'reverse' ? '红尘印 ' + G.redDustMarks + '/' + (DATA.RED_DUST_LIVES - 1) +
@@ -643,7 +647,7 @@
       $('attr-apt-sub').textContent = '修行根基第 ' + G.aptitude + ' 档';
     }
     $('attr-life').textContent = G.inStrangeWorld ? '入界 ' + fmt(G.strangeWorldYears) + '年' :
-      (G.forbiddenLord ? '封源 ' + G.forbiddenEssence : (G.emperor ? (G.age - G.emperorLifeStart) + '/' + (G.emperorLifeEnd - G.emperorLifeStart) : G.age + '/' + G.lifespan));
+      (G.forbiddenLord ? (G.forbiddenSleepLeft > 0 ? '沉睡余 ' + fmt(G.forbiddenSleepLeft) : '封源 ' + G.forbiddenEssence) : (G.emperor ? (G.age - G.emperorLifeStart) + '/' + (G.emperorLifeEnd - G.emperorLifeStart) : G.age + '/' + G.lifespan));
     $('attr-cult').textContent = fmt(G.cult);
     $('attr-daoyun').textContent = Math.round(G.daoyun) + '/' + Math.round(G.daoyunCap);
     $('attr-era').textContent = G.inStrangeWorld ? '奇异世界' : (G.era ? G.era.name : '--');

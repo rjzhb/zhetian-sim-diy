@@ -107,18 +107,22 @@
       g.daoyunCap = Math.max(g.daoyunCap, baseDaoyunCap(p.tier));
       g.daoyun = Math.max(g.daoyun || 0, baseDaoyun(p.tier));
     }
-    if (g.swallowingArt && p.id !== 'chaos' && p.id !== 'innate_sacred_dao') {
+    if (g.swallowingArt && !isPeakPhysique(p.id)) {
       initSwallowState(g);
       g.swallowState.taken[p.id] = true;
     }
     syncLife(g);
   }
 
+  function isPeakPhysique(id) {
+    return id === 'chaos' || id === 'innate_sacred_dao';
+  }
+
   function swallowTargets() {
     var out = [], i;
     for (i = 0; i < D.PHYSIQUES.length; i++) {
       var p = D.PHYSIQUES[i];
-      if (p.id !== 'chaos' && p.id !== 'innate_sacred_dao') out.push(p);
+      if (!isPeakPhysique(p.id)) out.push(p);
     }
     return out;
   }
@@ -136,7 +140,7 @@
   function initSwallowState(g) {
     if (!g.swallowState) g.swallowState = { taken: {} };
     if (!g.swallowState.taken) g.swallowState.taken = {};
-    if (g.physiqueId && g.physiqueId !== 'chaos' && g.physiqueId !== 'innate_sacred_dao') {
+    if (g.physiqueId && !isPeakPhysique(g.physiqueId)) {
       g.swallowState.taken[g.physiqueId] = true;
     }
     return g.swallowState;
@@ -152,7 +156,7 @@
   }
 
   function nextSwallowTarget(g) {
-    if (!g || !g.swallowingArt || g.physiqueId === 'chaos') return null;
+    if (!g || !g.swallowingArt || isPeakPhysique(g.physiqueId)) return null;
     initSwallowState(g);
     var cap = swallowTierCap(g.lvl || 1);
     var taken = g.swallowState.taken;
@@ -195,9 +199,9 @@
   }
 
   function trySwallowPhysique(g, log) {
-    if (!g || !g.swallowingArt || g.physiqueId === 'chaos') return false;
+    if (!g || !g.swallowingArt || isPeakPhysique(g.physiqueId)) return false;
     var target = nextSwallowTarget(g);
-    if (!target) return false;
+    if (!target || isPeakPhysique(target.id)) return false;
     g.swallowState.taken[target.id] = true;
     var growth = applySwallowGrowth(g, target);
     var prog = swallowProgress(g);
@@ -290,7 +294,7 @@
         if (g.worldEmperor.end > target) break;
         var ended = g.worldEmperor;
         recordWorldEvent(g, ended.end, ended.name + '坐化，帝道烙印仍镇压万道');
-        if (years <= 1) push(log, { cls: 'rare', text: '万古历' + ended.end + '年，' + ended.name + '坐化；帝痕未散，万道仍被压制' });
+        if (log) push(log, { cls: 'rare', text: '万古历' + ended.end + '年，' + ended.name + '坐化；帝痕未散，万道仍被压制' });
         g.worldEmperor = null;
         markDaoTraces(g, ended.end);
       } else {
@@ -307,7 +311,7 @@
         var start = g.nextWorldEmperorYear;
         createWorldEmperor(g, start);
         g.nextWorldEmperorYear = null;
-        if (years <= 1) push(log, { cls: 'ev4', text: '万古历' + start + '年，宇宙中另一位修士证道成帝，天心自此有主' });
+        if (log) push(log, { cls: 'ev4', text: '万古历' + start + '年，宇宙中另一位修士证道成帝，天心自此有主' });
       }
     }
     g.worldYear = target;
@@ -1596,25 +1600,30 @@
     return [80000, 220000];
   }
 
-  function stepForbiddenLord(g, log) {
-    if (g.awaitingDarkTurmoil || g.awaitingImmortalPath) return;
-    if (g.forbiddenEssence <= 0) {
-      g.dead = true; g.deadCause = 'forbidden_exhausted';
-      push(log, { cls: 'dead', text: g.sealingMaterial + '中的长生物质耗尽，你的禁区再也无法封存生机，残缺帝躯最终化作尘埃' });
-      return;
-    }
-    var sleepRange = forbiddenSleepRange(g);
-    var sleep = irand(sleepRange[0], sleepRange[1]);
-    g.age += sleep;
-    advanceWorldCalendar(g, sleep, null);
+  function startForbiddenSleep(g, log) {
+    var range = forbiddenSleepRange(g);
+    var sleep = irand(range[0], range[1]);
+    g.forbiddenSleepLeft = sleep;
+    g.forbiddenSleepTotal = sleep;
+    push(log, { cls: 'rare', text: '你以' + g.sealingMaterial + '封源，沉入禁区岁月；此番约莫要睡去' + sleep + '年' });
+  }
+
+  function forbiddenSleepChunk(g) {
+    var left = g.forbiddenSleepLeft || 0;
+    if (left <= 0) return 0;
+    if (_fast) return left;
+    return Math.min(left, Math.max(8000, Math.min(irand(12000, 30000), Math.ceil(left / 6))));
+  }
+
+  function resolveForbiddenWake(g, log) {
     g.forbiddenEssence--;
-    push(log, { cls: 'rare', text: '你封于' + g.sealingMaterial + '，沉睡' + sleep + '年后于万古历' + g.worldYear + '年苏醒；生命本源余' + g.forbiddenEssence + '道，' +
+    push(log, { cls: 'rare', text: '你封于' + g.sealingMaterial + '，沉睡' + (g.forbiddenSleepTotal || 0) + '年后于万古历' + g.worldYear + '年苏醒；生命本源余' + g.forbiddenEssence + '道，' +
       (g.worldEmperor ? '此世天心有主' : '此世尚无大帝') });
+    g.forbiddenSleepLeft = 0;
+    g.forbiddenSleepTotal = 0;
     if (!g.knowsStrangeWorld && Math.random() < strangeWorldLearnChance(g)) {
       learnStrangeWorld(g, log, '你从仙路残片与古代至尊遗骸中，终于获知奇异世界坐标');
     }
-
-    /* 已知坐标且战力恢复到破界线，苏醒后会立刻踏入奇异世界。 */
     if (g.waitingImmortalRoad && Math.random() < 0.18) {
       tryImmortalRoad(g, log);
       return;
@@ -1623,7 +1632,6 @@
       openImmortalPathChoice(g, log);
       return;
     }
-
     if (g.forbiddenEssence <= 0) {
       g.awaitingDarkTurmoil = true; g.forcedDarkTurmoil = true;
       push(log, { cls: 'dead', text: '封印中的长生物质已经耗尽。你只能选择发动黑暗动乱补充本源，或拒绝屠戮并在下一次岁月侵蚀中坐化' +
@@ -1631,7 +1639,6 @@
       if (_fast) chooseDarkTurmoil(g, false, log);
       return;
     }
-
     if (Math.random() < forbiddenPurgeChance(g.forbiddenKarma, !!g.worldEmperor)) {
       var battle = forbiddenBattleChance(g);
       var coalition = g.forbiddenKarma >= 3;
@@ -1646,24 +1653,41 @@
       g.cult = round(g.cult * rand(1.08, 1.16));
       push(log, { cls: 'god', text: coalition ? '你浴血击退诸帝道统的围剿，残缺皇道再度复苏，实力升至' + g.cult :
         '你击退当世大帝，残缺皇道在血战中复苏，实力升至' + g.cult });
+    } else if (Math.random() < 0.55) {
+      g.awaitingDarkTurmoil = true;
+      push(log, { cls: 'dead', text: '你苏醒的年代众生鼎盛，禁区本源却在流失：是否发动黑暗动乱，吞纳众生精气续命？' });
+      if (_fast) chooseDarkTurmoil(g, false, log);
+      return;
     } else {
-      var roll = Math.random();
-      if (roll < 0.55) {
-        /* 黑暗动乱是玩家的道德与生存抉择，不再后台自动代选。 */
-        g.awaitingDarkTurmoil = true;
-        push(log, { cls: 'dead', text: '你苏醒的年代众生鼎盛，禁区本源却在流失：是否发动黑暗动乱，吞纳众生精气续命？' });
-        /* 批量校准默认不发动，避免把模拟结果建立在自动屠戮之上。 */
-        if (_fast) chooseDarkTurmoil(g, false, log);
-        return;
-      } else {
-        g.cult = round(g.cult * rand(1.04, 1.09));
-        push(log, { cls: 'gain', text: '你于神源中推演残缺皇道，虽未补全帝位，实力仍精进至' + g.cult });
-      }
+      g.cult = round(g.cult * rand(1.04, 1.09));
+      push(log, { cls: 'gain', text: '你于神源中推演残缺皇道，虽未补全帝位，实力仍精进至' + g.cult });
     }
-
     if (!g.dead && canChooseImmortalPath(g)) {
       openImmortalPathChoice(g, log);
     }
+  }
+
+  function stepForbiddenLord(g, log) {
+    if (g.awaitingDarkTurmoil || g.awaitingImmortalPath) return;
+    if ((g.forbiddenSleepLeft || 0) > 0) {
+      var tick = forbiddenSleepChunk(g);
+      g.age += tick;
+      advanceWorldCalendar(g, tick, _fast ? null : log);
+      g.forbiddenSleepLeft -= tick;
+      if (g.forbiddenSleepLeft > 0) {
+        push(log, { cls: 'gain', text: '禁区岁月无声，又过' + tick + '年。万古历' + g.worldYear + '年，距苏醒尚余' + g.forbiddenSleepLeft + '年' });
+        return;
+      }
+      resolveForbiddenWake(g, log);
+      return;
+    }
+    if (g.forbiddenEssence <= 0) {
+      g.dead = true; g.deadCause = 'forbidden_exhausted';
+      push(log, { cls: 'dead', text: g.sealingMaterial + '中的长生物质耗尽，你的禁区再也无法封存生机，残缺帝躯最终化作尘埃' });
+      return;
+    }
+    startForbiddenSleep(g, log);
+    if (_fast) stepForbiddenLord(g, log);
   }
 
   function chooseDarkTurmoil(g, start, log) {
@@ -1904,6 +1928,7 @@
       awaitingSelfSlash: false, selfSlashOffered: false, selfSlashDeclined: false, selfSlashed: false,
       awaitingDarkTurmoil: false, forcedDarkTurmoil: false, awaitingImmortalPath: false, waitingImmortalRoad: false,
       forbiddenLord: false, forbiddenEssence: 0, forbiddenKarma: 0,
+      forbiddenSleepLeft: 0, forbiddenSleepTotal: 0,
       traits: [],
       daoyun: baseDaoyun(t.innate),
       daoyunCap: baseDaoyunCap(t.innate),
