@@ -100,7 +100,7 @@
     { id: 'golden', name: '黄金大世', weight: 5, daog: 1.45, evt: 1.7, evf: 1.25 }
   ];
 
-  /* 实力成长系数：下标 = 后台修炼资质档位（1-10） */
+  /* 境界战力系数：仅由体质根基决定，不受命格的旧版成长词条影响。 */
   var CULT_COEF = [0, 1.0, 1.5, 2.2, 3.2, 4.5, 6.3, 8.8, 12, 16, 22];
 
   /* 突破年数表（单位：年）。高阶体质不是单纯多活几年，而是把成长高峰压到青年期：
@@ -117,6 +117,12 @@
     [0.15, 0.5, 1, 2, 4, 8, 15, 25, 45, 90, 180, 350],
     [0.1, 0.2, 0.4, 0.8, 1.5, 3, 5, 8, 12, 20, 40, 80]
   ];
+  /* 准帝一至八重逐重加压；混沌体可明显缩短停留，但仍需逐重破关。 */
+  var QUASI_LAYER_MULT = [1, 1.25, 1.6, 2.1, 2.8, 3.8, 5.2, 7];
+  var QUASI_CHAOS_MULT = [1, 1.05, 1.15, 1.3, 1.5, 1.8, 2.2, 2.8];
+  var DAO_ABSOLUTE_MAX = 3000;
+  var OVERWHELM_DAO_CULT = 900000;
+  var HEAVENLY_EMPEROR_CULT = 3000000;
 
   /* 各境界寿元上限带（下标 = 境界 1-10：轮海…准帝）。
    * 玩家以 60-100 寿元诞生；突破大境界（轮海不算）时补至 rand(带下限,带上限)；
@@ -135,124 +141,125 @@
     [6500, 8000]          /* 10 准帝；正常帝路八千岁关闭 */
   ];
 
-  /* ---------- 词条（100 个：白25 / 蓝25 / 紫25 / 金25） ----------
-   * fx 效果数组：[ [type, value], ... ]；type：
-   *   life 额外寿元+X（不计入境界上限） / cult 初始实力+X / apt 初始资质+X(≤10)
-   *   floor 体质保底（先天体质不低于该级） / brk 突破概率×V / cgt 实力成长×V
-   *   evf 机缘触发频率×V / evt 高阶机缘(≥t3)权重×V / ward 化险为夷+（百分点）
-   *   xin 感悟天心概率×V / dlm 天心门槛降低V% / zhx 最终证道把握+V
-   *   dao 初始道蕴+V / daog 道蕴成长×V / daocap 道蕴上限+V / era 盛世概率×V
-   *   swallow 开启吞天魔功线 / retry 帝关重修机会+V
-   * 抽取：白55% / 蓝28% / 紫13% / 金4%，每局从5张中选2张。
-   * 金卡优先改变路线或规则，不直接赠送顶级体质。 */
+  var TRAIT_PATHS = {
+    body: { name: '体质蜕变', icon: '🩸', resonance: '百炼成道', desc: '淬炼肉身，在后天打破先天桎梏' },
+    dao: { name: '道蕴悟道', icon: '☯', resonance: '道海无涯', desc: '积累道蕴，将毕生感悟化作帝路根基' },
+    fortune: { name: '气运机缘', icon: '✦', resonance: '否极泰来', desc: '借时代与机缘之势改写命途' },
+    tianxin: { name: '天心证道', icon: '✧', resonance: '天心相照', desc: '感应天心，走我道即天道之路' },
+    imperial: { name: '帝路生存', icon: '♛', resonance: '帝路不绝', desc: '延续性命，为帝关失败留下余地' }
+  };
+
+  /* ---------- 命格（100 个：白/蓝/紫/金各25，每个稀有度五流派各5张） ----------
+   * 命格只改变体质蜕变、道蕴、机缘、天心与帝路规则。
+   * 修炼速度和战力成长属于体质/事件系统，不再作为命格效果。 */
   var TRAITS = [
-    /* ---------- 白（凡品 25）：只许最基础的微量属性，≤2 项，无资质/高阶机缘/天心/证道 ---------- */
-    { id: 'w01', name: '血气方刚', color: 'w', fx: [['life', 5]] },
-    { id: 'w02', name: '身强体健', color: 'w', fx: [['life', 4], ['cult', 30]] },
-    { id: 'w03', name: '日积月累', color: 'w', fx: [['life', 3], ['daog', 1.05]] },
-    { id: 'w04', name: '灵韵初显', color: 'w', fx: [['life', 2], ['cgt', 1.01]] },
-    { id: 'w05', name: '小有福缘', color: 'w', fx: [['life', 2], ['evf', 1.02]] },
-    { id: 'w06', name: '心宽福长', color: 'w', fx: [['life', 3], ['ward', 1]] },
-    { id: 'w07', name: '天生神力', color: 'w', fx: [['cult', 60]] },
-    { id: 'w08', name: '磨砺己身', color: 'w', fx: [['cult', 50], ['brk', 1.02]] },
-    { id: 'w09', name: '勤修不止', color: 'w', fx: [['cult', 40], ['cgt', 1.01]] },
-    { id: 'w10', name: '乐善好施', color: 'w', fx: [['cult', 40], ['evf', 1.03]] },
-    { id: 'w11', name: '处世圆融', color: 'w', fx: [['cult', 30], ['ward', 1]] },
-    { id: 'w12', name: '百炼凡胎', color: 'w', fx: [['floor', 2]] },
-    { id: 'w13', name: '筋骨初成', color: 'w', fx: [['floor', 2], ['life', 3]] },
-    { id: 'w14', name: '精血充沛', color: 'w', fx: [['floor', 2], ['cult', 40]] },
-    { id: 'w15', name: '悟性初醒', color: 'w', fx: [['dao', 3]] },
-    { id: 'w16', name: '温故知新', color: 'w', fx: [['brk', 1.02], ['cgt', 1.01]] },
-    { id: 'w17', name: '广交游历', color: 'w', fx: [['brk', 1.02], ['evf', 1.03]] },
-    { id: 'w18', name: '心细谨慎', color: 'w', fx: [['brk', 1.02], ['ward', 1]] },
-    { id: 'w19', name: '厚德载物', color: 'w', fx: [['cgt', 1.02]] },
-    { id: 'w20', name: '水滴石穿', color: 'w', fx: [['cgt', 1.02], ['evf', 1.02]] },
-    { id: 'w21', name: '稳重求生', color: 'w', fx: [['cgt', 1.01], ['ward', 1]] },
-    { id: 'w22', name: '时来运转', color: 'w', fx: [['evf', 1.05]] },
-    { id: 'w23', name: '命里藏福', color: 'w', fx: [['evf', 1.03], ['ward', 1]] },
-    { id: 'w24', name: '苦练不辍', color: 'w', fx: [['life', 2], ['brk', 1.03]] },
-    { id: 'w25', name: '天生长寿', color: 'w', fx: [['floor', 2], ['ward', 1]] },
-    /* ---------- 蓝（稀有 15）：白的能力升级，另有 apt+1 / floor3 / 高阶机缘微增 ---------- */
-    { id: 'b01', name: '天资初醒', color: 'b', fx: [['dao', 8], ['daog', 1.10]] },
-    { id: 'b02', name: '骨架不凡', color: 'b', fx: [['floor', 3], ['life', 8]] },
-    { id: 'b03', name: '灵秀之气', color: 'b', fx: [['evt', 1.4], ['life', 6]] },
-    { id: 'b04', name: '福源不小', color: 'b', fx: [['evt', 1.4], ['cult', 300]] },
-    { id: 'b05', name: '命格稳健', color: 'b', fx: [['life', 12], ['ward', 3]] },
-    { id: 'b06', name: '大器晚成', color: 'b', fx: [['life', 10], ['brk', 1.04]] },
-    { id: 'b07', name: '底蕴渐丰', color: 'b', fx: [['cult', 300], ['cgt', 1.04]] },
-    { id: 'b08', name: '贵人相助', color: 'b', fx: [['cult', 250], ['evf', 1.06]] },
-    { id: 'b09', name: '逢凶化吉', color: 'b', fx: [['cult', 250], ['ward', 3]] },
-    { id: 'b10', name: '悟性渐佳', color: 'b', fx: [['dao', 6], ['daog', 1.15]] },
-    { id: 'b11', name: '广结善缘', color: 'b', fx: [['brk', 1.05], ['evf', 1.06]] },
-    { id: 'b12', name: '渐入佳境', color: 'b', fx: [['cgt', 1.04], ['evf', 1.07]] },
-    { id: 'b13', name: '小有慧根', color: 'b', fx: [['life', 8], ['brk', 1.05]] },
-    { id: 'b14', name: '沉稳老练', color: 'b', fx: [['ward', 4], ['evf', 1.06]] },
-    { id: 'b15', name: '机缘尚可', color: 'b', fx: [['evt', 1.5], ['cgt', 1.03]] },
-    /* 扩充蓝 → 至 25 条 */
-    { id: 'b16', name: '命比金坚', color: 'b', fx: [['life', 14], ['evf', 1.06]] },
-    { id: 'b17', name: '势大力沉', color: 'b', fx: [['cult', 400], ['brk', 1.05]] },
-    { id: 'b18', name: '过目不忘', color: 'b', fx: [['dao', 10], ['evt', 1.5]] },
-    { id: 'b19', name: '铜筋铁骨', color: 'b', fx: [['floor', 3], ['cgt', 1.05]] },
-    { id: 'b20', name: '气贯长虹', color: 'b', fx: [['life', 16], ['evf', 1.07]] },
-    { id: 'b21', name: '机缘不小', color: 'b', fx: [['cult', 300], ['evf', 1.08]] },
-    { id: 'b22', name: '后发制人', color: 'b', fx: [['brk', 1.06], ['cgt', 1.04]] },
-    { id: 'b23', name: '稳如磐石', color: 'b', fx: [['ward', 5], ['life', 12]] },
-    { id: 'b24', name: '眼明手快', color: 'b', fx: [['evt', 1.6], ['brk', 1.05]] },
-    { id: 'b25', name: '气运初开', color: 'b', fx: [['era', 1.4], ['cult', 400]] },
-    /* ---------- 紫（史诗 8）：另有 apt+2 / floor5 / 感悟天心（仅微增） ---------- */
-    { id: 'p01', name: '天心有感', color: 'p', fx: [['xin', 1.15], ['dao', 15]] },
-    { id: 'p02', name: '王侯体魄', color: 'p', fx: [['floor', 5], ['brk', 1.09]] },
-    { id: 'p03', name: '天纵其才', color: 'p', fx: [['dao', 18], ['daocap', 20]] },
-    { id: 'p04', name: '大气运者', color: 'p', fx: [['era', 2], ['evt', 1.9]] },
-    { id: 'p05', name: '战意勃发', color: 'p', fx: [['brk', 1.1], ['evf', 1.1]] },
-    { id: 'p06', name: '长生近道', color: 'p', fx: [['cgt', 1.08], ['life', 50]] },
-    { id: 'p07', name: '沉稳若山', color: 'p', fx: [['ward', 6], ['evf', 1.12]] },
-    { id: 'p08', name: '秘境宠儿', color: 'p', fx: [['evt', 2], ['cgt', 1.06]] },
-    /* 扩充紫 → 至 25 条 */
-    { id: 'p09', name: '真龙之血', color: 'p', fx: [['apt', 2], ['evf', 1.12]] },
-    { id: 'p10', name: '万古长青', color: 'p', fx: [['floor', 5], ['evt', 2.2]] },
-    { id: 'p11', name: '心如明镜', color: 'p', fx: [['xin', 1.15], ['dao', 16]] },
-    { id: 'p12', name: '战气冲霄', color: 'p', fx: [['brk', 1.1], ['cgt', 1.08]] },
-    { id: 'p13', name: '大世应运', color: 'p', fx: [['era', 2.4], ['evf', 1.15]] },
-    { id: 'p14', name: '鸿运当头', color: 'p', fx: [['evt', 2.2], ['cult', 900]] },
-    { id: 'p15', name: '命如南山', color: 'p', fx: [['life', 60], ['ward', 8]] },
-    { id: 'p16', name: '智珠在握', color: 'p', fx: [['dao', 20], ['daocap', 20]] },
-    { id: 'p17', name: '天心常在', color: 'p', fx: [['floor', 5], ['xin', 1.2]] },
-    { id: 'p18', name: '铁血战意', color: 'p', fx: [['brk', 1.09], ['cult', 700]] },
-    { id: 'p19', name: '厚土承运', color: 'p', fx: [['cgt', 1.08], ['evf', 1.12]] },
-    { id: 'p20', name: '长生古药', color: 'p', fx: [['evt', 2], ['life', 50]] },
-    { id: 'p21', name: '不动如山', color: 'p', fx: [['ward', 8], ['brk', 1.08]] },
-    { id: 'p22', name: '天纵逸才', color: 'p', fx: [['apt', 1], ['evt', 2.2]] },
-    { id: 'p23', name: '玄玉之躯', color: 'p', fx: [['floor', 5], ['life', 30]] },
-    { id: 'p24', name: '通神之窍', color: 'p', fx: [['xin', 1.2], ['dao', 18]] },
-    { id: 'p25', name: '帝裔威压', color: 'p', fx: [['cult', 1200], ['brk', 1.08]] },
-    /* ---------- 橙（传说 2）：另有 floor7 / 资质更高 / 天心门槛与证道把握（微幅） ---------- */
-    { id: 'o01', name: '帝经残页', color: 'o', fx: [['dao', 28], ['daocap', 35]] },
-    { id: 'o02', name: '万古独尊', color: 'o', fx: [['dao', 25], ['retry', 1], ['zhx', 0.01]] },
-    /* 扩充金 → 至 25 条 */
-    { id: 'o03', name: '魔胎', color: 'o', fx: [['swallow', 1], ['daocap', 45]] },
-    { id: 'o04', name: '天资纵横', color: 'o', fx: [['apt', 3], ['evf', 1.3]] },
-    { id: 'o05', name: '心合大道', color: 'o', fx: [['xin', 1.5], ['brk', 1.15]] },
-    { id: 'o06', name: '道果垂青', color: 'o', fx: [['dlm', 8], ['cgt', 1.12]] },
-    { id: 'o07', name: '力破乾坤', color: 'o', fx: [['zhx', 0.02], ['brk', 1.12]] },
-    { id: 'o08', name: '命与天齐', color: 'o', fx: [['life', 200], ['cult', 3000]] },
-    { id: 'o09', name: '黄金大世', color: 'o', fx: [['era', 4], ['evt', 2.5]] },
-    { id: 'o10', name: '福泽深厚', color: 'o', fx: [['ward', 15], ['life', 150]] },
-    { id: 'o11', name: '玄门正宗', color: 'o', fx: [['floor', 7], ['evf', 1.2]] },
-    { id: 'o12', name: '悟道绝伦', color: 'o', fx: [['dao', 32], ['daog', 1.5]] },
-    { id: 'o13', name: '天心随行', color: 'o', fx: [['xin', 1.3], ['evt', 3]] },
-    { id: 'o14', name: '长生妙法', color: 'o', fx: [['dlm', 5], ['life', 120]] },
-    { id: 'o15', name: '不世之勇', color: 'o', fx: [['zhx', 0.03], ['cgt', 1.1]] },
-    { id: 'o16', name: '裂空战意', color: 'o', fx: [['brk', 1.15], ['evf', 1.3]] },
-    { id: 'o17', name: '道蕴天成', color: 'o', fx: [['dao', 35], ['daocap', 45]] },
-    { id: 'o18', name: '帝兵护身', color: 'o', fx: [['evt', 4], ['brk', 1.12]] },
-    { id: 'o19', name: '万法归一', color: 'o', fx: [['dao', 30], ['daocap', 35]] },
-    { id: 'o20', name: '气吞寰宇', color: 'o', fx: [['cult', 3000], ['evf', 1.25]] },
-    { id: 'o21', name: '金刚不灭', color: 'o', fx: [['life', 150], ['brk', 1.15]] },
-    { id: 'o22', name: '圣域垂青', color: 'o', fx: [['ward', 15], ['evt', 3]] },
-    { id: 'o23', name: '天道酬帝', color: 'o', fx: [['dlm', 10], ['brk', 1.15]] },
-    { id: 'o24', name: '一念通玄', color: 'o', fx: [['xin', 1.4], ['cult', 2500]] },
-    { id: 'o25', name: '帝路独行', color: 'o', fx: [['retry', 1], ['zhx', 0.02]] }
+    /* 白：体质 / 道蕴 / 气运 / 天心 / 帝路 */
+    { id: 'w01', name: '百炼凡骨', color: 'w', path: 'body', fx: [['floor', 2]] },
+    { id: 'w02', name: '筋骨初成', color: 'w', path: 'body', fx: [['bodyChance', 0.02], ['dao', 3]] },
+    { id: 'w03', name: '磨砺己身', color: 'w', path: 'body', fx: [['bodyDao', 8], ['life', 3]] },
+    { id: 'w04', name: '精血充沛', color: 'w', path: 'body', fx: [['floor', 2], ['ward', 1]] },
+    { id: 'w05', name: '凡胎藏灵', color: 'w', path: 'body', fx: [['bodyChance', 0.025], ['evf', 1.04]] },
+    { id: 'w06', name: '悟性初醒', color: 'w', path: 'dao', fx: [['dao', 5]] },
+    { id: 'w07', name: '日积月累', color: 'w', path: 'dao', fx: [['daog', 1.08]] },
+    { id: 'w08', name: '灵台清明', color: 'w', path: 'dao', fx: [['daocap', 40]] },
+    { id: 'w09', name: '温故知新', color: 'w', path: 'dao', fx: [['dao', 3], ['daog', 1.04]] },
+    { id: 'w10', name: '水滴石穿', color: 'w', path: 'dao', fx: [['overflow', 0.12], ['daocap', 20]] },
+    { id: 'w11', name: '小有福缘', color: 'w', path: 'fortune', fx: [['evf', 1.08]] },
+    { id: 'w12', name: '时来运转', color: 'w', path: 'fortune', fx: [['evt', 1.2]] },
+    { id: 'w13', name: '广交游历', color: 'w', path: 'fortune', fx: [['evf', 1.06], ['dao', 3]] },
+    { id: 'w14', name: '命里藏福', color: 'w', path: 'fortune', fx: [['ward', 1], ['evt', 1.15]] },
+    { id: 'w15', name: '顺时而生', color: 'w', path: 'fortune', fx: [['era', 1.25], ['life', 3]] },
+    { id: 'w16', name: '天心微明', color: 'w', path: 'tianxin', fx: [['xin', 1.05]] },
+    { id: 'w17', name: '静听道音', color: 'w', path: 'tianxin', fx: [['xinPity', 0.000004], ['dao', 3]] },
+    { id: 'w18', name: '心如止水', color: 'w', path: 'tianxin', fx: [['dlm', 1], ['ward', 1]] },
+    { id: 'w19', name: '仰观天象', color: 'w', path: 'tianxin', fx: [['xin', 1.04], ['era', 1.15]] },
+    { id: 'w20', name: '守一存真', color: 'w', path: 'tianxin', fx: [['xinPity', 0.000005], ['life', 3]] },
+    { id: 'w21', name: '天生长寿', color: 'w', path: 'imperial', fx: [['life', 6]] },
+    { id: 'w22', name: '心细谨慎', color: 'w', path: 'imperial', fx: [['ward', 2]] },
+    { id: 'w23', name: '稳重求生', color: 'w', path: 'imperial', fx: [['life', 3], ['ward', 1]] },
+    { id: 'w24', name: '不屈之念', color: 'w', path: 'imperial', fx: [['zhx', 0.004]] },
+    { id: 'w25', name: '留得青山', color: 'w', path: 'imperial', fx: [['retryKeep', 0.06], ['life', 6]] },
+
+    /* 蓝 */
+    { id: 'b01', name: '骨架不凡', color: 'b', path: 'body', fx: [['floor', 3], ['life', 8]] },
+    { id: 'b02', name: '铜筋铁骨', color: 'b', path: 'body', fx: [['bodyChance', 0.04], ['ward', 3]] },
+    { id: 'b03', name: '血脉返祖', color: 'b', path: 'body', fx: [['bodyDao', 8], ['dao', 6]] },
+    { id: 'b04', name: '洗筋伐髓', color: 'b', path: 'body', fx: [['floor', 3], ['bodyChance', 0.03]] },
+    { id: 'b05', name: '逆境淬体', color: 'b', path: 'body', fx: [['bodyChance', 0.05], ['evf', 1.06]] },
+    { id: 'b06', name: '天资初醒', color: 'b', path: 'dao', fx: [['dao', 9], ['daog', 1.08]] },
+    { id: 'b07', name: '底蕴渐丰', color: 'b', path: 'dao', fx: [['daocap', 60], ['daog', 1.06]] },
+    { id: 'b08', name: '过目不忘', color: 'b', path: 'dao', fx: [['dao', 11], ['daocap', 40]] },
+    { id: 'b09', name: '渐入佳境', color: 'b', path: 'dao', fx: [['daog', 1.15]] },
+    { id: 'b10', name: '厚积薄发', color: 'b', path: 'dao', fx: [['overflow', 0.15], ['daocap', 32]] },
+    { id: 'b11', name: '贵人相助', color: 'b', path: 'fortune', fx: [['evf', 1.1], ['evt', 1.3]] },
+    { id: 'b12', name: '气运初开', color: 'b', path: 'fortune', fx: [['era', 1.5], ['evf', 1.06]] },
+    { id: 'b13', name: '眼明手快', color: 'b', path: 'fortune', fx: [['evt', 1.6]] },
+    { id: 'b14', name: '逢凶化吉', color: 'b', path: 'fortune', fx: [['ward', 4], ['evf', 1.06]] },
+    { id: 'b15', name: '机缘不小', color: 'b', path: 'fortune', fx: [['upgradeEvent', 1], ['evf', 1.04]] },
+    { id: 'b16', name: '天心有感', color: 'b', path: 'tianxin', fx: [['xin', 1.12], ['xinPity', 0.000006]] },
+    { id: 'b17', name: '心如明镜', color: 'b', path: 'tianxin', fx: [['xinPity', 0.000006], ['dlm', 2]] },
+    { id: 'b18', name: '道音常伴', color: 'b', path: 'tianxin', fx: [['xin', 1.1], ['daog', 1.05]] },
+    { id: 'b19', name: '不染尘心', color: 'b', path: 'tianxin', fx: [['ignoreSuppression', 0.08], ['ward', 2]] },
+    { id: 'b20', name: '观天悟道', color: 'b', path: 'tianxin', fx: [['xinPity', 0.000008], ['daocap', 32]] },
+    { id: 'b21', name: '命比金坚', color: 'b', path: 'imperial', fx: [['life', 18], ['ward', 3]] },
+    { id: 'b22', name: '稳如磐石', color: 'b', path: 'imperial', fx: [['ward', 5], ['zhx', 0.003]] },
+    { id: 'b23', name: '大器晚成', color: 'b', path: 'imperial', fx: [['life', 15], ['retryKeep', 0.06]] },
+    { id: 'b24', name: '败而不馁', color: 'b', path: 'imperial', fx: [['retryKeep', 0.1], ['dao', 5], ['zhx', 0.004]] },
+    { id: 'b25', name: '帝关有路', color: 'b', path: 'imperial', fx: [['zhx', 0.006], ['dlm', 2]] },
+
+    /* 紫 */
+    { id: 'p01', name: '王侯体魄', color: 'p', path: 'body', fx: [['floor', 5], ['bodyChance', 0.08]] },
+    { id: 'p02', name: '真龙之血', color: 'p', path: 'body', fx: [['bodyChance', 0.12], ['bodyDao', 15]] },
+    { id: 'p03', name: '玄玉之躯', color: 'p', path: 'body', fx: [['floor', 5], ['ward', 7]] },
+    { id: 'p04', name: '脱胎换骨', color: 'p', path: 'body', fx: [['bodyChance', 0.15], ['dao', 15]] },
+    { id: 'p05', name: '万劫炼身', color: 'p', path: 'body', fx: [['bodyDao', 20], ['daog', 1.12]] },
+    { id: 'p06', name: '天纵其才', color: 'p', path: 'dao', fx: [['dao', 20], ['daocap', 100]] },
+    { id: 'p07', name: '智珠在握', color: 'p', path: 'dao', fx: [['daog', 1.25], ['dao', 12]] },
+    { id: 'p08', name: '长生近道', color: 'p', path: 'dao', fx: [['life', 45], ['daog', 1.15]] },
+    { id: 'p09', name: '道海生潮', color: 'p', path: 'dao', fx: [['overflow', 0.25], ['daocap', 100]] },
+    { id: 'p10', name: '万法留痕', color: 'p', path: 'dao', fx: [['evt', 1.8], ['dao', 18]] },
+    { id: 'p11', name: '大气运者', color: 'p', path: 'fortune', fx: [['era', 2.2], ['evt', 2]] },
+    { id: 'p12', name: '秘境宠儿', color: 'p', path: 'fortune', fx: [['evf', 1.18], ['evt', 2.1]] },
+    { id: 'p13', name: '鸿运当头', color: 'p', path: 'fortune', fx: [['upgradeEvent', 1], ['evt', 1.8]] },
+    { id: 'p14', name: '大世应运', color: 'p', path: 'fortune', fx: [['era', 2.8], ['evf', 1.15]] },
+    { id: 'p15', name: '劫中藏缘', color: 'p', path: 'fortune', fx: [['ward', 9], ['evt', 1.8]] },
+    { id: 'p16', name: '天心常在', color: 'p', path: 'tianxin', fx: [['xin', 1.28], ['xinPity', 0.000012]] },
+    { id: 'p17', name: '通神之窍', color: 'p', path: 'tianxin', fx: [['dlm', 5], ['dao', 16]] },
+    { id: 'p18', name: '我心映天', color: 'p', path: 'tianxin', fx: [['ignoreSuppression', 0.2], ['xin', 1.18]] },
+    { id: 'p19', name: '大道垂音', color: 'p', path: 'tianxin', fx: [['xinPity', 0.000018], ['daog', 1.12]] },
+    { id: 'p20', name: '天门一线', color: 'p', path: 'tianxin', fx: [['dlm', 7], ['daocap', 72]] },
+    { id: 'p21', name: '命如南山', color: 'p', path: 'imperial', fx: [['life', 65], ['ward', 8]] },
+    { id: 'p22', name: '不动如山', color: 'p', path: 'imperial', fx: [['ward', 10], ['retryKeep', 0.12]] },
+    { id: 'p23', name: '帝裔余荫', color: 'p', path: 'imperial', fx: [['zhx', 0.012], ['life', 35]] },
+    { id: 'p24', name: '破关留命', color: 'p', path: 'imperial', fx: [['retry', 1], ['retryKeep', 0.15]] },
+    { id: 'p25', name: '向死而生', color: 'p', path: 'imperial', fx: [['zhx', 0.018], ['ward', 6]] },
+
+    /* 金：规则牌，不直接保送仙体或大帝 */
+    { id: 'o01', name: '玄门正宗', color: 'o', path: 'body', fx: [['floor', 7], ['bodyChance', 0.12]] },
+    { id: 'o02', name: '凡躯逆命', color: 'o', path: 'body', fx: [['bodyChance', 0.3], ['bodyDao', 35]] },
+    { id: 'o03', name: '魔胎', color: 'o', path: 'body', fx: [['swallow', 1], ['daocap', 200]] },
+    { id: 'o04', name: '天资纵横', color: 'o', path: 'body', fx: [['bodyChance', 0.22], ['evt', 2.5]] },
+    { id: 'o05', name: '万法归一', color: 'o', path: 'body', fx: [['bodyChance', 0.25], ['bodyDao', 25], ['daocap', 140]] },
+    { id: 'o06', name: '悟道绝伦', color: 'o', path: 'dao', fx: [['dao', 35], ['daog', 1.45]] },
+    { id: 'o07', name: '道蕴天成', color: 'o', path: 'dao', fx: [['dao', 45], ['daocap', 220]] },
+    { id: 'o08', name: '一念通玄', color: 'o', path: 'dao', fx: [['daog', 1.55], ['evt', 2.2]] },
+    { id: 'o09', name: '帝经残页', color: 'o', path: 'dao', fx: [['overflow', 0.5], ['daocap', 180]] },
+    { id: 'o10', name: '道果垂青', color: 'o', path: 'dao', fx: [['dao', 30], ['dlm', 8], ['zhx', 0.01]] },
+    { id: 'o11', name: '黄金大世', color: 'o', path: 'fortune', fx: [['era', 5], ['evt', 2.8]] },
+    { id: 'o12', name: '福泽深厚', color: 'o', path: 'fortune', fx: [['ward', 16], ['evf', 1.3]] },
+    { id: 'o13', name: '帝兵护身', color: 'o', path: 'fortune', fx: [['evt', 4], ['upgradeEvent', 1]] },
+    { id: 'o14', name: '圣域垂青', color: 'o', path: 'fortune', fx: [['evf', 1.35], ['evt', 3]] },
+    { id: 'o15', name: '气运之子', color: 'o', path: 'fortune', fx: [['upgradeEvent', 1], ['era', 3], ['ward', 10]] },
+    { id: 'o16', name: '天心随行', color: 'o', path: 'tianxin', fx: [['xin', 1.45], ['xinPity', 0.000025]] },
+    { id: 'o17', name: '心合大道', color: 'o', path: 'tianxin', fx: [['dlm', 12], ['xin', 1.3]] },
+    { id: 'o18', name: '天道酬帝', color: 'o', path: 'tianxin', fx: [['ignoreSuppression', 0.5], ['dlm', 8]] },
+    { id: 'o19', name: '大道无碍', color: 'o', path: 'tianxin', fx: [['xinPity', 0.00004], ['daog', 1.25]] },
+    { id: 'o20', name: '我道合天', color: 'o', path: 'tianxin', fx: [['xin', 1.35], ['zhx', 0.018], ['dao', 20]] },
+    { id: 'o21', name: '帝路独行', color: 'o', path: 'imperial', fx: [['retry', 1], ['retryKeep', 0.25]] },
+    { id: 'o22', name: '万古独尊', color: 'o', path: 'imperial', fx: [['zhx', 0.03], ['retryKeep', 0.2]] },
+    { id: 'o23', name: '命与天齐', color: 'o', path: 'imperial', fx: [['life', 180], ['ward', 12]] },
+    { id: 'o24', name: '长生妙法', color: 'o', path: 'imperial', fx: [['life', 130], ['retry', 1]] },
+    { id: 'o25', name: '不世之勇', color: 'o', path: 'imperial', fx: [['zhx', 0.04], ['dlm', 7]] }
   ];
 
   var TRAIT_COLOR_NAME = { o: '金', p: '紫', b: '蓝', w: '白' };
@@ -263,11 +270,7 @@
     function cat(type, v) {
       switch (type) {
         case 'life': return '寿元+' + v;
-        case 'cult': return '初始实力+' + v;
-        case 'apt': return '初始道蕴+' + (v * 8) + '，道蕴上限+' + (v * 10);
         case 'floor': return '体质保底为' + TALENTS[v];
-        case 'brk': return '修行加速' + Math.round((v - 1) * 100) + '%';
-        case 'cgt': return '实力成长+' + Math.round((v - 1) * 100) + '%';
         case 'evf': return '机缘概率+' + Math.round((v - 1) * 100) + '%';
         case 'evt': return '高阶机缘×' + v;
         case 'ward': return '化险为夷+' + v + '%';
@@ -280,6 +283,13 @@
         case 'era': return '生于盛世概率×' + v;
         case 'swallow': return '吞天魔功机缘开启';
         case 'retry': return '帝关重修机会+1';
+        case 'retryKeep': return '帝关重修损失减轻' + Math.round(v * 100) + '%';
+        case 'bodyChance': return '后天体质蜕变概率+' + Math.round(v * 100) + '%';
+        case 'bodyDao': return '体质蜕变所需道蕴-' + v;
+        case 'overflow': return '道蕴溢出保留' + Math.round(v * 100) + '%';
+        case 'upgradeEvent': return '首次低阶机缘额外获得高一阶道蕴';
+        case 'xinPity': return '天心保底每年+' + Math.round(v * 1000000) / 10000 + '%';
+        case 'ignoreSuppression': return '无视大道压制' + Math.round(v * 100) + '%';
       }
       return '';
     }
@@ -325,8 +335,13 @@
     INNATE_WEIGHTS: INNATE_WEIGHTS,
     CULT_COEF: CULT_COEF,
     BREAK_CHANCE: BREAK_CHANCE,
+    QUASI_LAYER_MULT: QUASI_LAYER_MULT,
+    QUASI_CHAOS_MULT: QUASI_CHAOS_MULT,
+    DAO_ABSOLUTE_MAX: DAO_ABSOLUTE_MAX,
+    OVERWHELM_DAO_CULT: OVERWHELM_DAO_CULT,
+    HEAVENLY_EMPEROR_CULT: HEAVENLY_EMPEROR_CULT,
     REALM_LIFE: REALM_LIFE,
-    TRAITS: TRAITS, TRAIT_COLOR_NAME: TRAIT_COLOR_NAME, traitById: traitById, traitDesc: traitDesc,
+    TRAITS: TRAITS, TRAIT_PATHS: TRAIT_PATHS, TRAIT_COLOR_NAME: TRAIT_COLOR_NAME, traitById: traitById, traitDesc: traitDesc,
     /* 词条抽取颜色权重（可改：白/蓝/紫/金，和需为 100 或任意比例） */
     TRAIT_WEIGHT: { w: 55, b: 28, p: 13, o: 4 },
     ACHIEVEMENTS: ACHIEVEMENTS,
@@ -352,7 +367,7 @@
     EMPEROR_LIFE_MAX: 11000,
     EMPEROR_EVENT_TARGET: 18,
     RED_DUST_LIVES: 9,
-    /* 不死天皇按“三世天帝级”折算的战力基准；普通一世大帝通常远低于此值。 */
+    /* 不死天皇高世蜕变阶段的战力基准；普通一世大帝通常远低于此值。 */
     UNDEAD_EMPEROR_CULT: 3000000,
     /* 即使知道奇异世界坐标，也必须达到此战力才能轰穿界壁。 */
     STRANGE_WORLD_BREAK_CULT: 1500000,

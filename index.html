@@ -79,12 +79,17 @@
         <div class="attr-card">
           <div class="attr-name">道蕴</div>
           <div class="attr-val" id="attr-daoyun">--</div>
-          <div class="attr-sub">悟道积累 / 上限</div>
+          <div class="attr-sub">当前 / 个人上限 · 大道极限 3000</div>
         </div>
         <div class="attr-card">
           <div class="attr-name">天时</div>
           <div class="attr-val attr-realm" id="attr-era">--</div>
           <div class="attr-sub">此世天地环境</div>
+        </div>
+        <div class="attr-card">
+          <div class="attr-name">万古历</div>
+          <div class="attr-val attr-realm" id="attr-world-year">--</div>
+          <div class="attr-sub" id="attr-world-emperor">天心状态未知</div>
         </div>
       </div>
       <div class="trait-line-wrap">
@@ -203,7 +208,7 @@
           寿元有定数，唯有不断突破大境界方可延展命限；黄金帝路于八千岁闭合，须在血气鼎盛之年争渡。<br>
           凡人亦能逆天！乱世之中机缘遍地——极道帝兵、不死神药、无上功法、生命禁区……步步惊心，步步登天。<br>
           <b>证道成帝并非终点</b>：可融合天心、以力强证，也可能借合道花等机缘破关；成帝后将获得完整帝命，面对禁区、黑暗动乱与长生之谜。<br>
-          帝命晚年将自动寻找长生路。连续逆活九世是万古罕见的奇迹，每一世都是可能身死的蜕变大劫；另一条路需要先在<b>高阶机缘</b>中获知奇异世界的存在与坐标，再修炼到足以轰穿界壁的战力。成功入界后仍要面对拥有<b>三世天帝级战力</b>的不死天皇。能否破界、能否站稳脚跟，分别取决于信息、战力与帝者根基。两条道路皆可通向<b>红尘仙</b>，操作方式不变。<br>
+          帝命晚年将自动寻找长生路。连续逆活九世是万古罕见的奇迹，每一世都是可能身死的蜕变大劫；另一条路需要先在<b>高阶机缘</b>中获知奇异世界的存在与坐标，再修炼到足以轰穿界壁的战力。界壁之后仍是一片未知天地，可能存在机缘，也可能潜伏着无法想象的强者。两条道路皆有机会通向<b>红尘仙</b>，操作方式不变。<br>
           第一世帝命将尽时，你还可选择<b>自斩一刀、入主禁区</b>：前提是成帝后寻得仙源或太初命石，以皇道果位与九世逆活资格为代价自封、跨时代沉睡。禁区至尊可在苏醒时获得仙路线索或冒险发动黑暗动乱续命，但血债会招致当世大帝清算。<br>
           每局结束将获得境界点，提升修士境界；境界越高，来世觉醒高阶体质的几率越大——<br>
           你是想成为一代天骄，还是蛰伏万古、于绝巅称尊的那个人？<br>
@@ -218,14 +223,14 @@
   </div>
 
   <!-- ============ 词条（命格）选择弹层 ============ -->
-  <div id="trait-mask" class="mask">
+  <div id="trait-mask" class="mask" hidden="">
     <div class="mask-box trait-box">
       <div class="mask-title trait-mask-title">🌈 天赐命格</div>
       <div class="mask-info" id="trait-tip">从 5 种命格中挑选 2 种，成就你的大帝路</div>
       <div class="trait-search-wrap" id="trait-search-wrap" hidden="">
         <input type="text" id="trait-search" class="trait-search" placeholder="🔍 搜索命格名称，比如「帝」「龙」…">
       </div>
-      <div class="trait-list" id="trait-list"><button class="trait-opt color-w" data-id="w14"><span class="trait-opt-top"><span class="trait-opt-name">精血充沛</span><span class="trait-opt-tag">白</span></span><span class="trait-opt-desc">体质保底为战体，初始实力+40</span></button><button class="trait-opt color-b" data-id="b24"><span class="trait-opt-top"><span class="trait-opt-name">眼明手快</span><span class="trait-opt-tag">蓝</span></span><span class="trait-opt-desc">高阶机缘×1.6，修行加速5%</span></button><button class="trait-opt color-w" data-id="w25"><span class="trait-opt-top"><span class="trait-opt-name">天生长寿</span><span class="trait-opt-tag">白</span></span><span class="trait-opt-desc">体质保底为战体，化险为夷+1%</span></button><button class="trait-opt color-w" data-id="w11"><span class="trait-opt-top"><span class="trait-opt-name">处世圆融</span><span class="trait-opt-tag">白</span></span><span class="trait-opt-desc">初始实力+30，化险为夷+1%</span></button><button class="trait-opt color-b" data-id="b21"><span class="trait-opt-top"><span class="trait-opt-name">机缘不小</span><span class="trait-opt-tag">蓝</span></span><span class="trait-opt-desc">初始实力+300，机缘概率+8%</span></button></div>
+      <div class="trait-list" id="trait-list"></div>
       <button class="btn btn-primary btn-big" id="trait-confirm" disabled="">请先选择 2 种命格（0/2）</button>
       <button class="btn btn-big" id="trait-cancel">退出</button>
     </div>
@@ -312,9 +317,20 @@
     <div class="mask-box choice-box">
       <div class="mask-title">长生路抉择</div>
       <div class="mask-info" id="immortalpath-info"></div>
-      <div class="selfslash-note">轰开界壁会立刻迎战三世天帝级的不死天皇，胜出后必在奇异世界成仙；等待成仙路较为未知，可能开启，也可能穷尽一世而不得见。</div>
-      <button class="btn btn-primary" id="btn-immortalpath-strange">轰开界壁，打入奇异世界</button>
+      <div class="selfslash-note">界壁之后的时代、强者与危险皆不可知。入界可寻找更浓郁的长生物质，但不代表必定成仙；等待成仙路同样可能开启，也可能穷尽一世而不得见。</div>
+      <button class="btn btn-primary" id="btn-immortalpath-strange">轰开界壁，踏入未知世界</button>
       <button class="btn" id="btn-immortalpath-wait">暂不入界，等待成仙路</button>
+    </div>
+  </div>
+
+  <!-- ============ 奇异世界：无始对峙抉择 ============ -->
+  <div id="strangeworld-mask" class="mask" hidden="">
+    <div class="mask-box choice-box">
+      <div class="mask-title">奇异世界局势</div>
+      <div class="mask-info" id="strangeworld-info"></div>
+      <div class="selfslash-note">加入无始大帝可在最终决战中获得援手，但会更早卷入这场万古对峙；隐藏蛰伏更安全，却必须独自承担被发现的风险。</div>
+      <button class="btn btn-primary" id="btn-strangeworld-wushi">现身相助，与无始并肩</button>
+      <button class="btn" id="btn-strangeworld-hide">收敛气机，隐藏蛰伏</button>
     </div>
   </div>
 
