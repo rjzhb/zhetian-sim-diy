@@ -343,6 +343,7 @@
       g.aptitude += inc; return inc;
     },
     gainLife: function (g, lo, hi) { return gainLife(g, lo, hi); },
+    gainDao: function (g, amount, capAdd) { return gainDaoyun(g, amount, capAdd); },
     hurt: function (g, lo, hi) {
       var p = rand(0.10, 0.30) + (g.tm.ward + pval(g, 'ward', 0)) / 100;
       if (Math.random() < p) return { exempt: true, loss: 0 };
@@ -495,6 +496,10 @@
     return (g.tm.xinPity || 0) + Math.max(0, (g.tm.xin || 1) - 1) * 0.00002;
   }
 
+  function eventAvailable(g, ev) {
+    return !ev || !ev.available || !!ev.available(g, U);
+  }
+
   /* ---------- 抽 1 个随机事件执行 ---------- */
   function rollEvent(g, log) {
     var pool = [], i, mc = g.maxCount || (g.maxCount = {});
@@ -503,6 +508,7 @@
       var maxN = evi.maxCount != null ? evi.maxCount : 100;
       var left = mc[evi.id] != null ? mc[evi.id] : maxN;
       if (left <= 0) continue;
+      if (!eventAvailable(g, evi)) continue;
       var minA = evi.minAge != null ? evi.minAge : 0;
       var maxA = evi.maxAge != null ? evi.maxAge : 10000;
       if (g.age >= minA && g.age <= maxA) pool.push(evi);
@@ -614,8 +620,66 @@
     return true;
   }
 
+  function emperorLegacy(g) {
+    if (!g.emperorLegacy) {
+      g.emperorLegacy = { order: 0, forbiddenSuppressed: 0, lateAmbushes: 0, farewells: 0 };
+    }
+    return g.emperorLegacy;
+  }
+
+  function runEmperorExperience(g, id, log) {
+    if (!g || !g.emperor) return false;
+    var roots = g.redDustRoots;
+    var legacy = emperorLegacy(g);
+    var imperialYear = g.age - g.emperorAge;
+    if (id === 'world_order') {
+      legacy.order++;
+      roots.dao += 2;
+      gainDaoyun(g, 14);
+      push(log, { cls: 'god', text: '帝历' + imperialYear + '年，万族争乱不休，你重定宇宙秩序、划下不可逾越的帝律，道果根基+2' });
+      return true;
+    }
+    if (id === 'suppress_forbidden') {
+      legacy.forbiddenSuppressed++;
+      var safe = 0.58 + (g.tm.ward + pval(g, 'ward', 0)) / 100;
+      if (Math.random() < safe) {
+        roots.body++; roots.dao++;
+        g.cult = round(g.cult * 1.025);
+        push(log, { cls: 'god', text: '帝历' + imperialYear + '年，你亲临生命禁区，逼得沉睡至尊封闭山门，肉身与道果根基各+1' });
+      } else {
+        var loss = irand(180, 520);
+        g.emperorLifeEnd -= loss; g.lifeBase -= loss; syncLife(g);
+        push(log, { cls: 'dead', text: '帝历' + imperialYear + '年，你威压禁区时遭数道皇道法则反扑，虽全身而退，帝命-' + loss + '年' });
+      }
+      return true;
+    }
+    if (id === 'late_ambush') {
+      legacy.lateAmbushes++;
+      var survived = 0.48 + Math.min(0.32, g.cult / 10000000) +
+        (g.tm.ward + pval(g, 'ward', 0)) / 100;
+      if (Math.random() < survived) {
+        roots.body += 2;
+        g.cult = round(g.cult * 1.035);
+        push(log, { cls: 'god', text: '帝历' + imperialYear + '年，你帝血转衰，蛰伏至尊联手袭杀；你拖着晚年帝躯反杀来敌，肉身根基+2' });
+      } else {
+        var wound = irand(450, 1100);
+        g.emperorLifeEnd -= wound; g.lifeBase -= wound; syncLife(g);
+        push(log, { cls: 'dead', text: '帝历' + imperialYear + '年，禁区趁你晚年血气衰败发动袭杀；你击退来敌，却留下难愈道伤，帝命-' + wound + '年' });
+      }
+      return true;
+    }
+    if (id === 'mortal_farewell') {
+      legacy.farewells++;
+      roots.soul += 2; roots.dao++;
+      gainDaoyun(g, 18);
+      push(log, { cls: 'rainbow', text: '帝历' + imperialYear + '年，故人先后凋零，唯你独立红尘；在一次次送别中，你看清岁月与生灭，元神根基+2、道果根基+1' });
+      return true;
+    }
+    return false;
+  }
+
   function emperorEvent(g, log) {
-    var roots = g.redDustRoots, r = Math.floor(Math.random() * 8), add;
+    var roots = g.redDustRoots, r = Math.floor(Math.random() * 12), add;
     /* 帝者游历诸天时仍可能撞见传说级仙路线索；高阶机缘只提供“信息”，不会代替战力门槛。 */
     if (!g.knowsStrangeWorld && Math.random() < 0.025 &&
         learnStrangeWorld(g, log, '帝历' + (g.age - g.emperorAge) + '年，你追索一处仙路裂隙，确认奇异世界真实存在，并记下界壁坐标')) {
@@ -667,10 +731,16 @@
     } else if (r === 6) {
       roots.soul++; g.gotDiBing = true;
       push(log, { cls: 'ev4', text: '帝历' + (g.age - g.emperorAge) + '年，你重炼极道帝兵，以神祇温养元神，元神根基+1' });
-    } else {
+    } else if (r === 7) {
       var key = ['body', 'soul', 'dao'][Math.floor(Math.random() * 3)];
       roots[key]++;
       push(log, { cls: 'rare', text: '帝历' + (g.age - g.emperorAge) + '年，万载红尘流转，你从众生兴衰中悟得一缕长生真意' });
+    } else {
+      var extraEvents = ['world_order', 'suppress_forbidden', 'mortal_farewell'];
+      var lifeSpan = Math.max(1, g.emperorLifeEnd - g.emperorLifeStart);
+      if ((g.age - g.emperorLifeStart) / lifeSpan >= 0.65) extraEvents.push('late_ambush');
+      else extraEvents.push('world_order');
+      runEmperorExperience(g, extraEvents[r - 8], log);
     }
   }
 
@@ -1612,6 +1682,7 @@
     xianCult: xianCult,
     emperorLifeSpanRange: emperorLifeSpanRange,
     emperorDaoyunGainPerYear: emperorDaoyunGainPerYear,
+    runEmperorExperience: runEmperorExperience,
     gainLevels: gainLevels,
     levelUp: levelUp,
     drawTraits: drawTraits,
@@ -1620,6 +1691,7 @@
     gainDaoyun: gainDaoyun,
     tryBodyEvolution: tryBodyEvolution,
     eventDaoyunTier: eventDaoyunTier,
+    eventAvailable: eventAvailable,
     tianxinChance: tianxinChance,
     tianxinPityGain: tianxinPityGain,
     createGame: createGame,

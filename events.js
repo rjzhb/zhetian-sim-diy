@@ -163,6 +163,73 @@
 
     /* ===================== tier 3 稀有 ===================== */
     {
+      id: 'xingkong_gulu', weight: 0.9, maxCount: 2,
+      name: '星空古路启程', tier: 3, desc: '横渡星域，与诸天人杰争渡',
+      minAge: 80, maxAge: 8000,
+      available: function (g) { return !g.becameEmperor && g.lvl >= 71 && g.lvl < 100; },
+      cond: function (g) { return !g.becameEmperor && g.lvl >= 71 && g.lvl < 100; },
+      ok: function (g, U, log) {
+        var c = U.cultPct(g, 0.05, 0.10, 1800);
+        U.gainDao(g, U.irand(10, 20));
+        U.printlog('踏上人族古路，横渡星域、连战诸天人杰，实力+' + c + '，悟道能力随之精进');
+        U.up(g, 1, log);
+      },
+      fail: function (g, U) {
+        var h = U.hurt(g, 60, 180);
+        U.printlog(h.exempt ? '古路杀机四伏，你审时度势退回故土' : '古路尚非你所能涉足，遭护道杀阵重创，寿元 -' + h.loss);
+      }
+    },
+    {
+      id: 'dilu_zhengfeng', weight: 0.65, maxCount: 2,
+      name: '帝路群雄争锋', tier: 3, desc: '一世群雄并起，争夺唯一帝路',
+      minAge: 300, maxAge: 8000,
+      available: function (g) { return !g.becameEmperor && g.lvl >= 81 && g.lvl < 100; },
+      cond: function (g) { return !g.becameEmperor && g.lvl >= 81 && g.lvl < 100; },
+      ok: function (g, U, log) {
+        var c = U.cultPct(g, 0.07, 0.13, 3500);
+        U.gainDao(g, U.irand(14, 24));
+        U.printlog('与帝子级人杰鏖战数百合，于生死间验证己道，实力+' + c);
+        U.up(g, 1, log);
+      },
+      fail: function (g, U) {
+        var h = U.hurt(g, 120, 320);
+        U.printlog(h.exempt ? '群雄环伺，你没有贸然卷入帝路杀局' : '帝路争雄失利，道基受创，寿元 -' + h.loss);
+      }
+    },
+    {
+      id: 'quasi_heavenly_tribulation', weight: 0.55, maxCount: 3,
+      name: '准帝九重天劫', tier: 3, desc: '每进一步，皆要在万道雷海中重塑己身',
+      minAge: 400, maxAge: 8000,
+      available: function (g) { return !g.becameEmperor && g.lvl >= 91 && g.lvl < 100; },
+      cond: function (g) { return !g.becameEmperor && g.lvl >= 91 && g.lvl < 100; },
+      ok: function (g, U) {
+        var c = U.cultPct(g, 0.06, 0.11, 5000);
+        U.gainDao(g, U.irand(18, 30));
+        g.quasiTribulations = (g.quasiTribulations || 0) + 1;
+        U.printlog('渡过万道雷海，帝躯与大道雏形一并重塑，实力+' + c + '，悟道能力大进');
+      },
+      fail: function (g, U) {
+        var h = U.hurt(g, 180, 480);
+        U.printlog(h.exempt ? '天劫压境，你暂缓破关，未强行引动雷海' : '准帝天劫几乎磨灭道基，寿元 -' + h.loss);
+      }
+    },
+    {
+      id: 'forbidden_gaze', weight: 0.35, maxCount: 1,
+      name: '禁区至尊注视', tier: 3, desc: '帝路将成，沉睡至尊隔着万古投来目光',
+      minAge: 800, maxAge: 8000,
+      available: function (g) { return !g.becameEmperor && g.lvl >= 96 && g.lvl < 100; },
+      cond: function (g) { return !g.becameEmperor && g.lvl >= 96 && g.lvl < 100; },
+      ok: function (g, U) {
+        U.gainDao(g, U.irand(16, 26));
+        g.forbiddenKarma = (g.forbiddenKarma || 0) + 1;
+        U.printlog('面对禁区深处的皇道威压，你不退半步，以准帝道则斩断窥视，也与至尊结下因果');
+      },
+      fail: function (g, U) {
+        var h = U.hurt(g, 100, 260);
+        U.printlog(h.exempt ? '至尊神念扫过星空，并未在你身上久留' : '一道皇道神念跨域压落，你强撑不跪，寿元 -' + h.loss);
+      }
+    },
+    {
       id: 'shengbing', weight: 1.0, maxCount: 3,
       name: '圣兵择主', tier: 3, desc: '一件圣兵自封中苏醒',
       minAge: 30, maxAge: 1000000,

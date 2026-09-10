@@ -527,4 +527,53 @@ assert.ok(gameSource.indexOf('becameEmperor && G.knowsStrangeWorld') >= 0,
 const eventsSource = fs.readFileSync(path.join(__dirname, '..', 'events.js'), 'utf8');
 assert.ok(!/T3_HERB = \[[^\]]*太初命石/.test(eventsSource), 'primordial stone must not appear as a pre-emperor herb drop');
 
+const experienceEvents = {};
+(Sim.EVENTS || []).forEach(function (ev) { experienceEvents[ev.id] = ev; });
+['xingkong_gulu', 'dilu_zhengfeng', 'quasi_heavenly_tribulation', 'forbidden_gaze'].forEach(function (id) {
+  assert.ok(experienceEvents[id], 'missing pre-emperor experience event: ' + id);
+  assert.strictEqual(typeof experienceEvents[id].available, 'function',
+    'stage-specific events must declare when they can enter the event pool: ' + id);
+});
+assert.strictEqual(typeof Sim.eventAvailable, 'function');
+const eventBoundary = Sim.createGame(0, []);
+eventBoundary.lvl = 70;
+assert.strictEqual(Sim.eventAvailable(eventBoundary, experienceEvents.xingkong_gulu), false,
+  'the ancient star road must not enter the pool before Saint');
+assert.strictEqual(experienceEvents.xingkong_gulu.cond(eventBoundary, Sim.U), false);
+eventBoundary.lvl = 71;
+assert.strictEqual(Sim.eventAvailable(eventBoundary, experienceEvents.xingkong_gulu), true);
+assert.strictEqual(experienceEvents.xingkong_gulu.cond(eventBoundary, Sim.U), true,
+  'the ancient star road should open from Saint onward');
+eventBoundary.lvl = 90;
+assert.strictEqual(experienceEvents.quasi_heavenly_tribulation.cond(eventBoundary, Sim.U), false);
+eventBoundary.lvl = 91;
+assert.strictEqual(experienceEvents.quasi_heavenly_tribulation.cond(eventBoundary, Sim.U), true,
+  'quasi-emperor tribulations must stay inside the quasi-emperor phase');
+const daoBeforeTribulation = eventBoundary.daoyun;
+try {
+  Math.random = function () { return 0; };
+  experienceEvents.quasi_heavenly_tribulation.ok(eventBoundary, Sim.U, []);
+} finally {
+  Math.random = oldRandom;
+}
+assert.ok(eventBoundary.daoyun > daoBeforeTribulation,
+  'surviving a quasi-emperor tribulation should deepen Dao comprehension');
+
+assert.strictEqual(typeof Sim.runEmperorExperience, 'function');
+const emperorExperience = Sim.createGame(0, []);
+Sim.becomeDi(emperorExperience, [], 'force');
+const originalRoots = Object.assign({}, emperorExperience.redDustRoots);
+assert.strictEqual(Sim.runEmperorExperience(emperorExperience, 'world_order', []), true);
+assert.ok(emperorExperience.redDustRoots.dao > originalRoots.dao,
+  'reordering the cosmos should strengthen the emperor Dao root');
+assert.strictEqual(Sim.runEmperorExperience(emperorExperience, 'mortal_farewell', []), true);
+assert.ok(emperorExperience.redDustRoots.soul > originalRoots.soul,
+  'outliving old companions should strengthen the emperor soul root');
+assert.strictEqual(Sim.runEmperorExperience(emperorExperience, 'suppress_forbidden', []), true);
+assert.ok(emperorExperience.emperorLegacy.forbiddenSuppressed >= 1,
+  'suppressing forbidden zones should persist as an emperor legacy');
+assert.strictEqual(Sim.runEmperorExperience(emperorExperience, 'late_ambush', []), true);
+assert.ok(emperorExperience.emperorLegacy.lateAmbushes >= 1,
+  'late-life assaults should be recorded instead of becoming generic flavor text');
+
 console.log('late-game: ok');
