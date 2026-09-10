@@ -151,6 +151,13 @@
       } else {
         var earliest = rivalEmperorEarliestYear(g);
         if (g.nextWorldEmperorYear != null && g.nextWorldEmperorYear < earliest) g.nextWorldEmperorYear = earliest;
+        if (g.nextWorldEmperorYear == null && !g.becameEmperor && target >= earliest) {
+          var from = Math.max((g.worldYear || 0) + 1, earliest);
+          var span = target - from + 1;
+          if (span > 0 && Math.random() < 1 - Math.pow(1 - (D.WORLD_RIVAL_EMPEROR_YEARLY || 0), span)) {
+            g.nextWorldEmperorYear = span <= 1 ? from : from + irand(0, span - 1);
+          }
+        }
         if (g.nextWorldEmperorYear == null || g.nextWorldEmperorYear > target) break;
         var start = g.nextWorldEmperorYear;
         createWorldEmperor(g, start);

@@ -221,6 +221,21 @@ try {
 assert.ok(lateCalendar.worldEmperor, 'after 6000 years without the player taking the throne, a rival may arise');
 assert.strictEqual(lateCalendar.daoSuppressed, true);
 
+const lateChanceCalendar = Sim.createGame(0, []);
+lateChanceCalendar.worldYear = 5999;
+lateChanceCalendar.worldEmperor = null;
+lateChanceCalendar.becameEmperor = false;
+lateChanceCalendar.playerEmperorActive = false;
+lateChanceCalendar.nextWorldEmperorYear = null;
+lateChanceCalendar.daoTraceUntil = null;
+try {
+  Math.random = function () { return 0; };
+  Sim.advanceWorldCalendar(lateChanceCalendar, 1, []);
+} finally {
+  Math.random = oldRandom;
+}
+assert.ok(lateChanceCalendar.worldEmperor, 'after 6000 years a rival emperor should have a real chance to appear');
+
 const traceCalendar = Sim.createGame(0, []);
 traceCalendar.worldYear = 0;
 traceCalendar.becameEmperor = false;
