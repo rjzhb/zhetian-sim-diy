@@ -60,6 +60,10 @@ function runOne(physId, gift, style) {
     }
   }
   var unique = Object.keys(seen).length;
+  var firstCreate = '';
+  for (var fi = 0; fi < pops.length; fi++) {
+    if (pops[fi].tag === 'create') { firstCreate = pops[fi].id; break; }
+  }
   return {
     phys: physId, gift: gift, style: style,
     emperor: !!(g.becameEmperor || g.emperor),
@@ -78,6 +82,7 @@ function runOne(physId, gift, style) {
     late: (g.eventDrawsBySpan && g.eventDrawsBySpan.late) || 0,
     t4: pops.filter(function (p) { return p.tier >= 4; }).length,
     create: pops.filter(function (p) { return p.tag === 'create'; }).length,
+    firstCreate: firstCreate,
     ids: seen
   };
 }
@@ -93,9 +98,10 @@ function summarize(rows) {
     for (i = 0; i < rows.length; i++) if (fn(rows[i])) s++;
     return s / rows.length;
   }
-  var causes = {}, tops = {}, i, k;
+  var causes = {}, tops = {}, firsts = {}, i, k;
   for (i = 0; i < rows.length; i++) {
     causes[rows[i].cause || 'live'] = (causes[rows[i].cause || 'live'] || 0) + 1;
+    if (rows[i].firstCreate) firsts[rows[i].firstCreate] = (firsts[rows[i].firstCreate] || 0) + 1;
     for (k in rows[i].ids) tops[k] = (tops[k] || 0) + rows[i].ids[k];
   }
   var topList = Object.keys(tops).sort(function (a, b) { return tops[b] - tops[a]; }).slice(0, 8);
@@ -115,6 +121,8 @@ function summarize(rows) {
     t4: avg('t4'),
     create: avg('create'),
     causes: causes,
+    firstCreate: Object.keys(firsts).sort(function (a, b) { return firsts[b] - firsts[a]; })
+      .map(function (id) { return id + ':' + firsts[id]; }),
     top: topList.map(function (id) { return id + ':' + tops[id]; })
   };
 }

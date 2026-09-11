@@ -975,6 +975,68 @@
       }
     },
     {
+      id: 'dao_create_stele_first', weight: 2.2, maxCount: 3,
+      name: '残碑补字', tier: 2, tag: 'create',
+      desc: '后山残碑被雨洗出字，缺的那几笔你自己补上了',
+      minAge: 20, maxAge: 10000,
+      available: function (g, U) {
+        return !g.becameEmperor && g.lvl >= 21 && g.lvl <= 70 && createReady(g, U, true);
+      },
+      choice: function (g, U) {
+        var opts = artOptions(g, U, 2, { skipDeadly: true, first: 'scripture' });
+        opts.push(waitOption('先拓下来，不急着补', '残碑还在，缺的那几笔不会自己长出来，也不会自己消失'));
+        return {
+          lead: '后山那块残碑被连日暴雨洗出了字。前人写到一半便停了，缺的不是风化，是他当年没写完。你蹲在碑前，忽然觉得缺的那几笔自己会写',
+          info: daoInfo(g, U),
+          note: '这是你第一次有机会把自己的法写下来；经文最好落，也最贴这块残碑。',
+          options: opts
+        };
+      },
+      resolve: function (g, U, optionId) {
+        if (optionId === 'wait') {
+          U.printlog('你用湿纸把碑文拓了下来，缺的地方留着空白。山门里的人路过都当这是古迹，没人知道你其实已经想好了怎么补');
+          return;
+        }
+        resolveCreate(g, U, optionId.slice(4), {
+          tier: 2, lo: 15, hi: 50,
+          ok: '你用石屑在缺处补了三笔，整块碑忽然顺了——那三笔不是前人的，是你的',
+          fail: '补上去的字第二天就被雨冲掉了，碑还是残的，你也没再去',
+          exempt: '你举起石屑又放下。这块碑不是你的纸，乱补只会把前人的意思也毁了'
+        });
+      }
+    },
+    {
+      id: 'dao_create_rain_first', weight: 2.2, maxCount: 3,
+      name: '雨夜自摸', tier: 2, tag: 'create',
+      desc: '漏雨的石屋里，你把听来的半句经文摸成了自己的法',
+      minAge: 20, maxAge: 10000,
+      available: function (g, U) {
+        return !g.becameEmperor && g.lvl >= 21 && g.lvl <= 70 && createReady(g, U, true);
+      },
+      choice: function (g, U) {
+        var opts = artOptions(g, U, 2, { skipDeadly: true, first: 'array' });
+        opts.push(waitOption('先把漏雨的屋顶补上', '半句经文还在心里，今夜不写也不会忘'));
+        return {
+          lead: '石屋漏雨，灯芯被风吹得只剩豆大一点。你把白天听来的半句经文在地上画了又擦、擦了又画——画到后半夜，那半句已经不像别人的了',
+          info: daoInfo(g, U),
+          note: '这是你第一次有机会把自己的法写下来；阵纹最好落，也最贴这一地水痕。',
+          options: opts
+        };
+      },
+      resolve: function (g, U, optionId) {
+        if (optionId === 'wait') {
+          U.printlog('你先把屋顶的漏处堵住。地上的水痕干了，半句经文还在，只是不再那么尖');
+          return;
+        }
+        resolveCreate(g, U, optionId.slice(4), {
+          tier: 2, lo: 15, hi: 50,
+          ok: '你就着漏下来的雨水把纹路一遍遍描实，天亮时地上那摊已经能自己转起来',
+          fail: '水一冲，纹路糊成一片。你坐到天亮，也没能把那半句重新分开',
+          exempt: '灯灭了，你没有再点。有些法摸到一半就该停，硬写只会写成胡话'
+        });
+      }
+    },
+    {
       id: 'dao_mortal_untaught', weight: 2.8, maxCount: 6,
       name: '无师自通', tier: 2, tag: 'mortal_dao',
       desc: '残篇被当废纸贱卖，因为无人读得懂',

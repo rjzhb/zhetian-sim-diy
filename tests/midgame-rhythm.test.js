@@ -196,8 +196,12 @@ function mortalSage(opt) {
   assert.ok(firstId, '保底事件应有 id');
 
   var guard = byId('dao_create_guard_first');
+  var stele = byId('dao_create_stele_first');
+  var rain = byId('dao_create_rain_first');
   assert.ok(guard && typeof guard.choice === 'function' && typeof guard.resolve === 'function',
     '道宫入口创法必须是抉择，不能再自动写完');
+  assert.ok(stele && rain && typeof stele.choice === 'function' && typeof rain.choice === 'function',
+    '第一次落笔至少要有残碑、雨夜两条别的入口，不能局局都是师兄之死');
 
   var plain = Sim.createGame(0, [], { tier: 5, name: '颖悟', initialDaoyun: 70 });
   assert.ok(!Sim.daoArtGuarantee(plain), '无悟性卡的悟性5不应保送创法');
@@ -216,6 +220,23 @@ function mortalSage(opt) {
   born.artGlimpse = true;
   Sim.ensureArtChoice(born, []);
   assert.ok(born.pendingChoice, '天生满悟在道宫见窗口后也应弹出创法抉择');
+
+  var firstIds = {}, i, seenFirst = 0;
+  for (i = 0; i < 36; i++) {
+    var roll = Sim.createGame(0, [], { tier: 10, name: Sim.daoGiftName(10), initialDaoyun: 1000 });
+    roll.lvl = 25;
+    roll.age = 80;
+    roll.artGlimpse = true;
+    Sim.ensureArtChoice(roll, []);
+    var evId = roll.pendingChoice && roll.pendingChoice.evId;
+    if (evId) {
+      firstIds[evId] = (firstIds[evId] || 0) + 1;
+      seenFirst++;
+    }
+  }
+  assert.ok(Object.keys(firstIds).length >= 2, '第一次创法入口不能锁死一条，实际 ' + JSON.stringify(firstIds));
+  assert.ok(!firstIds.dao_create_guard_first || firstIds.dao_create_guard_first <= seenFirst * 0.7,
+    '死中求生之法不应占满第一次落笔，实际 ' + JSON.stringify(firstIds));
 })();
 
 /* ---------- 谋划红利：会选的人把选择题兑成成帝资本 ---------- */
