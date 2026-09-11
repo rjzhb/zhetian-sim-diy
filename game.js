@@ -588,6 +588,7 @@
     clearStickyAutoChoice();
     renderAttrs();
     $('log-box').innerHTML = '';
+    clearThrillRail();
     pendingLogs = [];
     var first = [];
     if (G.innate >= 8) first.push({ cls: 'rare', text: '第6岁，天生异禀！觉醒『' + physiqueName(G) + '』' });
@@ -1125,8 +1126,82 @@
       d.className = 'log-item' + (logs[i].cls ? ' ' + logs[i].cls : '');
       d.textContent = logs[i].text;
       frag.appendChild(d);
+      pushThrill(logs[i]);
     }
     box.insertBefore(frag, box.firstChild);
+  }
+
+  /* 惊喜奖励不暂停：叠在标题下的半透明栏，最多 3 条，自己淡出。 */
+  var THRILL_MAX = 3;
+  var THRILL_MS = 3800;
+  var thrillItems = [];
+  function thrillKind(item) {
+    if (!item || !item.text) return '';
+    if (item.cls === 'brk' || item.cls === 'dead') return '';
+    if (!/实力[+\-−]|寿元[+\-−]|道蕴[+\-−]/.test(item.text)) return '';
+    return /实力\-|寿元\-/.test(item.text) && !/实力\+/.test(item.text) ? 'loss' : 'gain';
+  }
+  function thrillParts(text) {
+    var age = '', body = String(text || ''), deltas = [];
+    var m = body.match(/^第(\d+)岁，/);
+    if (m) {
+      age = '第' + m[1] + '岁';
+      body = body.slice(m[0].length);
+    }
+    body = body.replace(/(实力|寿元|道蕴)([+\-−]\d+)/g, function (_, key, num) {
+      deltas.push(key + num);
+      return '';
+    });
+    body = body.replace(/^[，,、;\s]+|[，,、;\s]+$/g, '');
+    if (body.length > 42) body = body.slice(0, 40) + '…';
+    return { age: age, body: body, deltas: deltas };
+  }
+  function hideRailIfEmpty() {
+    var rail = $('thrill-rail');
+    if (rail && !thrillItems.length) rail.hidden = true;
+  }
+  function dropThrill(el) {
+    var i, rec = null;
+    for (i = 0; i < thrillItems.length; i++) {
+      if (thrillItems[i].el === el) { rec = thrillItems[i]; thrillItems.splice(i, 1); break; }
+    }
+    if (rec && rec.timer) clearTimeout(rec.timer);
+    if (!el || !el.parentNode) { hideRailIfEmpty(); return; }
+    el.classList.add('out');
+    setTimeout(function () {
+      if (el.parentNode) el.parentNode.removeChild(el);
+      hideRailIfEmpty();
+    }, 280);
+  }
+  function clearThrillRail() {
+    var i;
+    for (i = 0; i < thrillItems.length; i++) if (thrillItems[i].timer) clearTimeout(thrillItems[i].timer);
+    thrillItems = [];
+    var rail = $('thrill-rail');
+    if (rail) { rail.innerHTML = ''; rail.hidden = true; }
+  }
+  function pushThrill(item) {
+    if (!thrillKind(item)) return;
+    var rail = $('thrill-rail');
+    if (!rail) return;
+    var parts = thrillParts(item.text);
+    var el = document.createElement('div');
+    var deltaHtml = '', di;
+    for (di = 0; di < parts.deltas.length; di++) {
+      deltaHtml += '<b class="' + (/-/.test(parts.deltas[di]) ? 'neg' : 'pos') + '">' + esc(parts.deltas[di]) + '</b>';
+    }
+    el.className = 'thrill-card thrill-' + thrillKind(item);
+    el.innerHTML = '<div class="thrill-main">' +
+      (parts.age ? '<span class="thrill-age">' + esc(parts.age) + '</span>' : '') +
+      '<span class="thrill-body">' + esc(parts.body) + '</span></div>' +
+      (deltaHtml ? '<div class="thrill-deltas">' + deltaHtml + '</div>' : '');
+    rail.hidden = false;
+    rail.appendChild(el);
+    thrillItems.push({
+      el: el,
+      timer: setTimeout(function () { dropThrill(el); }, THRILL_MS)
+    });
+    while (thrillItems.length > THRILL_MAX) dropThrill(thrillItems[0].el);
   }
 
   /* ---------- 暂停 ---------- */
@@ -1147,6 +1222,7 @@
     hideMask();
     resetChoiceSheet();
     $('choice-mask').hidden = true;
+    clearThrillRail();
     G = null;
     show('home');
   }
@@ -1157,6 +1233,7 @@
     stopPlay(); hideMask();
     resetChoiceSheet();
     $('choice-mask').hidden = true;
+    clearThrillRail();
     pendingLogs = [];
     settleReason = reason;
 

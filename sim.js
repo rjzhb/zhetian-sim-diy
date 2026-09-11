@@ -422,6 +422,11 @@
       resolveEnterSaint(g, log);
       return;
     }
+    if (!thresholdDaoReady(g)) return;
+    if ((g.innate || 1) <= 5 && !g.saintEveOffered && offerDoorStory(g, log, 'th_stuck_sheng')) {
+      g.saintEveOffered = true;
+      return;
+    }
     if (!thresholdShouldAttempt(g, ENTER_SAINT_POWER_REF)) return;
     g.thresholdWait = 0;
     resolveEnterSaint(g, log);

@@ -239,8 +239,45 @@ button:disabled { opacity: .5; }
 .set-switch input:checked + .track::after { transform: translateX(22px); background: #fff; }
 
 /* ---------- 游戏 ---------- */
-#view-game { padding-top: 0; padding-bottom: 20px; }
-.game-top { width: 100%; display: flex; align-items: center; justify-content: center; position: relative; padding: 16px 8px 8px; }
+#view-game { padding-top: 0; padding-bottom: 20px; position: relative; }
+.game-top { width: 100%; display: flex; align-items: center; justify-content: center; position: relative; padding: 16px 8px 8px; z-index: 7; }
+.thrill-rail {
+  position: absolute;
+  left: 10px;
+  right: 58px;
+  top: 58px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+}
+.thrill-card {
+  padding: 8px 11px;
+  border-radius: 11px;
+  background: rgba(16, 10, 36, 0.58);
+  border: 1px solid rgba(255, 214, 150, 0.28);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #ffe9c4;
+  animation: thrill-in 0.28s ease;
+}
+.thrill-card.out { animation: thrill-out 0.26s ease forwards; }
+.thrill-card.thrill-loss { border-color: rgba(255, 120, 140, 0.34); background: rgba(36, 10, 22, 0.58); }
+.thrill-main { display: flex; gap: 8px; align-items: baseline; font-size: 12.5px; line-height: 1.45; }
+.thrill-age { color: #ffd27a; font-weight: 800; flex: 0 0 auto; }
+.thrill-body { color: #f4e8c8; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.thrill-deltas { margin-top: 4px; display: flex; gap: 10px; font-size: 13px; font-weight: 800; letter-spacing: 0.3px; }
+.thrill-deltas .pos { color: #7dffb4; text-shadow: 0 0 10px rgba(80, 255, 170, 0.35); }
+.thrill-deltas .neg { color: #ff8ea0; }
+@keyframes thrill-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes thrill-out {
+  to { opacity: 0; transform: translateY(-6px); }
+}
 .game-title {
   font-size: 20px; letter-spacing: 5px;
   color: #ffe6b0; font-weight: 900;

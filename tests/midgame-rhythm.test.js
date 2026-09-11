@@ -1235,7 +1235,10 @@ function mortalSage(opt) {
   assert.ok(Sim.enterSaintChance(king) < 0.22, '凡体弱战力入圣应很低，实际 ' + Sim.enterSaintChance(king));
   var kingLog = [];
   Sim.ensureEnterSaint(king, kingLog);
-  assert.ok(king.saintTried, '道蕴够时应立刻判入圣');
+  assert.ok(king.saintEveOffered, '凡人入圣前该先看见圣位枯坐');
+  assert.ok(!king.saintTried, '枯坐那年不应判入圣');
+  Sim.ensureEnterSaint(king, kingLog);
+  assert.ok(king.saintTried, '枯坐过后，道蕴够了就判入圣');
   assert.ok(!king.pendingChoice, '入圣不是选择题');
 
   var passed = 0, n;
