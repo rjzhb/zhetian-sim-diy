@@ -598,6 +598,16 @@ function mortalSage(opt) {
   var before = stuckG.lvl;
   stuck.ok(stuckG, Sim.U);
   assert.ok(stuckG.lvl > before, '四极夜关成功应推一层，实际 ' + stuckG.lvl);
+  var vajraG = Sim.createGame(0, []);
+  Sim.setPhysique(vajraG, D.physiqueById('vajra'));
+  vajraG.lvl = 25;
+  vajraG.age = 90;
+  assert.ok(stuck.available(vajraG), '金刚不坏体也应能坐下破境');
+  var kingG = Sim.createGame(0, []);
+  Sim.setPhysique(kingG, D.physiqueById('human_king'));
+  kingG.lvl = 25;
+  kingG.age = 90;
+  assert.ok(!stuck.available(kingG), '人王体不该再吃凡体卡关');
   var xianStuck = byId('th_stuck_xian');
   var xianG = Sim.createGame(0, []);
   Sim.setPhysique(xianG, D.physiqueById('mortal'));

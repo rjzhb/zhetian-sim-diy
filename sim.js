@@ -1986,7 +1986,7 @@
     }
     if (eventSpanRoom(g) > 0 && stake.length) {
       /* 凡体卡在四极到仙台时，额度没花完也先坐下。否则夜关要等梭哈抽完才轮到。 */
-      if ((g.innate || 1) <= 3 && (g.lvl || 1) >= 21 && (g.lvl || 1) <= 50 && Math.random() < 0.40) {
+      if ((g.innate || 1) <= 4 && (g.lvl || 1) >= 21 && (g.lvl || 1) <= 50 && Math.random() < 0.40) {
         var earlyStuck = collectStuckEvents(g);
         if (earlyStuck.length) {
           fireEvent(g, log, earlyStuck[Math.floor(Math.random() * earlyStuck.length)]);
@@ -2016,7 +2016,7 @@
     return out;
   }
   function pickStuckBreak(g, flavor) {
-    if (!g || (g.innate || 1) > 3) return null;
+    if (!g || (g.innate || 1) > 4) return null;
     if ((g.lvl || 1) < 21 || (g.lvl || 1) > 90) return null;
     if (Math.random() > 0.62) return null;
     var found = collectStuckEvents(g);

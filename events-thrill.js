@@ -149,7 +149,7 @@
       desc: '第四极那口气一夜没散', weight: 16, maxCount: 3,
       minAge: 25, maxAge: 100000,
       available: function (g) {
-        return !g.becameEmperor && (g.innate || 1) <= 3 && g.lvl >= 21 && g.lvl <= 40;
+        return !g.becameEmperor && (g.innate || 1) <= 4 && g.lvl >= 21 && g.lvl <= 40;
       },
       cond: function (g) { return Math.random() < 0.72; },
       ok: function (g, U) {
@@ -168,7 +168,7 @@
       desc: '这一层的窗户纸，坐薄了', weight: 16, maxCount: 3,
       minAge: 80, maxAge: 100000,
       available: function (g) {
-        return !g.becameEmperor && (g.innate || 1) <= 3 && g.lvl >= 41 && g.lvl <= 55;
+        return !g.becameEmperor && (g.innate || 1) <= 4 && g.lvl >= 41 && g.lvl <= 55;
       },
       cond: function (g) { return Math.random() < 0.70; },
       ok: function (g, U) {
@@ -187,7 +187,7 @@
       desc: '别人靠血脉过关，你靠把息调匀', weight: 15, maxCount: 3,
       minAge: 160, maxAge: 100000,
       available: function (g) {
-        return !g.becameEmperor && (g.innate || 1) <= 3 && g.lvl >= 51 && g.lvl <= 70;
+        return !g.becameEmperor && (g.innate || 1) <= 4 && g.lvl >= 51 && g.lvl <= 70;
       },
       cond: function (g) { return Math.random() < 0.68; },
       ok: function (g, U) {
@@ -206,7 +206,7 @@
       desc: '大圣这一层，凡骨只能坐', weight: 14, maxCount: 3,
       minAge: 400, maxAge: 100000,
       available: function (g) {
-        return !g.becameEmperor && (g.innate || 1) <= 3 && g.lvl >= 71 && g.lvl <= 90;
+        return !g.becameEmperor && (g.innate || 1) <= 4 && g.lvl >= 71 && g.lvl <= 90;
       },
       cond: function (g) { return Math.random() < 0.64; },
       ok: function (g, U) {
