@@ -3842,12 +3842,13 @@
     if (now.odds - prev.odds >= GATE_ODDS_STEP * 1000) return true;
     return false;
   }
-  /* 自动决策：把握够了、等不起了、或再等也抬不高（圣体上限到不了 55%）就叩。 */
+  /* 自动决策：把握够了、等不起了、或再等也抬不高（圣体上限到不了 55%）就叩。
+   * 门是封的时候绝不能替玩家去送死——那是 0%，不是悲壮。 */
   function imperialGateAutoStrike(g) {
-    if (imperialGateForced(g)) return true;
-    if ((g.lifespan - g.age) <= GATE_AUTO_RESERVE) return true;
     var info = imperialGateInfo(g);
     if (info.block) return false;
+    if (imperialGateForced(g)) return true;
+    if ((g.lifespan - g.age) <= GATE_AUTO_RESERVE) return true;
     if (info.odds >= GATE_AUTO_ODDS) return true;
     if (isHuangguSacred(g) && info.odds >= 0.28 && (g.imperialGateWaits || 0) >= 1) return true;
     return false;
@@ -3863,12 +3864,12 @@
       reason + '——闭关至第' + g.emperorAttemptAge + '岁再看' });
   }
   registerChoiceHandler('imperial_gate', function (g, optionId, log) {
-    if (optionId === 'wait' && !imperialGateForced(g)) { imperialGateWait(g, log); return; }
+    if (optionId === 'wait') { imperialGateWait(g, log); return; }
     tryZhengdao(g, log);
   });
   /* 返回 true 表示本年的叩关决策已经交出去了（弹窗挂起，或自动决策已当场结算）。 */
   function openImperialGateChoice(g, log) {
-    if (imperialGateForced(g)) return false;    /* 不给选了，直接叩 */
+    if (imperialGateForced(g)) return false;    /* 不给选了；封门时由 stepYear 跳过硬闯，走寿尽 */
     /* 到期了但局面没变：默默再压一截，不弹第二次一模一样的窗 */
     if (g.imperialGateSeen && !imperialGateChanged(g)) {
       var silent = imperialGateWaitYears(g);
@@ -4199,8 +4200,11 @@
     var shouldAttempt = (g.lvl >= 99 && g.age >= g.emperorAttemptAge) ||
       (g.xintian && g.lvl >= 91 && g.lifespan - g.age <= 10);
     if (shouldAttempt && !g.ascended && !g.dead) {
-      if (openImperialGateChoice(g, log)) return;
-      if (tryZhengdao(g, log)) return;
+      /* 门封着再闯是 0%。寿元将尽也不替玩家送死，把年耗完等大帝自己坐化；等不到就老死。 */
+      if (!(imperialGateForced(g) && imperialGateInfo(g).block)) {
+        if (openImperialGateChoice(g, log)) return;
+        if (tryZhengdao(g, log)) return;
+      }
     }
 
     /* 寿元判定放在突破之后：寿元将尽那年仍可突破/续命 */
@@ -4368,6 +4372,7 @@
     tryZhengdao: tryZhengdao,
     imperialGateInfo: imperialGateInfo,
     imperialGateForced: imperialGateForced,
+    imperialGateAutoStrike: imperialGateAutoStrike,
     imperialGateWaitYears: imperialGateWaitYears,
     openImperialGateChoice: openImperialGateChoice,
     sacredEmperorChance: sacredEmperorChance,

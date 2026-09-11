@@ -35,7 +35,7 @@ function runOne(physId, gift, style) {
   Sim.setPhysique(g, phys(physId));
   var y = 0, pops = [], seen = {}, repeats = 0;
   var lastId = null, lastGap = 0, gaps = [];
-  while (!g.dead && !g.ascended && y < 80000) {
+  while (!g.dead && !g.ascended && !g.becameEmperor && y < 80000) {
     y++;
     Sim.rollYear(g);
     var guard = 0;

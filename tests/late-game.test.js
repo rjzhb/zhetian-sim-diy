@@ -928,6 +928,7 @@ try {
 assert.strictEqual(suppressedTianxin.xintian, false, 'Tianxin cannot be acquired while another emperor owns it');
 
 const suppressionTraitGame = Sim.createGame(0, ['o18']);
+Sim.setPhysique(suppressionTraitGame, DATA.physiqueById('mortal'));
 suppressionTraitGame.lvl = 99;
 suppressionTraitGame.cult = DATA.OVERWHELM_DAO_CULT;
 suppressionTraitGame.daoyun = Sim.effectiveDaoyunNeed(suppressionTraitGame, 99);
@@ -1330,5 +1331,50 @@ perLifeMethod.emperorLegacy.lastBeat = null;
 perLifeMethod.lifeNo = 4;
 assert.ok(sawBeat(perLifeMethod, 'self_method', 500),
   'each later life may still open a different longevity method');
+
+(function () {
+  var blocked = Sim.createGame(0, []);
+  Sim.setPhysique(blocked, DATA.physiqueById('mortal'));
+  blocked.lvl = 99;
+  blocked.age = 9960;
+  blocked.lifeBase = 10000;
+  blocked.lifeBonus = 0;
+  blocked.lifespan = 10000;
+  blocked.cult = 400000;
+  blocked.daoyun = Sim.effectiveDaoyunNeed(blocked, 99);
+  blocked.worldEmperor = { name: '测试大帝', start: 0, end: 80000, cult: 1500000 };
+  blocked.emperorAttemptAge = 9900;
+  assert.strictEqual(Sim.imperialGateInfo(blocked).block, 'suppress', '战力不够时应被当世帝挡住');
+  assert.strictEqual(Sim.imperialGateAutoStrike(blocked), false, '门封着不能替玩家去送死');
+  assert.strictEqual(Sim.openImperialGateChoice(blocked, []), false, '寿元将尽不再弹窗');
+  Sim.rollYear(blocked);
+  assert.notStrictEqual(blocked.deadCause, 'world_emperor_suppression',
+    '寿元将尽撞上有帝镇压，不该被系统推进去送死');
+  assert.ok(blocked.age <= blocked.lifespan + 2, '等不该把寿元判定跳掉，实际 ' + blocked.age + '/' + blocked.lifespan);
+  var stuck = Sim.createGame(0, []);
+  Sim.setPhysique(stuck, DATA.physiqueById('mortal'));
+  stuck.lvl = 99;
+  stuck.age = 9998;
+  stuck.lifeBase = 10000;
+  stuck.lifeBonus = 0;
+  stuck.lifespan = 10000;
+  stuck.cult = 400000;
+  stuck.daoyun = Sim.effectiveDaoyunNeed(stuck, 99);
+  stuck.worldEmperor = { name: '测试大帝', start: 0, end: 80000, cult: 1500000 };
+  stuck.emperorAttemptAge = 9900;
+  var n = 0;
+  try {
+    Math.random = function () { return 0.999; };
+    while (!stuck.dead && n < 12) {
+      n++;
+      Sim.rollYear(stuck);
+      while (stuck.pendingChoice) Sim.resolveChoice(stuck, Sim.defaultChoiceOption(stuck.pendingChoice), []);
+    }
+  } finally {
+    Math.random = oldRandom;
+  }
+  assert.strictEqual(stuck.dead, true, '门封着等到寿尽应老死，年=' + n + ' 寿=' + stuck.age + '/' + stuck.lifespan);
+  assert.strictEqual(stuck.deadCause, 'age', '应老死而不是镇压，实际 ' + stuck.deadCause);
+})();
 
 console.log('late-game: ok');

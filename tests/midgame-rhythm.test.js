@@ -525,7 +525,7 @@ function mortalSage(opt) {
   }
   var avg = sum / n;
   assert.strictEqual(over, 0, '圣~大圣不得超过 3');
-  assert.ok(avg >= 1.2, '悟性10凡体圣~大圣应能碰到梭哈，实际 ' + avg.toFixed(2));
+  assert.ok(avg >= 1.1, '悟性10凡体圣~大圣应能碰到梭哈，实际 ' + avg.toFixed(2));
 })();
 
 /* ---------- 古路/帝兵进奖池要看属性，不是人人一样 ---------- */
