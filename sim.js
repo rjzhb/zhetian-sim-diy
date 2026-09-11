@@ -380,6 +380,20 @@
     push(log, { cls: 'ev3', text: '第' + g.age + '岁，' + text });
     return false;
   }
+  function eventById(id) {
+    var i;
+    for (i = 0; i < E.length; i++) if (E[i].id === id) return E[i];
+    return null;
+  }
+  function offerDoorStory(g, log, id) {
+    var ev = eventById(id);
+    if (!ev || !eventAvailable(g, ev)) return false;
+    var mc = g.maxCount || {};
+    var maxN = ev.maxCount != null ? ev.maxCount : 3;
+    if ((mc[ev.id] != null ? mc[ev.id] : maxN) <= 0) return false;
+    fireEvent(g, log, ev);
+    return true;
+  }
   function ensureCutDao(g, log) {
     if (!g || g.dead || g.becameEmperor || g.pendingChoice) return;
     if ((g.lvl || 1) !== 60 || g.cutDaoTried || g.cutDaoPassed) return;
@@ -387,6 +401,12 @@
       if (!thresholdDaoReady(g)) return;
       g.thresholdWait = 0;
       resolveCutDao(g, log);
+      return;
+    }
+    /* 凡人先看见前夜，再落刀。否则门槛年把事件年吃掉，前夜永远是 0。 */
+    if (!thresholdDaoReady(g)) return;
+    if ((g.innate || 1) <= 5 && !g.cutEveOffered && offerDoorStory(g, log, 'th_stuck_cut')) {
+      g.cutEveOffered = true;
       return;
     }
     if (!thresholdShouldAttempt(g, CUT_DAO_POWER_REF)) return;
@@ -2260,8 +2280,12 @@
       }
     }
     if (eventSpanRoom(g) > 0 && stake.length) {
-      /* 凡体卡在四极到入圣门口时，额度没花完也先坐下。两道门槛只堆战力，坐不穿。 */
-      if ((g.innate || 1) <= 4 && (g.lvl || 1) >= 10 && (g.lvl || 1) <= 70 && Math.random() < 0.40) {
+      /* 凡体卡在四极到入圣门口时，额度没花完也先坐下。两道门槛只堆战力，坐不穿。
+       * 斩道/入圣门口不再先掷骰，否则前夜会被梭哈额度吃掉。 */
+      var atGate = ((g.lvl || 1) === 60 && !g.cutDaoTried) ||
+        ((g.lvl || 1) === 70 && !g.saintTried);
+      if ((g.innate || 1) <= 4 && (g.lvl || 1) >= 10 && (g.lvl || 1) <= 70 &&
+          (atGate || Math.random() < 0.40)) {
         var earlyStuck = collectStuckEvents(g);
         if (earlyStuck.length) {
           fireEvent(g, log, pickDoorStuck(g, earlyStuck));
@@ -2300,8 +2324,10 @@
     var afterSaint = g && g.lvl === 70 && g.saintTried && !g.saintPassed;
     if (!g || (innate > 4 && !afterCut && !afterSaint)) return null;
     if ((g.lvl || 1) < 10 || (g.lvl || 1) > 90) return null;
-    /* 门槛失败后余生必须能看见，不再跟路边池掷骰。 */
-    if (!afterCut && !afterSaint && Math.random() > 0.62) return null;
+    /* 门槛失败后余生必须能看见。斩道/入圣门口也不再先掷骰把前夜扔回去。 */
+    var atGate = ((g.lvl || 1) === 60 && !g.cutDaoTried) ||
+      ((g.lvl || 1) === 70 && !g.saintTried);
+    if (!afterCut && !afterSaint && !atGate && Math.random() > 0.62) return null;
     var found = collectStuckEvents(g);
     if (!found.length && flavor && flavor.length) {
       var i, ev;

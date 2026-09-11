@@ -754,6 +754,19 @@ function mortalSage(opt) {
   assert.ok(doorStake.maxCount && doorStake.maxCount.th_stuck_cut != null &&
     doorStake.maxCount.th_stuck_cut < 2, '斩道门口应先看见前夜，而不是被调息挤掉');
   assert.strictEqual(doorStake.lvl, 60, '门口坐下不能坐进王者');
+  var doorSpent = Sim.createGame(0, []);
+  Sim.setPhysique(doorSpent, D.physiqueById('mortal'));
+  doorSpent.innate = 1;
+  doorSpent.aptitude = 1;
+  doorSpent.lvl = 60;
+  doorSpent.age = 500;
+  doorSpent.eventDrawsBySpan = { pre: 3 };
+  var spentRnd = Math.random;
+  Math.random = function () { return 0.9; };
+  Sim.rollEvent(doorSpent, []);
+  Math.random = spentRnd;
+  assert.ok(doorSpent.maxCount && doorSpent.maxCount.th_stuck_cut != null &&
+    doorSpent.maxCount.th_stuck_cut < 2, '额度用尽、骰子再大，斩道门口仍该看见前夜');
   var cutEve = byId('th_stuck_cut');
   assert.ok(cutEve && !Sim.isStakeEvent(cutEve), '斩道前夜应走路边池，不占梭哈');
   var kingDoor = Sim.createGame(0, []);
@@ -815,6 +828,7 @@ function mortalSage(opt) {
   near.cult = 24000;
   var failRnd = Math.random;
   Math.random = function () { return 0.99; };
+  Sim.ensureCutDao(near, []);
   Sim.ensureCutDao(near, []);
   Math.random = failRnd;
   assert.ok(near.cutDaoTried && !near.cutDaoPassed, '高战力仍可能斩败');
@@ -1206,7 +1220,10 @@ function mortalSage(opt) {
 
   var log = [];
   Sim.ensureCutDao(door, log);
-  assert.ok(door.cutDaoTried, '道蕴够时应立刻斩一刀');
+  assert.ok(door.cutEveOffered, '凡人该先看见斩道前夜');
+  assert.ok(!door.cutDaoTried, '前夜那年不应落刀');
+  Sim.ensureCutDao(door, log);
+  assert.ok(door.cutDaoTried, '前夜过后，道蕴够了就斩一刀');
   assert.ok(!door.pendingChoice, '斩道不是选择题');
   assert.ok(log.length, '斩道应写下旁白');
   var again = door.cutDaoPassed;
@@ -1224,6 +1241,7 @@ function mortalSage(opt) {
   var passed = 0, n;
   for (n = 0; n < 80; n++) {
     var roll = mortalAt(60, { daoyun: 90, cult: 5000 });
+    Sim.ensureCutDao(roll, []);
     Sim.ensureCutDao(roll, []);
     if (roll.cutDaoPassed) passed++;
   }
