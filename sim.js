@@ -3810,6 +3810,7 @@
         '等当世大帝坐化，或攒到破灭万道的战力';
     }
     if (info.block === 'daoyun') return '等道蕴补齐';
+    if (!g.worldEmperor && (info.odds || 0) >= 0.35) return '再等下去，或有旁人捷足先登';
     if ((info.odds || 0) < 0.20) return '把握尚浅，先把道基养厚';
     if ((info.odds || 0) < 0.40) return '再积一截战力与道蕴';
     return '再磨一磨，等更有把握时再叩';
@@ -3849,6 +3850,8 @@
     if (info.block) return false;
     if (imperialGateForced(g)) return true;
     if ((g.lifespan - g.age) <= GATE_AUTO_RESERVE) return true;
+    /* 无帝之世已经有四成把握：再压会被路人帝把窗口堵死。 */
+    if (!g.worldEmperor && !isHuangguSacred(g) && info.odds >= 0.42) return true;
     if (info.odds >= GATE_AUTO_ODDS) return true;
     if (isHuangguSacred(g) && info.odds >= 0.28 && (g.imperialGateWaits || 0) >= 1) return true;
     return false;

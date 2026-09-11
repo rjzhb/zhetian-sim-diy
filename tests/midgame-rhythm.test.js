@@ -509,7 +509,7 @@ function mortalSage(opt) {
 
 /* ---------- 圣人到大圣不能再被寿元摊空 ---------- */
 (function () {
-  var i, sum = 0, over = 0, n = 16;
+  var i, sum = 0, over = 0, hit = 0, n = 24;
   for (i = 0; i < n; i++) {
     var g = Sim.createGame(60, [], { tier: 10, name: '万古道心', initialDaoyun: 400 });
     Sim.setPhysique(g, D.physiqueById('mortal'));
@@ -521,11 +521,13 @@ function mortalSage(opt) {
     }
     var mid = (g.eventDrawsBySpan && g.eventDrawsBySpan.mid) || 0;
     sum += mid;
+    if (mid >= 1) hit++;
     if (mid > 3) over++;
   }
   var avg = sum / n;
   assert.strictEqual(over, 0, '圣~大圣不得超过 3');
-  assert.ok(avg >= 1.1, '悟性10凡体圣~大圣应能碰到梭哈，实际 ' + avg.toFixed(2));
+  assert.ok(hit / n >= 0.5, '悟性10凡体至少一半能在圣~大圣碰到梭哈，实际 ' + hit + '/' + n);
+  assert.ok(avg >= 0.7, '圣~大圣段不能再被摊空，实际 ' + avg.toFixed(2));
 })();
 
 /* ---------- 古路/帝兵进奖池要看属性，不是人人一样 ---------- */

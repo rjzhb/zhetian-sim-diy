@@ -1375,6 +1375,22 @@ assert.ok(sawBeat(perLifeMethod, 'self_method', 500),
   }
   assert.strictEqual(stuck.dead, true, '门封着等到寿尽应老死，年=' + n + ' 寿=' + stuck.age + '/' + stuck.lifespan);
   assert.strictEqual(stuck.deadCause, 'age', '应老死而不是镇压，实际 ' + stuck.deadCause);
+
+  var openGate = Sim.createGame(0, []);
+  Sim.setPhysique(openGate, DATA.physiqueById('mortal'));
+  openGate.lvl = 99;
+  openGate.age = 3800;
+  openGate.lifeBase = 9000;
+  openGate.lifeBonus = 0;
+  openGate.lifespan = 9000;
+  openGate.cult = 350000;
+  openGate.daoyun = Sim.effectiveDaoyunNeed(openGate, 99);
+  openGate.worldEmperor = null;
+  var openInfo = Sim.imperialGateInfo(openGate);
+  assert.strictEqual(openInfo.block, null, '无帝之世不应被挡住');
+  assert.ok(openInfo.odds >= 0.42, '无帝+准帝九重应有四成以上把握，实际 ' + openInfo.odds);
+  assert.strictEqual(Sim.imperialGateAutoStrike(openGate), true,
+    '无帝窗口已经有把握时不应再压到路人成帝');
 })();
 
 console.log('late-game: ok');
