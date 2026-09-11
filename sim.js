@@ -3885,9 +3885,28 @@
     if (optionId === 'wait') { imperialGateWait(g, log); return; }
     tryZhengdao(g, log);
   });
+  /* 帝关弹窗一生最多两窗。再问只在「门从封到开」或寿元将尽。问多了就是作业。 */
+  var GATE_ASK_MAX = 2;
+  function imperialGateMayAsk(g) {
+    if (imperialGateForced(g)) return false;
+    var asks = (g && g.imperialGateAsks) || 0;
+    if (asks < GATE_ASK_MAX) return true;
+    var prev = g && g.imperialGateSeen;
+    var info = imperialGateInfo(g);
+    if (prev && prev.block && !info.block) return true;
+    return false;
+  }
   /* 返回 true 表示本年的叩关决策已经交出去了（弹窗挂起，或自动决策已当场结算）。 */
   function openImperialGateChoice(g, log) {
     if (imperialGateForced(g)) return false;    /* 不给选了；封门时由 stepYear 跳过硬闯，走寿尽 */
+    if (!imperialGateMayAsk(g)) {
+      var hold = imperialGateWaitYears(g);
+      if (hold > 0) {
+        g.emperorAttemptAge = g.age + hold;
+        return true;
+      }
+      return false;
+    }
     /* 到期了但局面没变：默默再压一截，不弹第二次一模一样的窗 */
     if (g.imperialGateSeen && !imperialGateChanged(g)) {
       var silent = imperialGateWaitYears(g);
@@ -3913,6 +3932,7 @@
     else desc = '无帝之世，以力证道，成则万古一帝';
     var strikeLabel = info.block ? '仍要叩关（几无生机）' : '即刻叩关';
     g.imperialGateSeen = imperialGateSnapshot(g);
+    g.imperialGateAsks = ((g.imperialGateAsks || 0) + 1);
     openChoice(g, log, {
       id: 'imperial_gate',
       title: '帝关',
@@ -3921,7 +3941,7 @@
         Math.round(g.daoyun) + '/' + Math.round(g.daoyunCap) + ' · 余寿 ' + left + ' 年' +
         (info.block ? '' : ' · 叩关把握 ' + pctText(info.odds)) +
         ((g.planEdge || 0) > 0 ? ' · 谋划 +' + pctText(g.planEdge) : ''),
-      note: '叩关多半只有一次。再压一压会按你眼下的局面估年数，局面没变之前不会再来烦你。',
+      note: '叩关多半只有一次。这一生最多再问你一次；局面没变就闭关，不再弹窗。',
       cls: 'rainbow',
       options: [
         { id: 'strike', label: strikeLabel, risk: 'deadly',
@@ -4061,7 +4081,7 @@
       choiceByRealm: {},
       realmEnterAge: { 1: 6 },
       realmSeenBand: 1, realmSeenIds: {}, realmSeenTags: {},
-      eventDraws: 0, eventDrawsBySpan: {}, spotlightCount: 0, planScore: 0, planEdge: 0,
+      eventDraws: 0, eventDrawsBySpan: {}, spotlightCount: 0, imperialGateAsks: 0, planScore: 0, planEdge: 0,
       recentEvents: [], pendingChoice: null,
       eventChains: {},
       dead: false, ascended: false, emperor: false, becameEmperor: false, redDustImmortal: false,
@@ -4395,6 +4415,7 @@
     imperialGateAutoStrike: imperialGateAutoStrike,
     imperialGateWaitYears: imperialGateWaitYears,
     openImperialGateChoice: openImperialGateChoice,
+    imperialGateMayAsk: imperialGateMayAsk,
     sacredEmperorChance: sacredEmperorChance,
     completeSacredBody: completeSacredBody,
     spendImperialRetry: spendImperialRetry,

@@ -30,6 +30,36 @@ function spanOf(lvl) {
   return 'late';
 }
 
+/* 爽感分：弹窗合度 + 种类 + 高光 − 帝关刷屏 − 重复作业。
+ * 短命目标 2–4 窗，活到圣人 4–8 窗；超过 10 一律不及格。 */
+function clamp01(x) { return x < 0 ? 0 : (x > 1 ? 1 : x); }
+function popFit(pops, saint) {
+  var lo = saint ? 4 : 2, hi = saint ? 8 : 4;
+  if (pops > 10) return 0;
+  if (pops < lo) return lo ? pops / lo : 0;
+  if (pops <= hi) return 1;
+  return clamp01(1 - (pops - hi) / hi);
+}
+function thrillScore(row) {
+  var pops = row.pops || 0;
+  var unique = row.unique || 0;
+  var repeats = row.repeats || 0;
+  var gate = row.gate || 0;
+  var t3 = row.t3 || 0;
+  var spot = row.spot || 0;
+  var variety = unique / Math.max(1, pops);
+  var gateShare = gate / Math.max(1, pops);
+  var repeatShare = repeats / Math.max(1, pops);
+  var raw = 100 * (
+    0.28 * popFit(pops, row.saint) +
+    0.22 * clamp01(variety) +
+    0.18 * clamp01(t3 / 2) +
+    0.16 * clamp01(spot / 2) +
+    0.16 * clamp01(unique / 4)
+  ) - 25 * Math.max(0, gateShare - 0.25) - 15 * Math.max(0, repeatShare - 0.20);
+  return Math.round(clamp01(raw / 100) * 1000) / 10;
+}
+
 function runOne(physId, gift, style) {
   var g = Sim.createGame(60, [], { tier: gift });
   Sim.setPhysique(g, phys(physId));
@@ -81,7 +111,10 @@ function runOne(physId, gift, style) {
     mid: (g.eventDrawsBySpan && g.eventDrawsBySpan.mid) || 0,
     late: (g.eventDrawsBySpan && g.eventDrawsBySpan.late) || 0,
     t4: pops.filter(function (p) { return p.tier >= 4; }).length,
+    t3: pops.filter(function (p) { return p.tier >= 3; }).length,
     create: pops.filter(function (p) { return p.tag === 'create'; }).length,
+    gate: pops.filter(function (p) { return p.id === 'imperial_gate'; }).length,
+    spot: g.spotlightCount || 0,
     flavor: Math.max(0, (g.eventDraws || 0) - ((g.eventDrawsBySpan && ((g.eventDrawsBySpan.pre || 0) + (g.eventDrawsBySpan.mid || 0) + (g.eventDrawsBySpan.late || 0))) || 0)),
     firstCreate: firstCreate,
     ids: seen
@@ -106,6 +139,8 @@ function summarize(rows) {
     for (k in rows[i].ids) tops[k] = (tops[k] || 0) + rows[i].ids[k];
   }
   var topList = Object.keys(tops).sort(function (a, b) { return tops[b] - tops[a]; }).slice(0, 8);
+  var feel = 0;
+  for (i = 0; i < rows.length; i++) feel += thrillScore(rows[i]);
   return {
     n: rows.length,
     emperor: rate(function (r) { return r.emperor; }),
@@ -120,8 +155,12 @@ function summarize(rows) {
     mid: avg('mid'),
     late: avg('late'),
     t4: avg('t4'),
+    t3: avg('t3'),
     create: avg('create'),
+    gate: avg('gate'),
+    spot: avg('spot'),
     flavor: avg('flavor'),
+    thrill: Math.round(feel / rows.length * 10) / 10,
     causes: causes,
     firstCreate: Object.keys(firsts).sort(function (a, b) { return firsts[b] - firsts[a]; })
       .map(function (id) { return id + ':' + firsts[id]; }),

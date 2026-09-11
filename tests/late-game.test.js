@@ -1391,6 +1391,28 @@ assert.ok(sawBeat(perLifeMethod, 'self_method', 500),
   assert.ok(openInfo.odds >= 0.42, '无帝+准帝九重应有四成以上把握，实际 ' + openInfo.odds);
   assert.strictEqual(Sim.imperialGateAutoStrike(openGate), true,
     '无帝窗口已经有把握时不应再压到路人成帝');
+
+  var ask = Sim.createGame(0, []);
+  Sim.setPhysique(ask, DATA.physiqueById('mortal'));
+  ask.lvl = 99;
+  ask.age = 4000;
+  ask.lifeBase = 9000;
+  ask.lifeBonus = 0;
+  ask.lifespan = 9000;
+  ask.cult = 200000;
+  ask.daoyun = Sim.effectiveDaoyunNeed(ask, 99);
+  ask.worldEmperor = { name: '测试大帝', start: 0, end: 80000, cult: 1500000 };
+  ask.emperorAttemptAge = 3900;
+  ask.imperialGateAsks = 0;
+  assert.strictEqual(Sim.imperialGateMayAsk(ask), true, '第一窗该问');
+  Sim.openImperialGateChoice(ask, []);
+  ask.pendingChoice = null;
+  assert.ok(ask.imperialGateAsks >= 1);
+  ask.worldEmperor = { name: '下一位大帝', start: 0, end: 90000, cult: 1500000 };
+  Sim.openImperialGateChoice(ask, []);
+  ask.pendingChoice = null;
+  assert.ok(ask.imperialGateAsks >= 2, '换帝应允许第二窗');
+  assert.strictEqual(Sim.imperialGateMayAsk(ask), false, '两窗之后门还封着不该再弹');
 })();
 
 console.log('late-game: ok');

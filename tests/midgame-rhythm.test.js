@@ -540,6 +540,8 @@ function mortalSage(opt) {
   g.eventDrawsBySpan = { pre: 2 };
   var gap = Sim.eventYearInterval(g);
   assert.ok(gap <= 90, '梭哈额度用尽后不能把间隔拉成十万年，实际 ' + gap);
+  assert.strictEqual(typeof Sim.imperialGateMayAsk, 'function', '应导出 imperialGateMayAsk');
+
   assert.ok(byId('th_xian_stele') && byId('th_xian_pill') && byId('th_quasi_private'),
     '分境界梭哈包应有仙台古碑、夺丹和准帝私斗');
   assert.ok(Sim.isStakeEvent(byId('th_xian_stele')), '仙台古碑应占梭哈额度');
