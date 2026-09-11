@@ -1972,7 +1972,20 @@
       fireEvent(g, log, pickWeighted(g, stake));
       return;
     }
-    if (flavor.length) fireEvent(g, log, pickWeighted(g, flavor));
+    if (flavor.length) fireEvent(g, log, pickStuckBreak(g, flavor) || pickWeighted(g, flavor));
+  }
+  /* 凡体悟性普通号卡在四极到王者：路边事优先抽能推一层的卡关，否则他们只是把空白日志填满。 */
+  function pickStuckBreak(g, flavor) {
+    if (!g || (g.innate || 1) > 3) return null;
+    if ((g.lvl || 1) < 21 || (g.lvl || 1) > 70) return null;
+    if (Math.random() > 0.42) return null;
+    var i, ev, found = [];
+    for (i = 0; i < flavor.length; i++) {
+      ev = flavor[i];
+      if (ev && ev.id && String(ev.id).indexOf('th_stuck_') === 0) found.push(ev);
+    }
+    if (!found.length) return null;
+    return found[Math.floor(Math.random() * found.length)];
   }
   var REALM_CHOICE_WAIT = 12;
   var HOMEWORK_BAN = { phy_dixue_cuiti: 1, phy_hundunqi_cuiti: 1 };
@@ -4318,6 +4331,7 @@
     lifeHurtShare: lifeHurtShare,
     applyLifeHurt: applyLifeHurt,
     fireEvent: fireEvent,
+    rollEvent: rollEvent,
     collectAvailableEvents: collectAvailableEvents,
     markEventSeen: markEventSeen,
     markRealmSeen: markRealmSeen,

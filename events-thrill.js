@@ -136,6 +136,65 @@
 
   var EVENTS = [
 
+    /* ---------- 凡体卡关：不弹窗，额度用尽后进路边池，推一层并补寿 ---------- */
+    {
+      id: 'th_stuck_fourpole', name: '四极夜关', tier: 2, tag: 'insight',
+      desc: '第四极那口气一夜没散', weight: 16, maxCount: 3,
+      minAge: 25, maxAge: 100000,
+      available: function (g) {
+        return !g.becameEmperor && (g.innate || 1) <= 3 && g.lvl >= 21 && g.lvl <= 35;
+      },
+      cond: function (g) { return Math.random() < 0.72; },
+      ok: function (g, U) {
+        var lf = U.gainLife(g, 28, 55);
+        var c = U.cultPct(g, 0.018, 0.035, 220);
+        U.up(g, 1);
+        U.printlog('第四极那口气在夜里忽然通了。你没求任何人，只是自己坐到了天亮' +
+          (lf ? '，寿元+' + lf : '') + '，实力+' + c);
+      },
+      fail: function (g, U) {
+        U.printlog('你在夜里把第四极那口气又捋了一遍，还是差一截。差的那一截，明天再坐');
+      }
+    },
+    {
+      id: 'th_stuck_xian', name: '仙台枯坐', tier: 2, tag: 'insight',
+      desc: '这一层的窗户纸，坐薄了', weight: 16, maxCount: 3,
+      minAge: 80, maxAge: 100000,
+      available: function (g) {
+        return !g.becameEmperor && (g.innate || 1) <= 3 && g.lvl >= 41 && g.lvl <= 55;
+      },
+      cond: function (g) { return Math.random() < 0.70; },
+      ok: function (g, U) {
+        var lf = U.gainLife(g, 30, 58);
+        var c = U.cultPct(g, 0.020, 0.038, 400);
+        U.up(g, 1);
+        U.printlog('仙台这一层的窗户纸被你坐薄了。不是顿悟，是坐到它自己破' +
+          (lf ? '，寿元+' + lf : '') + '，实力+' + c);
+      },
+      fail: function (g, U) {
+        U.printlog('你从蒲团上起来，这一层还在。你把蒲团拍了拍，重新坐下');
+      }
+    },
+    {
+      id: 'th_stuck_neng', name: '大能调息', tier: 2, tag: 'insight',
+      desc: '别人靠血脉过关，你靠把息调匀', weight: 15, maxCount: 3,
+      minAge: 160, maxAge: 100000,
+      available: function (g) {
+        return !g.becameEmperor && (g.innate || 1) <= 3 && g.lvl >= 51 && g.lvl <= 68;
+      },
+      cond: function (g) { return Math.random() < 0.68; },
+      ok: function (g, U) {
+        var lf = U.gainLife(g, 32, 60);
+        var c = U.cultPct(g, 0.022, 0.040, 700);
+        U.up(g, 1);
+        U.printlog('同境的人靠血脉一步跨过去。你把息调匀，自己走过去' +
+          (lf ? '，寿元+' + lf : '') + '，实力+' + c);
+      },
+      fail: function (g, U) {
+        U.printlog('息乱了一次，你停下来，没有硬闯。凡骨过关，急不得');
+      }
+    },
+
     /* ---------- 仙台：凡体最常卡死的地方 ---------- */
     forkEvent({
       id: 'th_xian_stele', name: '古碑裂纹', tier: 2, weight: 2.4,

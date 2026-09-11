@@ -545,7 +545,35 @@ function mortalSage(opt) {
   assert.ok(Sim.isStakeEvent(byId('th_xian_stele')), '仙台古碑应占梭哈额度');
   assert.ok(Sim.isStakeEvent(byId('th_wang_mine')), '血色矿脉应是梭哈');
   var thrill = E.filter(function (e) { return e.id && e.id.indexOf('th_') === 0; });
-  assert.ok(thrill.length >= 14, '分境界梭哈包事件太少：' + thrill.length);
+  assert.ok(thrill.length >= 17, '分境界梭哈包事件太少：' + thrill.length);
+  var stuck = byId('th_stuck_fourpole');
+  assert.ok(stuck && !Sim.isStakeEvent(stuck), '四极夜关应走路边池，不占梭哈');
+  var stuckG = Sim.createGame(0, []);
+  Sim.setPhysique(stuckG, D.physiqueById('mortal'));
+  stuckG.innate = 1;
+  stuckG.aptitude = 1;
+  stuckG.lvl = 25;
+  stuckG.age = 80;
+  var before = stuckG.lvl;
+  stuck.ok(stuckG, Sim.U);
+  assert.ok(stuckG.lvl > before, '四极夜关成功应推一层，实际 ' + stuckG.lvl);
+  var bias = Sim.createGame(0, []);
+  Sim.setPhysique(bias, D.physiqueById('mortal'));
+  bias.innate = 1;
+  bias.aptitude = 1;
+  bias.lvl = 25;
+  bias.age = 90;
+  bias.eventDrawsBySpan = { pre: 2 };
+  var n, sawStuck = 0;
+  for (n = 0; n < 40; n++) {
+    var log = [];
+    Sim.rollEvent(bias, log);
+    if (bias.maxCount && bias.maxCount.th_stuck_fourpole != null && bias.maxCount.th_stuck_fourpole < 3) {
+      sawStuck++;
+      break;
+    }
+  }
+  assert.ok(sawStuck, '凡体卡在四极时，路边事宜优先抽到卡关破境');
 
   var xian = Sim.createGame(0, []);
   Sim.setPhysique(xian, D.physiqueById('mortal'));
