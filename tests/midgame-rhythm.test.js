@@ -782,6 +782,14 @@ function mortalSage(opt) {
   sacredDoor.lvl = 60;
   sacredDoor.age = 500;
   assert.ok(!cutEve.available(sacredDoor), '圣体不该再吃斩道前夜');
+  var yibianDoor = Sim.createGame(0, []);
+  Sim.setPhysique(yibianDoor, D.physiqueById('mortal'));
+  yibianDoor.innate = 7;
+  yibianDoor.lvl = 60;
+  yibianDoor.age = 500;
+  assert.ok(cutEve.available(yibianDoor), '凡体异变到 7 品仍该看见斩道前夜');
+  yibianDoor.lvl = 70;
+  assert.ok(byId('th_stuck_sheng').available(yibianDoor), '凡体异变到 7 品入圣前仍该能枯坐');
   var afterCut = byId('th_after_cut');
   assert.ok(afterCut && !Sim.isStakeEvent(afterCut), '斩道余生应走路边池');
   var restDoor = Sim.createGame(0, []);

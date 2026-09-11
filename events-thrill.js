@@ -226,7 +226,7 @@
       desc: '大能巅峰，这一刀还没落下', weight: 18, maxCount: 2,
       minAge: 180, maxAge: 100000,
       available: function (g) {
-        return !g.becameEmperor && (g.innate || 1) <= 5 && g.lvl === 60 && !g.cutDaoTried && !g.cutDaoPassed;
+        return !g.becameEmperor && (g.innate || 1) < 8 && g.lvl === 60 && !g.cutDaoTried && !g.cutDaoPassed;
       },
       cond: function (g) { return Math.random() < 0.70; },
       ok: function (g, U) {
@@ -287,7 +287,7 @@
       minAge: 400, maxAge: 100000,
       available: function (g) {
         if (g.lvl === 70 && g.saintTried) return false;
-        return !g.becameEmperor && (g.innate || 1) <= 4 && g.lvl >= 70 && g.lvl <= 90;
+        return !g.becameEmperor && (g.innate || 1) < 8 && g.lvl >= 70 && g.lvl <= 90;
       },
       cond: function (g) { return Math.random() < 0.64; },
       ok: function (g, U) {

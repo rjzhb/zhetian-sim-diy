@@ -405,7 +405,7 @@
     }
     /* 凡人先看见前夜，再落刀。否则门槛年把事件年吃掉，前夜永远是 0。 */
     if (!thresholdDaoReady(g)) return;
-    if ((g.innate || 1) <= 5 && !g.cutEveOffered && offerDoorStory(g, log, 'th_stuck_cut')) {
+    if ((g.innate || 1) < 8 && !g.cutEveOffered && offerDoorStory(g, log, 'th_stuck_cut')) {
       g.cutEveOffered = true;
       return;
     }
@@ -423,7 +423,7 @@
       return;
     }
     if (!thresholdDaoReady(g)) return;
-    if ((g.innate || 1) <= 5 && !g.saintEveOffered && offerDoorStory(g, log, 'th_stuck_sheng')) {
+    if ((g.innate || 1) < 8 && !g.saintEveOffered && offerDoorStory(g, log, 'th_stuck_sheng')) {
       g.saintEveOffered = true;
       return;
     }
