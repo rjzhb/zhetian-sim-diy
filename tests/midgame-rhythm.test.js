@@ -640,6 +640,23 @@ function mortalSage(opt) {
     }
   }
   assert.ok(sawStuck, '凡体卡在四极时，路边事宜优先抽到卡关破境');
+  var tagged = Sim.createGame(0, []);
+  Sim.setPhysique(tagged, D.physiqueById('mortal'));
+  tagged.innate = 1;
+  tagged.aptitude = 1;
+  tagged.lvl = 25;
+  tagged.age = 90;
+  tagged.eventDrawsBySpan = { pre: 3 };
+  tagged.recentEvents = [{ id: 'dao_sit', tag: 'insight' }];
+  tagged.realmSeenTags = { insight: 1 };
+  tagged.realmSeenIds = { dao_sit: 1 };
+  tagged.realmSeenBand = 3;
+  var stuckRnd = Math.random;
+  Math.random = function () { return 0.1; };
+  Sim.rollEvent(tagged, []);
+  Math.random = stuckRnd;
+  assert.ok(tagged.maxCount && tagged.maxCount.th_stuck_fourpole != null &&
+    tagged.maxCount.th_stuck_fourpole < 3, '刚抽过悟道，四极夜关仍该能坐下');
 
   var xian = Sim.createGame(0, []);
   Sim.setPhysique(xian, D.physiqueById('mortal'));

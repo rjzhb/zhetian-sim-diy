@@ -1990,15 +1990,32 @@
     }
     if (flavor.length) fireEvent(g, log, pickStuckBreak(g, flavor) || pickWeighted(g, flavor));
   }
-  /* 凡体悟性普通号卡在四极到大圣：路边事优先抽能推一层的卡关，否则他们只是把空白日志填满。 */
+  /* 凡体卡关不看路边池标签。刚抽过悟道，也该能坐下把这一层坐穿。 */
+  function collectStuckEvents(g) {
+    var out = [], i, ev, mc = (g && g.maxCount) || {};
+    for (i = 0; i < E.length; i++) {
+      ev = E[i];
+      if (!ev || !ev.id || String(ev.id).indexOf('th_stuck_') !== 0) continue;
+      var maxN = ev.maxCount != null ? ev.maxCount : 3;
+      if ((mc[ev.id] != null ? mc[ev.id] : maxN) <= 0) continue;
+      if (g.age < (ev.minAge != null ? ev.minAge : 0)) continue;
+      if (g.age > (ev.maxAge != null ? ev.maxAge : 100000)) continue;
+      if (!eventAvailable(g, ev)) continue;
+      out.push(ev);
+    }
+    return out;
+  }
   function pickStuckBreak(g, flavor) {
     if (!g || (g.innate || 1) > 3) return null;
     if ((g.lvl || 1) < 21 || (g.lvl || 1) > 90) return null;
-    if (Math.random() > 0.42) return null;
-    var i, ev, found = [];
-    for (i = 0; i < flavor.length; i++) {
-      ev = flavor[i];
-      if (ev && ev.id && String(ev.id).indexOf('th_stuck_') === 0) found.push(ev);
+    if (Math.random() > 0.62) return null;
+    var found = collectStuckEvents(g);
+    if (!found.length && flavor && flavor.length) {
+      var i, ev;
+      for (i = 0; i < flavor.length; i++) {
+        ev = flavor[i];
+        if (ev && ev.id && String(ev.id).indexOf('th_stuck_') === 0) found.push(ev);
+      }
     }
     if (!found.length) return null;
     return found[Math.floor(Math.random() * found.length)];
