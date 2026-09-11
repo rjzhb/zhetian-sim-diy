@@ -43,7 +43,7 @@
   function sitThrough(g, U) {
     var need = U.effectiveDaoyunNeed ? U.effectiveDaoyunNeed(g, g.lvl) : 0;
     if (need && (g.daoyun || 0) < need) g.daoyun = need;
-    if ((g.lvl || 1) >= 90) return 0;
+    if ((g.lvl || 1) === 60 || (g.lvl || 1) === 70 || (g.lvl || 1) >= 90) return 0;
     return U.up(g, 1);
   }
 
@@ -187,7 +187,7 @@
       desc: '别人靠血脉过关，你靠把息调匀', weight: 15, maxCount: 3,
       minAge: 160, maxAge: 100000,
       available: function (g) {
-        return !g.becameEmperor && (g.innate || 1) <= 4 && g.lvl >= 51 && g.lvl <= 70;
+        return !g.becameEmperor && (g.innate || 1) <= 4 && g.lvl >= 51 && g.lvl <= 69 && g.lvl !== 60;
       },
       cond: function (g) { return Math.random() < 0.68; },
       ok: function (g, U) {

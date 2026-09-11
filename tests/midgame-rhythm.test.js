@@ -563,7 +563,7 @@ function mortalSage(opt) {
 
 /* ---------- 圣人到大圣不能再被寿元摊空 ---------- */
 (function () {
-  var i, sum = 0, over = 0, hit = 0, n = 24;
+  var i, sum = 0, over = 0, hit = 0, reached = 0, n = 24;
   for (i = 0; i < n; i++) {
     var g = Sim.createGame(60, [], { tier: 10, name: '万古道心', initialDaoyun: 400 });
     Sim.setPhysique(g, D.physiqueById('mortal'));
@@ -574,14 +574,16 @@ function mortalSage(opt) {
       while (g.pendingChoice) Sim.resolveChoice(g, Sim.defaultChoiceOption(g.pendingChoice), []);
     }
     var mid = (g.eventDrawsBySpan && g.eventDrawsBySpan.mid) || 0;
+    if (mid > 3) over++;
+    if ((g.lvl || 1) < 71) continue;
+    reached++;
     sum += mid;
     if (mid >= 1) hit++;
-    if (mid > 3) over++;
   }
-  var avg = sum / n;
   assert.strictEqual(over, 0, '圣~大圣不得超过 3');
-  assert.ok(hit / n >= 0.5, '悟性10凡体至少一半能在圣~大圣碰到梭哈，实际 ' + hit + '/' + n);
-  assert.ok(avg >= 0.7, '圣~大圣段不能再被摊空，实际 ' + avg.toFixed(2));
+  assert.ok(reached >= 2, '悟性10凡体过了斩道后，24 局里应有人入圣，实际 ' + reached + '/' + n);
+  assert.ok(hit >= Math.min(2, reached), '入圣之后圣~大圣不该被摊空，实际 ' + hit + '/' + reached);
+  if (reached) assert.ok(sum / reached >= 0.7, '到了圣~大圣，额度就该花出来，实际 ' + (sum / reached).toFixed(2));
 })();
 
 /* ---------- 额度用尽后仍有路边事；仙台不再只剩低阶秘境 ---------- */
@@ -650,6 +652,27 @@ function mortalSage(opt) {
   sheng.ok(shengG, Sim.U);
   assert.strictEqual(shengG.lvl, shengBefore, '枯坐不能送进准帝，实际 ' + shengG.lvl);
   assert.ok(!shengG.quasiFate, '枯坐不是进准帝的机缘');
+  var cutSit = Sim.createGame(0, []);
+  Sim.setPhysique(cutSit, D.physiqueById('mortal'));
+  cutSit.innate = 1;
+  cutSit.aptitude = 1;
+  cutSit.lvl = 60;
+  cutSit.daoyun = 200;
+  cutSit.daoyunCap = 400;
+  var neng = byId('th_stuck_neng');
+  neng.ok(cutSit, Sim.U);
+  assert.strictEqual(cutSit.lvl, 60, '枯坐不能坐过斩道');
+  assert.ok(!neng.available(cutSit), '斩道门口不应再抽大能调息');
+  var saintSit = Sim.createGame(0, []);
+  Sim.setPhysique(saintSit, D.physiqueById('mortal'));
+  saintSit.innate = 1;
+  saintSit.aptitude = 1;
+  saintSit.lvl = 70;
+  saintSit.daoyun = 400;
+  saintSit.daoyunCap = 800;
+  var shengAtKing = byId('th_stuck_sheng');
+  shengAtKing.ok(saintSit, Sim.U);
+  assert.strictEqual(saintSit.lvl, 70, '枯坐不能坐过入圣');
   var n, sawStuck = 0;
   for (n = 0; n < 40; n++) {
     var bias = Sim.createGame(0, []);
@@ -919,6 +942,77 @@ function mortalSage(opt) {
     '成帝后，创法应抬高奇异世界成仙把握');
   assert.ok(Sim.immortalRoadChance(richXian) > Sim.immortalRoadChance(poorXian),
     '成帝后，创法应抬高成仙路把握');
+})();
+
+/* ---------- 斩道 / 入圣：不弹窗，看当下道蕴和战力，一生一刀 ---------- */
+(function () {
+  function mortalAt(lvl, opt) {
+    opt = opt || {};
+    var g = Sim.createGame(0, []);
+    Sim.setPhysique(g, D.physiqueById('mortal'));
+    g.innate = 1;
+    g.aptitude = 1;
+    g.daoGift = opt.gift != null ? opt.gift : 5;
+    g.lvl = lvl;
+    g.age = opt.age || 400;
+    g.daoyunCap = Math.max(g.daoyunCap || 0, 800);
+    g.daoyun = opt.daoyun != null ? opt.daoyun : Sim.effectiveDaoyunNeed(g, lvl);
+    g.cult = opt.cult != null ? opt.cult : 4000;
+    g.swallowingArt = !!opt.swallow;
+    return g;
+  }
+
+  var door = mortalAt(60, { daoyun: 90, cult: 4000 });
+  assert.strictEqual(Sim.canAdvance(door), false, '没过斩道不能进王者');
+  assert.ok(Sim.cutDaoChance(door) < 0.16, '凡体弱战力斩道应很低，实际 ' + Sim.cutDaoChance(door));
+
+  var strong = mortalAt(60, { daoyun: 220, cult: 24000 });
+  assert.ok(Sim.cutDaoChance(strong) > Sim.cutDaoChance(door), '道蕴和战力更高，斩道把握应更大');
+
+  var weakSwallow = mortalAt(60, { daoyun: 40, cult: 3000, swallow: true, gift: 10 });
+  weakSwallow.innate = 1;
+  weakSwallow.aptitude = 1;
+  assert.ok(Sim.isReverseCutPath(weakSwallow), '吞天凡体是逆斩路');
+  assert.ok(Sim.cutDaoChance(weakSwallow) < 0.22, '道和力不够，不能因为吞天就当逆斩成功');
+
+  var yeFan = mortalAt(60, { daoyun: 240, cult: 22000, swallow: true, gift: 10 });
+  yeFan.innate = 1;
+  yeFan.aptitude = 1;
+  assert.ok(Sim.cutDaoChance(yeFan) > Sim.cutDaoChance(strong), '道和力够的逆斩应高于普通人斩一刀');
+  assert.ok(Sim.cutDaoChance(yeFan) < 0.72, '逆斩也不是必过');
+
+  var chaos = Sim.createGame(0, []);
+  Sim.setPhysique(chaos, D.physiqueById('chaos'));
+  chaos.lvl = 60;
+  chaos.daoyun = 200;
+  chaos.cult = 40000;
+  assert.ok(Sim.cutDaoChance(chaos) > 0.45, '混沌斩道应明显高于凡人，实际 ' + Sim.cutDaoChance(chaos));
+  assert.strictEqual(Sim.canAdvance(chaos), false, '混沌没过斩道也不能年突破进王者');
+
+  var log = [];
+  Sim.ensureCutDao(door, log);
+  assert.ok(door.cutDaoTried, '道蕴够时应立刻斩一刀');
+  assert.ok(!door.pendingChoice, '斩道不是选择题');
+  assert.ok(log.length, '斩道应写下旁白');
+  var again = door.cutDaoPassed;
+  Sim.ensureCutDao(door, []);
+  assert.strictEqual(door.cutDaoPassed, again, '斩道一生只判一次');
+
+  var king = mortalAt(70, { daoyun: 200, cult: 8000 });
+  assert.strictEqual(Sim.canAdvance(king), false, '没过入圣不能进圣人');
+  assert.ok(Sim.enterSaintChance(king) < 0.22, '凡体弱战力入圣应很低，实际 ' + Sim.enterSaintChance(king));
+  var kingLog = [];
+  Sim.ensureEnterSaint(king, kingLog);
+  assert.ok(king.saintTried, '道蕴够时应立刻判入圣');
+  assert.ok(!king.pendingChoice, '入圣不是选择题');
+
+  var passed = 0, n;
+  for (n = 0; n < 80; n++) {
+    var roll = mortalAt(60, { daoyun: 90, cult: 5000 });
+    Sim.ensureCutDao(roll, []);
+    if (roll.cutDaoPassed) passed++;
+  }
+  assert.ok(passed <= 22, '大部分凡人过不了斩道，80 次过了 ' + passed);
 })();
 
 console.log('midgame-rhythm: ok');

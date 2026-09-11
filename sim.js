@@ -173,9 +173,141 @@
     if ((g.cult || 0) >= MORTAL_POWER_GATE) return true;
     return false;
   }
+  /* 斩道 / 入圣：不弹窗。成不成看当下道蕴和战力，一生一刀。
+   * 逆斩不是选项，是吞天或绝世悟性凡体在道和力都够时才会撞上的路。 */
+  var CUT_DAO_DAO_REF = 85;
+  var CUT_DAO_POWER_REF = 14000;
+  var ENTER_SAINT_DAO_REF = 190;
+  var ENTER_SAINT_POWER_REF = 22000;
+  function isReverseCutPath(g) {
+    if (!g) return false;
+    if (g.swallowingArt) return true;
+    return (g.innate || 1) <= 2 && (g.daoGift || 5) >= 9;
+  }
+  function thresholdDaoFit(g, daoRef) {
+    var personal = effectiveDaoyunNeed(g, g.lvl);
+    if (!personal) return Math.max(1, clamp((g.daoyun || 0) / Math.max(1, daoRef), 0, 2.4));
+    return clamp((g.daoyun || 0) / personal, 0, 2.4);
+  }
+  function thresholdPowerFit(g, powerRef) {
+    return clamp(currentCombatPower(g) / Math.max(1, powerRef), 0, 2.4);
+  }
+  function thresholdFit(g, daoRef, powerRef) {
+    return Math.sqrt(thresholdDaoFit(g, daoRef) * thresholdPowerFit(g, powerRef));
+  }
+  function thresholdBodyBonus(g) {
+    var innate = Math.min(10, Math.max(1, g.innate || 1));
+    var bonus = 0;
+    if (innate >= 8) bonus += 0.08;
+    if (innate >= 9) bonus += 0.16;
+    if (innate >= 10) bonus += 0.10;
+    return bonus;
+  }
+  function thresholdPowerBonus(g, powerRef) {
+    var powerFit = thresholdPowerFit(g, powerRef);
+    var bonus = 0;
+    if (powerFit >= 1.4) bonus += 0.10;
+    if (powerFit >= 2.0) bonus += 0.10;
+    return bonus;
+  }
+  function reverseCutReady(g, fit) {
+    return isReverseCutPath(g) && fit >= 1.15 &&
+      thresholdDaoFit(g, CUT_DAO_DAO_REF) >= 1 &&
+      currentCombatPower(g) >= CUT_DAO_POWER_REF * 0.9;
+  }
+  function cutDaoChance(g) {
+    var fit = thresholdFit(g, CUT_DAO_DAO_REF, CUT_DAO_POWER_REF);
+    var chance = 0.02 + fit * 0.14 + thresholdBodyBonus(g) + thresholdPowerBonus(g, CUT_DAO_POWER_REF);
+    if (reverseCutReady(g, fit)) chance += 0.16;
+    else if (isReverseCutPath(g) && fit >= 1) chance += 0.05;
+    return clamp(chance, 0.02, 0.80);
+  }
+  function enterSaintChance(g) {
+    var fit = thresholdFit(g, ENTER_SAINT_DAO_REF, ENTER_SAINT_POWER_REF);
+    var chance = 0.03 + fit * 0.15 + thresholdBodyBonus(g) * 0.85 + thresholdPowerBonus(g, ENTER_SAINT_POWER_REF);
+    if (g.swallowingArt && fit >= 1.1) chance += 0.08;
+    return clamp(chance, 0.03, 0.82);
+  }
+  function thresholdDaoReady(g) {
+    var need = effectiveDaoyunNeed(g, g.lvl);
+    return !need || (g.daoyun || 0) >= need;
+  }
+  function thresholdShouldAttempt(g, powerRef) {
+    if (!thresholdDaoReady(g)) return false;
+    if (currentCombatPower(g) >= powerRef * 0.85) return true;
+    if ((g.lifespan || 0) - (g.age || 0) <= 120) return true;
+    g.thresholdWait = (g.thresholdWait || 0) + 1;
+    return g.thresholdWait >= 120;
+  }
+  function passRealmGate(g, log) {
+    var need = effectiveDaoyunNeed(g, g.lvl);
+    if (need && (g.daoyun || 0) < need) g.daoyun = need;
+    return gainLevels(g, 1, log);
+  }
+  function resolveCutDao(g, log) {
+    g.cutDaoTried = true;
+    var fit = thresholdFit(g, CUT_DAO_DAO_REF, CUT_DAO_POWER_REF);
+    var reverse = reverseCutReady(g, fit);
+    var ok = Math.random() < cutDaoChance(g);
+    var text;
+    if (ok) {
+      g.cutDaoPassed = true;
+      if (reverse) {
+        text = '你逆斩大道，少年大帝联手压来。你硬接这一围，把王者境从他们手里撕开';
+      } else {
+        text = '大能巅峰，你按自己的道斩了一刀。这一刀过了，王者境的门在你面前开了';
+      }
+      push(log, { cls: 'rainbow', text: '第' + g.age + '岁，' + text });
+      if (reverse) highlightLast(g, log, { title: '逆斩大道', kind: 'threshold', note: '少年大帝围攻' });
+      passRealmGate(g, log);
+      return true;
+    }
+    if (reverse) {
+      text = '你要逆斩大道，少年大帝围了上来。这一围你没接住，斩道止步';
+    } else if (isReverseCutPath(g)) {
+      text = '你想逆斩大道，可道和力都还没聚起。这一刀连少年大帝的围攻都换不来，你止步大能巅峰';
+    } else {
+      text = '大能巅峰，你斩不下去。这一刀缺的不是决心，是道蕴和战力都还不够。你止步于此';
+    }
+    push(log, { cls: 'ev3', text: '第' + g.age + '岁，' + text });
+    return false;
+  }
+  function resolveEnterSaint(g, log) {
+    g.saintTried = true;
+    var ok = Math.random() < enterSaintChance(g);
+    var text;
+    if (ok) {
+      g.saintPassed = true;
+      text = '王者巅峰，你踏进圣位。从此寿元、气血、神识都不再是同一种生命';
+      push(log, { cls: 'rainbow', text: '第' + g.age + '岁，' + text });
+      highlightLast(g, log, { title: '踏入圣位', kind: 'threshold', note: '生命都不一样了' });
+      passRealmGate(g, log);
+      return true;
+    }
+    text = '王者巅峰，圣位那一坎你没过去。过了斩道的人，也大多止步于此';
+    push(log, { cls: 'ev3', text: '第' + g.age + '岁，' + text });
+    return false;
+  }
+  function ensureCutDao(g, log) {
+    if (!g || g.dead || g.becameEmperor || g.pendingChoice) return;
+    if ((g.lvl || 1) !== 60 || g.cutDaoTried || g.cutDaoPassed) return;
+    if (!thresholdShouldAttempt(g, CUT_DAO_POWER_REF)) return;
+    g.thresholdWait = 0;
+    resolveCutDao(g, log);
+  }
+  function ensureEnterSaint(g, log) {
+    if (!g || g.dead || g.becameEmperor || g.pendingChoice) return;
+    if ((g.lvl || 1) !== 70 || g.saintTried || g.saintPassed) return;
+    if (!thresholdShouldAttempt(g, ENTER_SAINT_POWER_REF)) return;
+    g.thresholdWait = 0;
+    resolveEnterSaint(g, log);
+  }
+
   function canAdvance(g) {
     var need = effectiveDaoyunNeed(g, g.lvl);
     if (need && g.daoyun < need) return false;
+    if ((g.lvl || 1) === 60 && !g.cutDaoPassed) return false;
+    if ((g.lvl || 1) === 70 && !g.saintPassed) return false;
     if ((g.lvl || 1) >= 90 && !quasiUnlocked(g)) return false;
     return true;
   }
@@ -1438,7 +1570,10 @@
     nextSwallowTarget: nextSwallowTarget,
     swallowProgress: swallowProgress,
     swallowSiegeDeathChance: swallowSiegeDeathChance,
-    swallowSiegeSurviveChance: swallowSiegeSurviveChance
+    swallowSiegeSurviveChance: swallowSiegeSurviveChance,
+    isReverseCutPath: isReverseCutPath,
+    cutDaoChance: cutDaoChance,
+    enterSaintChance: enterSaintChance
   };
   /* 体质异变：按体质 7-10 权重抽取，替换先天体质/资质 */
   function drawHighTalent(g) {
@@ -4326,6 +4461,8 @@
     if (!g.ascended && !g.dead && Math.random() < eventYearChance(g)) rollEvent(g, log);
     if (!g.ascended && !g.dead && !g.pendingChoice) ensureRealmChoice(g, log);
     if (!g.ascended && !g.dead) maybeArtGlimpse(g, log);
+    if (!g.ascended && !g.dead && !g.pendingChoice) ensureCutDao(g, log);
+    if (!g.ascended && !g.dead && !g.pendingChoice) ensureEnterSaint(g, log);
     if (!g.ascended && !g.dead && !g.pendingChoice) ensureArtChoice(g, log);
 
     /* 事件可能致寿元耗尽：意外暴毙（区别于寿终正寝） */
@@ -4365,6 +4502,12 @@
     effectiveDaoyunNeed: effectiveDaoyunNeed,
     daoBreakFactor: daoBreakFactor,
     canAdvance: canAdvance,
+    isReverseCutPath: isReverseCutPath,
+    thresholdFit: thresholdFit,
+    cutDaoChance: cutDaoChance,
+    enterSaintChance: enterSaintChance,
+    ensureCutDao: ensureCutDao,
+    ensureEnterSaint: ensureEnterSaint,
     quasiUnlocked: quasiUnlocked,
     markQuasiFate: markQuasiFate,
     quasiLayerMultiplier: quasiLayerMultiplier,
