@@ -1187,10 +1187,22 @@ function mortalSage(opt) {
   var sacredDoor = Sim.createGame(0, []);
   Sim.setPhysique(sacredDoor, D.physiqueById('sacred'));
   sacredDoor.lvl = 70;
+  sacredDoor.daoGift = 5;
   sacredDoor.daoyun = 400;
   sacredDoor.cult = 40000;
   assert.ok(Sim.enterSaintChance(sacredDoor) > 0.72, '荒古圣体入圣应很难卡住，实际 ' + Sim.enterSaintChance(sacredDoor));
   assert.ok(!Sim.noRealmBottleneck(sacredDoor), '荒古圣体仍有证道之难，只是圣位不该当凡人砍');
+
+  var p1 = mortalAt(60, { daoyun: 200, cult: 18000, gift: 5 });
+  var p2 = mortalAt(60, { daoyun: 200, cult: 18000, gift: 5 });
+  p2.innate = 5; p2.aptitude = 5;
+  var p3 = mortalAt(60, { daoyun: 200, cult: 18000, gift: 8 });
+  var p4 = mortalAt(60, { daoyun: 200, cult: 28000, gift: 5 });
+  assert.ok(Sim.cutDaoChance(p2) > Sim.cutDaoChance(p1), '同一套尺：体质升高，斩道把握应升高');
+  assert.ok(Sim.cutDaoChance(p3) > Sim.cutDaoChance(p1), '同一套尺：悟性升高，斩道把握应升高');
+  assert.ok(Sim.cutDaoChance(p4) > Sim.cutDaoChance(p1), '同一套尺：战力升高，斩道把握应升高');
+  var w = 0.32 + 0.20 + 0.32 + 0.16;
+  assert.ok(Math.abs(w - 1) < 1e-9, '斩道四柱权重应合计 1');
 
   var log = [];
   Sim.ensureCutDao(door, log);

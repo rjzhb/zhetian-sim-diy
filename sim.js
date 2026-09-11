@@ -70,12 +70,28 @@
     if (lvl >= 50) return 25;  /* 入仙台 */
     return 0;
   }
+  /* 体质/悟性共用一张尺：档越高，破境需求越低、门槛把握越高。
+   * 1 档是凡人底，10 档是封号顶。混沌/道胎走无瓶颈，不进这张表。 */
+  var BODY_DAO_MULT = [0, 1.15, 1.05, 1, 0.9, 0.8, 0.65, 0.5, 0.35, 0.22, 0.12];
+  var GIFT_DAO_MULT = [0, 1.18, 1.08, 1.00, 0.90, 0.80, 0.66, 0.52, 0.38, 0.22, 0.10];
+  function attrScoreFromMult(mult, lo, hi) {
+    if (!(hi < lo)) return 0;
+    return clamp((lo - mult) / (lo - hi), 0, 1);
+  }
+  function bodyAttrScore(g) {
+    var i = Math.min(10, Math.max(1, (g && g.innate) || 1));
+    return attrScoreFromMult(BODY_DAO_MULT[i], BODY_DAO_MULT[1], BODY_DAO_MULT[10]);
+  }
+  function giftAttrScore(g) {
+    var i = Math.min(10, Math.max(1, (g && g.daoGift) != null ? g.daoGift : 5));
+    return attrScoreFromMult(GIFT_DAO_MULT[i], GIFT_DAO_MULT[1], GIFT_DAO_MULT[10]);
+  }
   function daoNeedMult(g) {
     if (!g) return 1;
     if (g.physiqueId === 'chaos' || g.physiqueId === 'innate_sacred_dao') return 0;
-    var body = [0, 1.15, 1.05, 1, 0.9, 0.8, 0.65, 0.5, 0.35, 0.22, 0.12][Math.min(10, Math.max(1, g.innate || 1))] || 1;
-    var gift = [0, 1.18, 1.08, 1.00, 0.90, 0.80, 0.66, 0.52, 0.38, 0.22, 0.10][Math.min(10, Math.max(1, g.daoGift || 5))] || 1;
-    return Math.min(body, gift * 1.05);
+    var i = Math.min(10, Math.max(1, g.innate || 1));
+    var j = Math.min(10, Math.max(1, g.daoGift != null ? g.daoGift : 5));
+    return Math.min(BODY_DAO_MULT[i], GIFT_DAO_MULT[j] * 1.05);
   }
   function effectiveDaoyunNeed(g, lvl) {
     return Math.round(daoyunNeed(lvl != null ? lvl : (g && g.lvl)) * daoNeedMult(g));
@@ -200,62 +216,71 @@
   function thresholdFit(g, daoRef, powerRef) {
     return Math.sqrt(thresholdDaoFit(g, daoRef) * thresholdPowerFit(g, powerRef));
   }
-  function thresholdBodyBonus(g) {
-    var innate = Math.min(10, Math.max(1, g.innate || 1));
-    var bonus = 0;
-    if (innate >= 6) bonus += 0.05;
-    if (innate >= 7) bonus += 0.07;
-    if (innate >= 8) bonus += 0.12;
-    if (innate >= 9) bonus += 0.18;
-    return bonus;
-  }
-  function thresholdGiftBonus(g, fit, powerFit) {
-    /* 悟性高是门口加持，不是战力还嫩时的保送。 */
-    if ((powerFit || 0) < 0.75) return 0;
-    var gift = g && g.daoGift != null ? g.daoGift : 5;
-    var scale = clamp(fit || 0, 0, 1.2);
-    var raw = 0;
-    if (gift >= 10) raw = 0.28;
-    else if (gift >= 9) raw = 0.18;
-    else if (gift >= 8) raw = 0.10;
-    else if (gift >= 7) raw = 0.05;
-    return raw * scale;
-  }
-  function thresholdChanceCap(g) {
-    if (noRealmBottleneck(g)) return 1;
-    if ((g.innate || 1) >= 8 || (g.daoGift || 5) >= 9) return 0.96;
-    if ((g.daoGift || 5) >= 8) return 0.90;
-    return 0.80;
-  }
-  function thresholdPowerBonus(g, powerRef) {
-    var powerFit = thresholdPowerFit(g, powerRef);
-    var bonus = 0;
-    if (powerFit >= 1.4) bonus += 0.10;
-    if (powerFit >= 2.0) bonus += 0.10;
-    return bonus;
-  }
   function reverseCutReady(g, fit) {
     return isReverseCutPath(g) && fit >= 1.15 &&
       thresholdDaoFit(g, CUT_DAO_DAO_REF) >= 1 &&
       currentCombatPower(g) >= CUT_DAO_POWER_REF * 0.9;
   }
-  function cutDaoChance(g) {
+  /* 斩道/入圣共用四柱：体质、悟性、战力、道蕴。
+   * 体质/悟性是 0–1 档位分，战力/道蕴是对照参照的比值（可超过 1）。
+   * 四柱加权成一条分，再用同一条曲线映到把握；缺哪根就少哪一段，不再各自加 bonus。 */
+  function breakthroughPillars(g, powerRef, daoRef) {
+    var need = effectiveDaoyunNeed(g, g && g.lvl);
+    var daoAbs = Math.max(need || 0, daoRef || 0);
+    return {
+      body: noRealmBottleneck(g) ? 1 : bodyAttrScore(g),
+      gift: giftAttrScore(g),
+      power: clamp(currentCombatPower(g) / Math.max(1, powerRef || 1), 0, 2.4),
+      dao: daoAbs ? clamp((g.daoyun || 0) / daoAbs, 0, 2.4) : 1
+    };
+  }
+  function breakthroughScore(p, w) {
+    return (w.body || 0) * p.body + (w.gift || 0) * p.gift +
+      (w.power || 0) * p.power + (w.dao || 0) * p.dao;
+  }
+  function breakthroughCap(p) {
+    return 0.78 + 0.18 * Math.max(p.body, Math.min(1, p.gift) * 0.9);
+  }
+  function breakthroughChance(g, spec) {
+    spec = spec || {};
     if (noRealmBottleneck(g)) return 1;
-    var fit = thresholdFit(g, CUT_DAO_DAO_REF, CUT_DAO_POWER_REF);
-    var chance = 0.02 + fit * 0.14 + thresholdBodyBonus(g) + thresholdPowerBonus(g, CUT_DAO_POWER_REF) +
-      thresholdGiftBonus(g, fit, thresholdPowerFit(g, CUT_DAO_POWER_REF));
-    if (reverseCutReady(g, fit)) chance += 0.16;
-    else if (isReverseCutPath(g) && fit >= 1) chance += 0.05;
-    return clamp(chance, 0.02, thresholdChanceCap(g));
+    var p = breakthroughPillars(g, spec.powerRef, spec.daoRef);
+    var score = breakthroughScore(p, spec);
+    var cap = breakthroughCap(p);
+    var floor = spec.floor != null ? spec.floor : 0.02;
+    var mid = spec.mid != null ? spec.mid : 0.88;
+    var k = spec.k != null ? spec.k : 3.1;
+    var chance = floor + (cap - floor) / (1 + Math.exp(-k * (score - mid)));
+    if (spec.extra) chance += spec.extra(g, p) || 0;
+    return clamp(chance, floor, cap);
+  }
+  var CUT_BREAK_W = { body: 0.32, gift: 0.20, power: 0.32, dao: 0.16 };
+  var SAINT_BREAK_W = { body: 0.30, gift: 0.24, power: 0.26, dao: 0.20 };
+  function cutDaoChance(g) {
+    return breakthroughChance(g, {
+      powerRef: CUT_DAO_POWER_REF,
+      daoRef: CUT_DAO_DAO_REF,
+      floor: 0.02,
+      body: CUT_BREAK_W.body, gift: CUT_BREAK_W.gift, power: CUT_BREAK_W.power, dao: CUT_BREAK_W.dao,
+      extra: function (gg, p) {
+        var fit = thresholdFit(gg, CUT_DAO_DAO_REF, CUT_DAO_POWER_REF);
+        if (reverseCutReady(gg, fit)) return 0.10 * clamp(p.power / 1.4, 0.4, 1);
+        if (isReverseCutPath(gg) && p.power >= 0.9 && p.dao >= 0.9) return 0.03;
+        return 0;
+      }
+    });
   }
   function enterSaintChance(g) {
-    if (noRealmBottleneck(g)) return 1;
-    var fit = thresholdFit(g, ENTER_SAINT_DAO_REF, ENTER_SAINT_POWER_REF);
-    var chance = 0.03 + fit * 0.15 + thresholdBodyBonus(g) * 0.85 +
-      thresholdPowerBonus(g, ENTER_SAINT_POWER_REF) +
-      thresholdGiftBonus(g, fit, thresholdPowerFit(g, ENTER_SAINT_POWER_REF));
-    if (g.swallowingArt && fit >= 1.1) chance += 0.08;
-    return clamp(chance, 0.03, thresholdChanceCap(g));
+    return breakthroughChance(g, {
+      powerRef: ENTER_SAINT_POWER_REF,
+      daoRef: ENTER_SAINT_DAO_REF,
+      floor: 0.03,
+      body: SAINT_BREAK_W.body, gift: SAINT_BREAK_W.gift, power: SAINT_BREAK_W.power, dao: SAINT_BREAK_W.dao,
+      extra: function (gg, p) {
+        if (gg.swallowingArt && p.power >= 1 && p.dao >= 0.85) return 0.04;
+        return 0;
+      }
+    });
   }
   function thresholdDaoReady(g) {
     var need = effectiveDaoyunNeed(g, g.lvl);
@@ -4631,6 +4656,11 @@
     isReverseCutPath: isReverseCutPath,
     noRealmBottleneck: noRealmBottleneck,
     thresholdFit: thresholdFit,
+    bodyAttrScore: bodyAttrScore,
+    giftAttrScore: giftAttrScore,
+    breakthroughPillars: breakthroughPillars,
+    breakthroughScore: breakthroughScore,
+    breakthroughChance: breakthroughChance,
     cutDaoChance: cutDaoChance,
     enterSaintChance: enterSaintChance,
     rekindleCutDao: rekindleCutDao,
