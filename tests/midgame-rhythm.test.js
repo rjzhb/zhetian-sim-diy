@@ -702,6 +702,19 @@ function mortalSage(opt) {
   Math.random = preRnd;
   assert.ok(beforeStake.maxCount && beforeStake.maxCount.th_stuck_fourpole != null &&
     beforeStake.maxCount.th_stuck_fourpole < 3, '梭哈额度没用完，四极夜关也该能坐下');
+  var nengStake = Sim.createGame(0, []);
+  Sim.setPhysique(nengStake, D.physiqueById('mortal'));
+  nengStake.innate = 1;
+  nengStake.aptitude = 1;
+  nengStake.lvl = 56;
+  nengStake.age = 400;
+  nengStake.eventDrawsBySpan = { pre: 0 };
+  var nengRnd = Math.random;
+  Math.random = function () { return 0.1; };
+  Sim.rollEvent(nengStake, []);
+  Math.random = nengRnd;
+  assert.ok(nengStake.maxCount && nengStake.maxCount.th_stuck_neng != null &&
+    nengStake.maxCount.th_stuck_neng < 3, '梭哈额度没用完，大能内层也该能坐下');
   var tagged = Sim.createGame(0, []);
   Sim.setPhysique(tagged, D.physiqueById('mortal'));
   tagged.innate = 1;
