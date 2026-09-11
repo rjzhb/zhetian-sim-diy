@@ -145,7 +145,7 @@ function makeProbe(p) {
     g.sectPatron = p.married;
   }
   if (p.refusedMarriage) g.sectMarriage = 'refused';
-  if (p.cutFailed) { g.cutDaoTried = true; g.cutDaoPassed = false; }
+  if (p.cutFailed) { g.cutDaoTried = true; g.cutDaoPassed = false; g.cutNearMiss = true; }
   if (p.saintFailed) { g.saintTried = true; g.saintPassed = false; }
   return g;
 }

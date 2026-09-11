@@ -225,6 +225,27 @@
       }
     },
     {
+      id: 'th_cut_rekindle', name: '刀意回潮', tier: 2, tag: 'insight',
+      desc: '只差一线的那一刀，自己回来了', weight: 18, maxCount: 1,
+      minAge: 200, maxAge: 100000,
+      available: function (g) {
+        return !g.becameEmperor && (g.innate || 1) < 8 && g.lvl === 60 &&
+          g.cutNearMiss && !g.cutDaoPassed && !g.cutDaoRekindled;
+      },
+      cond: function (g) { return Math.random() < 0.74; },
+      ok: function (g, U, log) {
+        var lf = U.gainLife(g, 20, 40);
+        var c = U.cultPct(g, 0.018, 0.032, 700);
+        U.gainDao(g, 8, 4);
+        U.printlog('骨头里那一线刀意忽然烫起来。你没有再选，它自己要出鞘' +
+          (lf ? '，寿元+' + lf : '') + '，实力+' + c);
+        if (U.rekindleCutDao) U.rekindleCutDao(g, log);
+      },
+      fail: function (g, U) {
+        U.printlog('刀意动了一下，又沉回去了。你知道它还在，只是这一夜没燃起来');
+      }
+    },
+    {
       id: 'th_after_cut', name: '斩道余生', tier: 2, tag: 'insight',
       desc: '那一刀已经落过了，门还在', weight: 16, maxCount: 2,
       minAge: 200, maxAge: 100000,

@@ -1242,7 +1242,11 @@
       else gd.textContent = '你曾证道成帝，并逆活至第 ' + G.lifeNo + ' 世，凝成 ' + G.redDustMarks + ' 枚红尘印';
       gd.hidden = false;
     } else if (G.cutDaoTried && !G.cutDaoPassed) {
-      gd.textContent = '大能巅峰那一刀没落下去。这一世的名字，停在斩道门口';
+      gd.textContent = G.cutNearMiss
+        ? (G.cutDaoRekindled
+          ? '刀意回过一次，还是差那一线。这一世停在斩道门口'
+          : '这一刀只差一线。刀意还在骨头里，只是没能再燃起来')
+        : '大能巅峰那一刀没落下去。这一世的名字，停在斩道门口';
       gd.hidden = false;
     } else if (G.saintTried && !G.saintPassed) {
       gd.textContent = '过了斩道，也大多过不了圣位。你看见了另一种生命，却没踏进去';

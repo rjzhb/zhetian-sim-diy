@@ -244,33 +244,61 @@
     if (need && (g.daoyun || 0) < need) g.daoyun = need;
     return gainLevels(g, 1, log);
   }
-  function resolveCutDao(g, log) {
-    g.cutDaoTried = true;
+  function cutWasClose(g, fit, chance) {
+    return (chance || 0) >= 0.16 || (fit || 0) >= 0.95;
+  }
+  function resolveCutDao(g, log, opt) {
+    opt = opt || {};
+    var rekindle = !!opt.rekindle;
+    if (!rekindle) g.cutDaoTried = true;
     var fit = thresholdFit(g, CUT_DAO_DAO_REF, CUT_DAO_POWER_REF);
     var reverse = reverseCutReady(g, fit);
-    var ok = Math.random() < cutDaoChance(g);
+    var chance = cutDaoChance(g);
+    var ok = Math.random() < chance;
     var text;
     if (ok) {
       g.cutDaoPassed = true;
-      if (reverse) {
+      g.cutNearMiss = false;
+      if (rekindle) {
+        text = '你以为那一刀止住了。多年后刀意自己回来，把王者境从门口撕开';
+      } else if (reverse) {
         text = '你逆斩大道，少年大帝联手压来。你硬接这一围，把王者境从他们手里撕开';
       } else {
         text = '大能巅峰，你按自己的道斩了一刀。这一刀过了，王者境的门在你面前开了';
       }
       push(log, { cls: 'rainbow', text: '第' + g.age + '岁，' + text });
-      if (reverse) highlightLast(g, log, { title: '逆斩大道', kind: 'threshold', note: '少年大帝围攻' });
+      highlightLast(g, log, {
+        title: rekindle ? '刀意回潮' : (reverse ? '逆斩大道' : '斩道'),
+        kind: 'threshold',
+        note: rekindle ? '翻盘进了王者' : (reverse ? '少年大帝围攻' : '王者境开门')
+      });
       passRealmGate(g, log);
       return true;
     }
-    if (reverse) {
+    if (rekindle) {
+      text = '刀意回了一回，还是差那一线。这一世真的止步了';
+    } else if (reverse) {
       text = '你要逆斩大道，少年大帝围了上来。这一围你没接住，斩道止步';
     } else if (isReverseCutPath(g)) {
       text = '你想逆斩大道，可道和力都还没聚起。这一刀连少年大帝的围攻都换不来，你止步大能巅峰';
+    } else if (cutWasClose(g, fit, chance)) {
+      g.cutNearMiss = true;
+      text = '大能巅峰，这一刀只差一线。刀意还在骨头里，没散干净';
     } else {
       text = '大能巅峰，你斩不下去。这一刀缺的不是决心，是道蕴和战力都还不够。你止步于此';
     }
+    if (!rekindle && !g.cutNearMiss && cutWasClose(g, fit, chance)) g.cutNearMiss = true;
     push(log, { cls: 'ev3', text: '第' + g.age + '岁，' + text });
+    if (g.cutNearMiss && !rekindle) {
+      highlightLast(g, log, { title: '斩道只差一线', kind: 'threshold', note: '刀意未散' });
+    }
     return false;
+  }
+  function rekindleCutDao(g, log) {
+    if (!g || g.cutDaoPassed || g.cutDaoRekindled || !g.cutNearMiss) return false;
+    if ((g.innate || 1) >= 8) return false;
+    g.cutDaoRekindled = true;
+    return resolveCutDao(g, log, { rekindle: true });
   }
   function resolveEnterSaint(g, log) {
     g.saintTried = true;
@@ -1573,7 +1601,9 @@
     swallowSiegeSurviveChance: swallowSiegeSurviveChance,
     isReverseCutPath: isReverseCutPath,
     cutDaoChance: cutDaoChance,
-    enterSaintChance: enterSaintChance
+    enterSaintChance: enterSaintChance,
+    rekindleCutDao: rekindleCutDao,
+    cutWasClose: cutWasClose
   };
   /* 体质异变：按体质 7-10 权重抽取，替换先天体质/资质 */
   function drawHighTalent(g) {
@@ -2168,7 +2198,8 @@
   }
   function isDoorStory(ev) {
     var id = ev && ev.id || '';
-    return id.indexOf('th_stuck_') === 0 || id === 'th_after_cut' || id === 'th_after_saint';
+    return id.indexOf('th_stuck_') === 0 || id === 'th_after_cut' ||
+      id === 'th_after_saint' || id === 'th_cut_rekindle';
   }
   /* 凡体卡关不看路边池标签。刚抽过悟道，也该能坐下把这一层坐穿。 */
   function collectStuckEvents(g) {
@@ -2209,7 +2240,9 @@
   function pickDoorStuck(g, pool) {
     var i, ev, lvl = (g && g.lvl) || 1;
     if (lvl === 60) {
-      var cutId = (g && g.cutDaoTried && !g.cutDaoPassed) ? 'th_after_cut' : 'th_stuck_cut';
+      var cutId = 'th_stuck_cut';
+      if (g && g.cutNearMiss && !g.cutDaoPassed && !g.cutDaoRekindled) cutId = 'th_cut_rekindle';
+      else if (g && g.cutDaoTried && !g.cutDaoPassed) cutId = 'th_after_cut';
       for (i = 0; i < pool.length; i++) {
         ev = pool[i];
         if (ev && ev.id === cutId) return ev;
@@ -4547,6 +4580,7 @@
     thresholdFit: thresholdFit,
     cutDaoChance: cutDaoChance,
     enterSaintChance: enterSaintChance,
+    rekindleCutDao: rekindleCutDao,
     ensureCutDao: ensureCutDao,
     ensureEnterSaint: ensureEnterSaint,
     quasiUnlocked: quasiUnlocked,
