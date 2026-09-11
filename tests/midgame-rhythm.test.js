@@ -100,9 +100,7 @@ function mortalSage(opt) {
 
   fresh.age = 28;
   Sim.ensureRealmChoice(fresh, []);
-  assert.ok(fresh.pendingChoice, '本境待满 12 年应弹一次保底抉择');
-  assert.notStrictEqual(fresh.pendingChoice.evId, 'phy_dixue_cuiti', '保底作业不应是帝血淬体');
-  assert.notStrictEqual(fresh.pendingChoice.evId, 'phy_hundunqi_cuiti', '保底作业不应是混沌气淬体');
+  assert.ok(!fresh.pendingChoice, '圣人前不再按境保送作业，额度要留给梭哈');
 })();
 
 (function () {
@@ -125,8 +123,8 @@ function mortalSage(opt) {
     if (ev && ev.tag === 'dungeon') dungeonHits++;
     titles[g.pendingChoice.title || g.pendingChoice.evId] = 1;
   }
-  assert.strictEqual(dungeonHits, 0, '秘境已经出过时，道宫保底不应再发秘境');
-  assert.ok(Object.keys(titles).length >= 3, '保底应按故事族轮转，不能总是同一张：' + Object.keys(titles).join('、'));
+  assert.strictEqual(dungeonHits, 0, '秘境已经出过时，不应再保送秘境');
+  assert.ok(Object.keys(titles).length === 0, '四极不再按境塞一张作业：' + Object.keys(titles).join('、'));
 })();
 
 (function () {
@@ -361,23 +359,22 @@ function mortalSage(opt) {
   assert.strictEqual(Sim.choiceWorthAsking(well, wellSpec), false, '村井是池子里的小岔路，不该次次打断');
   var log = [];
   Sim.fireEvent(g, log, well);
-  assert.ok(!g.pendingChoice, 'T2 人生琐事应自行落幕');
-  assert.ok((g.eventDraws || 0) >= 1, '自行落幕也要占四极前额度');
+  assert.ok(!g.pendingChoice, '村井不再进梭哈额度，也不停屏');
 
   if (rain) {
     g.lvl = 45;
     g.age = 80;
     var rainSpec = rain.choice(g, {});
-    assert.strictEqual(Sim.choiceWorthAsking(rain, rainSpec), true, 'T3 人生岔路仍该停下来问');
+    assert.strictEqual(Sim.choiceWorthAsking(rain, rainSpec), false, 'T3 人生岔路也不再停屏，额度留给梭哈');
   }
 
   var duel = byId('tianjiao');
   assert.ok(duel.maxCount <= 1, '同辈争锋一生最多一次，实际 ' + duel.maxCount);
+  assert.strictEqual(Sim.isStakeEvent(duel), false, '同辈争锋不是梭哈，不应占额度');
   g.lvl = 20;
   g.age = 30;
   Sim.fireEvent(g, log, duel);
-  assert.ok(g.pendingChoice, '同辈争锋应停下来问');
-  g.pendingChoice = null;
+  assert.ok(!g.pendingChoice, 'T2 争锋不应再停屏');
 
   var road = byId('rd_road_depart');
   var bing = byId('rd_dibing_seize');
@@ -393,22 +390,36 @@ function mortalSage(opt) {
   assert.strictEqual(Sim.choiceWorthAsking(bing, bingSpec), true, '帝兵出世必须弹窗');
 })();
 
-/* ---------- 前期小事从池子里挑，不能局局同一件 ---------- */
+/* ---------- 圣人前额度硬顶 2，且只能是梭哈 ---------- */
 (function () {
-  var seen = {}, i, y, n = 18;
+  assert.strictEqual(typeof Sim.isStakeEvent, 'function', '应导出 isStakeEvent');
+  assert.ok(Sim.isStakeEvent(byId('rd_dibing_seize')), '帝兵是梭哈');
+  assert.ok(Sim.isStakeEvent(byId('rd_road_depart')), '古路是梭哈');
+  assert.ok(Sim.isStakeEvent(byId('dao_create_guard_first')), '创法是梭哈');
+  assert.ok(Sim.isStakeEvent(byId('dao_create_swallowing')), '自创吞天是梭哈');
+  assert.ok(!Sim.isStakeEvent(byId('lf_village_well')), '村井不是梭哈');
+
+  var i, over = 0, pops = 0, bad = 0, n = 10;
   for (i = 0; i < n; i++) {
     var g = Sim.createGame(0, [], { tier: 5 });
     Sim.setPhysique(g, D.physiqueById('mortal'));
-    y = 0;
-    while (!g.dead && !g.ascended && (g.lvl || 1) < 21 && y < 4000) {
+    var y = 0;
+    while (!g.dead && !g.ascended && (g.lvl || 1) < 71 && y < 20000) {
       y++;
       Sim.rollYear(g);
-      if (g.pendingChoice) Sim.resolveChoice(g, Sim.defaultChoiceOption(g.pendingChoice), []);
+      if (g.pendingChoice) {
+        pops++;
+        var ev = byId(g.pendingChoice.evId);
+        if (ev && !Sim.isStakeEvent(ev)) bad++;
+        if (ev && (ev.tier || 1) < 2) bad++;
+        Sim.resolveChoice(g, Sim.defaultChoiceOption(g.pendingChoice), []);
+      }
     }
-    (g.recentEvents || []).forEach(function (e) { if (e && e.id) seen[e.id] = 1; });
+    var drew = (g.eventDrawsBySpan && g.eventDrawsBySpan.pre) || g.eventDraws || 0;
+    if (drew > 2) over++;
   }
-  var ids = Object.keys(seen);
-  assert.ok(ids.length >= 4, '凡体四极前从小事件池里至少要抽出 4 种，实际 ' + ids.join(',') );
+  assert.strictEqual(over, 0, '圣人前不得超过 2 次事件');
+  assert.strictEqual(bad, 0, '弹窗必须是创法/古路/秘境/帝兵这类梭哈');
 })();
 
 /* ---------- 前期事件稀、后期密；弹窗奖惩跟当前战力走 ---------- */
@@ -421,13 +432,13 @@ function mortalSage(opt) {
   var late = Sim.eventYearInterval({ lvl: 94, physiqueId: 'mortal', aptitude: 1, lifespan: 9000, age: 2000 });
   assert.ok(late > mid && mid > early, '间隔应按寿元摊，准帝应远长于轮海：轮海' + early + ' 仙台' + mid + ' 准帝' + late);
   assert.ok(late >= 400, '准帝剩余寿元近万年，不能二十年一件，实际 ' + late);
-  var mortalCap = Sim.earlyEventBudget({ physiqueId: 'mortal', aptitude: 1 });
-  var chaosCap = Sim.earlyEventBudget({ physiqueId: 'chaos', aptitude: 10 });
-  var sacredCap = Sim.earlyEventBudget({ physiqueId: 'sacred', aptitude: 9 });
-  assert.ok(mortalCap <= 2, '小事件要少，凡体四极前也不该堆满，实际 ' + mortalCap);
-  assert.ok(chaosCap <= 1 && sacredCap <= 1, '圣体混沌前期最多一件');
-  assert.ok(mortalCap >= chaosCap, '凡体只比顶级体质略多');
-  assert.ok(mortalCap - chaosCap <= 1, '体质弱只多一点，不要 4 对 0');
+  assert.strictEqual(typeof Sim.eventSpanBudget, 'function', '应导出 eventSpanBudget');
+  assert.strictEqual(Sim.eventSpanBudget({ lvl: 20 }), 2, '圣人前最多 2 次');
+  assert.strictEqual(Sim.eventSpanBudget({ lvl: 80 }), 3, '圣人到大圣最多 3 次');
+  assert.ok(Sim.eventSpanBudget({ lvl: 94 }) >= 5 && Sim.eventSpanBudget({ lvl: 94 }) <= 6,
+    '准帝应有 5~6 次额度');
+  assert.strictEqual(Sim.earlyEventBudget({ physiqueId: 'mortal', lvl: 8 }), 2);
+  assert.strictEqual(Sim.earlyEventBudget({ physiqueId: 'chaos', lvl: 8 }), 2);
 
   var sea = Sim.choiceStakeShare({ lvl: 8 });
   var peak = Sim.choiceStakeShare({ lvl: 94 });
@@ -441,42 +452,36 @@ function mortalSage(opt) {
   g.lifespan = 9000;
   g.cult = 200000;
   var before = g.cult;
-  var duel = byId('tianjiao');
-  Sim.fireEvent(g, [], duel);
-  assert.ok(g.pendingChoice, '前置：准帝争锋应弹窗');
+  var road = byId('rd_road_depart');
+  Sim.fireEvent(g, [], road);
+  assert.ok(g.pendingChoice, '前置：准帝古路应弹窗');
   var rnd = Math.random;
   Math.random = function () { return 0; };
-  Sim.resolveChoice(g, 'fight', []);
+  Sim.resolveChoice(g, 'steady', []);
   Math.random = rnd;
   var gain = g.cult - before;
-  assert.ok(gain / before >= 0.12, '准帝接战应至少抬当前战力一成二，实际 +' + gain + ' / ' + before);
+  assert.ok(gain / before >= 0.12, '准帝接古路应至少抬当前战力一成二，实际 +' + gain + ' / ' + before);
 })();
 
-/* ---------- 四极前额度看体质：凡体多、混沌少 ---------- */
+/* ---------- 高悟性更该撞上创法 / 吞天 ---------- */
 (function () {
-  function countEarly(physId, n) {
-    var i, sum = 0, over = 0, cap = Sim.earlyEventBudget({ physiqueId: physId });
-    for (i = 0; i < n; i++) {
-      var g = Sim.createGame(0, []);
-      Sim.setPhysique(g, D.physiqueById(physId));
-      var y = 0;
-      while (!g.dead && !g.ascended && (g.lvl || 1) < 21 && y < 8000) {
-        y++;
-        Sim.rollYear(g);
-        while (g.pendingChoice) Sim.resolveChoice(g, Sim.defaultChoiceOption(g.pendingChoice), []);
-      }
-      var drew = g.eventDraws || 0;
-      sum += drew;
-      if (drew > cap) over++;
-    }
-    return { avg: sum / n, over: over, cap: cap };
+  var create = byId('dao_create_guard_first');
+  var swallow = byId('dao_create_swallowing');
+  function gAt(gift, lvl) {
+    var g = Sim.createGame(0, [], { tier: gift, name: '颖悟', initialDaoyun: 400 });
+    Sim.setPhysique(g, D.physiqueById('mortal'));
+    g.lvl = lvl;
+    g.daoGift = gift;
+    g.daoyun = gift >= 8 ? 900 : 200;
+    g.cult = lvl >= 71 ? 120000 : 8000;
+    return g;
   }
-  var mortal = countEarly('mortal', 12);
-  var chaos = countEarly('chaos', 12);
-  assert.strictEqual(mortal.over, 0, '凡体四极前不应超过自身额度 ' + mortal.cap);
-  assert.strictEqual(chaos.over, 0, '混沌体四极前不应超过自身额度 ' + chaos.cap);
-  assert.ok(mortal.avg >= chaos.avg, '凡体前期机缘应略多于混沌体：凡' + mortal.avg.toFixed(2) + ' 混' + chaos.avg.toFixed(2));
-  assert.ok(chaos.avg <= 1.2, '混沌体前期仍该埋头修，实际 ' + chaos.avg.toFixed(2));
+  var low = Sim.eventDrawWeight(gAt(5, 40), create);
+  var high = Sim.eventDrawWeight(gAt(10, 40), create);
+  assert.ok(high > low * 1.6, '悟性极高应更容易撞上创法：低 ' + low + ' 高 ' + high);
+  var swLow = Sim.eventDrawWeight(gAt(5, 75), swallow);
+  var swHigh = Sim.eventDrawWeight(gAt(10, 75), swallow);
+  assert.ok(swHigh > swLow * 1.5, '高悟凡体更该看见自创吞天：低 ' + swLow + ' 高 ' + swHigh);
 })();
 
 /* ---------- 古路/帝兵进奖池要看属性，不是人人一样 ---------- */
@@ -580,8 +585,8 @@ function mortalSage(opt) {
   g.lifespan = 9000;
   g.cult = 200000;
   var room = g.lifespan - g.age;
-  Sim.fireEvent(g, [], ev);
-  assert.ok(g.pendingChoice, '前置：争锋应弹窗');
+  Sim.fireEvent(g, [], ev, { forceAsk: true });
+  assert.ok(g.pendingChoice, '前置：强行打开争锋以测寿元');
   var rnd = Math.random;
   Math.random = function () { return 0.999; };
   Sim.resolveChoice(g, 'fight', []);

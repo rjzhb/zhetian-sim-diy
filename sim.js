@@ -1739,8 +1739,15 @@
       w *= ev.tier >= 3 ? 1.15 : 0.55;
     }
     if (isSmallEvent(ev)) w *= smallEventPhysiqueScale(g);
-    if (isThrillEvent(ev)) w *= 1.55;
+    if (isStakeEvent(ev)) w *= 1.55;
     w *= eventAttrWeight(g, ev);
+    /* 悟性极高：创法、自创吞天进奖池的机会明显更大 */
+    if (ev.tag === 'create' || ev.id === 'dao_create_swallowing') {
+      var gift = (g && g.daoGift) || 5;
+      if (gift >= 8) w *= 2.4 + Math.min(1.6, (gift - 8) * 0.4);
+      if (ev.id === 'dao_create_swallowing') w *= gift >= 8 ? 2.2 : 0.55;
+    }
+    if ((g.lvl || 1) >= 91 && ev.tier >= 4) w *= 2.4;
     /* 对得上体质/悟性的专属事件抬权，让两局人生岔开，而不是所有人抽同一套 */
     if (eventExclusive(ev)) w *= 2.4;
     return w;
@@ -1808,22 +1815,25 @@
     if (t >= 4) return 0.96;
     return 1.12;
   }
-  function isThrillEvent(ev, spec) {
+  function isStakeEvent(ev) {
     if (!ev || ev.ask === false) return false;
-    if (ev.ask === true) return true;
     if (ev.tier >= 4) return true;
     var tag = ev.tag || '';
-    if (tag === 'allin' || tag === 'create' || tag === 'duel' || tag === 'starroad') return true;
+    if (tag === 'allin' || tag === 'create' || tag === 'starroad') return true;
+    if (tag === 'dungeon' && ev.choice && (ev.tier || 1) >= 2) return true;
+    if (tag === 'quasi' && ev.choice) return true;
     var id = ev.id || '';
-    if (id.indexOf('rd_road') === 0 || id.indexOf('dibing') >= 0 || id === 'xingkong_gulu') return true;
-    if (id === 'wld_sect_marriage' || id.indexOf('wld_marriage_') === 0) return true;
+    if (id === 'dao_create_swallowing' || id.indexOf('rd_road') === 0 || id.indexOf('dibing') >= 0) return true;
+    return false;
+  }
+  function isThrillEvent(ev, spec) {
+    if (isStakeEvent(ev)) return true;
     if (spec && spec.options) {
       var i, o;
       for (i = 0; i < spec.options.length; i++) {
         o = spec.options[i];
-        if (!o) continue;
-        if (o.risk === 'deadly') return true;
-        if (o.id && String(o.id).indexOf('art_') === 0) return true;
+        if (o && o.risk === 'deadly') return true;
+        if (o && o.id && String(o.id).indexOf('art_') === 0) return true;
       }
     }
     return false;
@@ -1863,10 +1873,7 @@
   function choiceWorthAsking(ev, spec) {
     if (!ev || !spec || !spec.options || !spec.options.length) return false;
     if (ev.ask === false) return false;
-    if (isThrillEvent(ev, spec)) return true;
-    /* 小事件进池子写人生，不打断。T3 以上才是值得停的岔路。 */
-    if (ev.tier >= 3 && choiceHasFork(spec)) return true;
-    return false;
+    return isStakeEvent(ev) || isThrillEvent(ev, spec);
   }
   /* 奖惩跟眼前这份战力走，不跟事件里写死的小数走。
    * 轮海约 8%，准帝约 22%。后期差一点机缘也要能动当前格局。 */
@@ -1902,11 +1909,7 @@
   function fireEvent(g, log, ev, opt) {
     if (!g || !ev) return;
     opt = opt || {};
-    if ((g.lvl || 1) < 21 && (g.eventDraws || 0) >= earlyEventBudget(g)) return;
-    if ((g.lvl || 1) < 21 && !opt.forceAsk && physiqueTierOf(g) >= 7) {
-      /* 顶级体质四极前也从池子里沾一件小事，只是额度更紧，不再整段吞掉 */
-      if (!ev.choice && ev.tier < 3) return;
-    }
+    if (isStakeEvent(ev) && eventSpanRoom(g) <= 0) return;
     var mc = g.maxCount || (g.maxCount = {});
     var maxN2 = ev.maxCount != null ? ev.maxCount : 100;
     mc[ev.id] = (mc[ev.id] != null ? mc[ev.id] : maxN2) - 1;
@@ -1916,6 +1919,11 @@
       g.choiceTags[ev.tag || ev.id] = 1;
     }
     g.eventDraws = (g.eventDraws || 0) + 1;
+    if (isStakeEvent(ev)) {
+      var spanKey = eventSpanKey((g.lvl || 1));
+      g.eventDrawsBySpan = g.eventDrawsBySpan || {};
+      g.eventDrawsBySpan[spanKey] = (g.eventDrawsBySpan[spanKey] || 0) + 1;
+    }
     decayFortuneHeat(g);
     var prevCur = _curEv;
     _curEv = { ev: ev, g: g, log: log, printed: false };
@@ -1954,7 +1962,10 @@
     _curEv = prevCur;
   }
   function rollEvent(g, log) {
-    var pool = collectAvailableEvents(g, false);
+    if (eventSpanRoom(g) <= 0) return;
+    var raw = collectAvailableEvents(g, false);
+    var pool = [], i;
+    for (i = 0; i < raw.length; i++) if (isStakeEvent(raw[i])) pool.push(raw[i]);
     if (!pool.length) return;
     var weights = [], total = 0, i;
     for (i = 0; i < pool.length; i++) {
@@ -1990,53 +2001,9 @@
     }
     return ev;
   }
-  /* 道宫起每个大境界至少给一次抉择。必须在本境站稳再问，且作业里不夹致死金卡。 */
+  /* 不再按境保送作业。额度按圣人前 / 圣人~大圣 / 准帝三段卡死，只出梭哈。 */
   function ensureRealmChoice(g, log) {
-    if (!g || g.dead || g.becameEmperor || g.pendingChoice) return;
-    if ((g.lvl || 1) < 21 && (g.eventDraws || 0) >= earlyEventBudget(g)) return;
-    var band = D.realmIdx(g.lvl);
-    if (band < 1) return;
-    g.choiceByRealm = g.choiceByRealm || {};
-    if (g.choiceByRealm[band]) return;
-    if (!g.realmEnterAge) g.realmEnterAge = {};
-    if (g.realmEnterAge[band] == null) {
-      g.realmEnterAge[band] = g.age || 0;
-      return;
-    }
-    if ((g.age || 0) - g.realmEnterAge[band] < REALM_CHOICE_WAIT) return;
-    var pool = collectAvailableEvents(g, true);
-    if (!pool.length) return;
-    var used = g.choiceTags || {};
-    var groups = {}, fallback = {}, i, ev, tag, list, rank, best = 0;
-    for (i = 0; i < pool.length; i++) {
-      ev = pool[i];
-      if (isHomeworkBanned(ev)) continue;
-      if (band >= 4 && ev.tag === 'dungeon') continue;
-      rank = choiceThrillRank(ev);
-      if (rank > best) best = rank;
-    }
-    /* 轮海不保送村井。道宫起从本境池子轮转一题，T2 只在作业里出现一次。 */
-    if (band < 2 && best < 2) return;
-    var floor = band < 2 ? 2 : 0;
-    for (i = 0; i < pool.length; i++) {
-      ev = pool[i];
-      if (isHomeworkBanned(ev)) continue;
-      if (band >= 4 && ev.tag === 'dungeon') continue;
-      if (choiceThrillRank(ev) < floor) continue;
-      tag = ev.tag || ev.id;
-      fallback[tag] = fallback[tag] || [];
-      fallback[tag].push(ev);
-      if (used[tag]) continue;
-      groups[tag] = groups[tag] || [];
-      groups[tag].push(ev);
-    }
-    var bag = groups;
-    if (!Object.keys(bag).length) bag = fallback;
-    var tags = Object.keys(bag);
-    if (!tags.length) return;
-    tag = tags[Math.floor(Math.random() * tags.length)];
-    list = bag[tag];
-    fireEvent(g, log, list.length === 1 ? list[0] : pickWeighted(g, list), { forceAsk: true });
+    return;
   }
   /* 悟性卡 / 天生高悟：见过立法窗口后，本生至少弹一次创法抉择。
    * 不走本境标签硬挡，否则 create 族被人生包占掉就永远落不了笔。 */
@@ -2067,6 +2034,7 @@
   }
   function ensureArtChoice(g, log) {
     if (!g || g.dead || g.becameEmperor || g.pendingChoice) return;
+    if (eventSpanRoom(g) <= 0) return;
     if (g.artHomework) return;
     if (!daoArtGuarantee(g)) return;
     if ((g.lvl || 1) < 21) return;
@@ -2083,11 +2051,27 @@
     }
     return (g && (g.aptitude || g.innate)) || 1;
   }
-  /* 四极前小事件要少。凡体只比圣体混沌多一件。 */
+  function eventSpanKey(lvl) {
+    if ((lvl || 1) < 71) return 'pre';
+    if ((lvl || 1) < 91) return 'mid';
+    return 'late';
+  }
+  function eventSpanBudget(g) {
+    var k = eventSpanKey((g && g.lvl) || 1);
+    if (k === 'pre') return 2;
+    if (k === 'mid') return 3;
+    return 6;
+  }
+  function eventSpanDraws(g) {
+    var k = eventSpanKey((g && g.lvl) || 1);
+    return (g && g.eventDrawsBySpan && g.eventDrawsBySpan[k]) || 0;
+  }
+  function eventSpanRoom(g) {
+    return Math.max(0, eventSpanBudget(g) - eventSpanDraws(g));
+  }
+  /* 兼容旧名：圣人前额度就是 2。 */
   function earlyEventBudget(g) {
-    var t = physiqueTierOf(g);
-    if (t <= 2) return 2;
-    return 1;
+    return eventSpanBudget({ lvl: (g && g.lvl) || 1 });
   }
   function typicalLifeRef(g) {
     var band = D.realmIdx((g && g.lvl) || 1);
@@ -2096,12 +2080,7 @@
     return 120;
   }
   function eventWantedInSpan(g) {
-    var lvl = (g && g.lvl) || 1;
-    if (lvl < 21) return Math.max(0, earlyEventBudget(g) - ((g && g.eventDraws) || 0));
-    if (lvl < 41) return 2;
-    if (lvl < 71) return 3;
-    if (lvl < 91) return 3;
-    return 4;
+    return eventSpanRoom(g);
   }
   function eventYearInterval(g) {
     /* 按剩余寿元摊，不按绝对年。轮海几十年和准帝近万年不是同一把尺。 */
@@ -4053,7 +4032,7 @@
       choiceByRealm: {},
       realmEnterAge: { 1: 6 },
       realmSeenBand: 1, realmSeenIds: {}, realmSeenTags: {},
-      eventDraws: 0, spotlightCount: 0, planScore: 0, planEdge: 0,
+      eventDraws: 0, eventDrawsBySpan: {}, spotlightCount: 0, planScore: 0, planEdge: 0,
       recentEvents: [], pendingChoice: null,
       eventChains: {},
       dead: false, ascended: false, emperor: false, becameEmperor: false, redDustImmortal: false,
@@ -4305,6 +4284,9 @@
     eventDrawWeight: eventDrawWeight,
     eventAttrWeight: eventAttrWeight,
     isThrillEvent: isThrillEvent,
+    isStakeEvent: isStakeEvent,
+    eventSpanBudget: eventSpanBudget,
+    eventSpanRoom: eventSpanRoom,
     choiceWorthAsking: choiceWorthAsking,
     choiceStakeShare: choiceStakeShare,
     eventYearInterval: eventYearInterval,

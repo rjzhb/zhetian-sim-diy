@@ -164,7 +164,8 @@
     },
     {
       id: 'dao_create_swallowing', weight: 0.35, maxCount: 1,
-      name: '自创吞天魔功', tier: 4, desc: '凡躯观万法本源，开创吞噬诸体的逆天魔功',
+      name: '自创吞天魔功', tier: 4, tag: 'create',
+      desc: '凡躯观万法本源，开创吞噬诸体的逆天魔功',
       minAge: 100, maxAge: 10000,
       available: function (g, U) {
         return !g.becameEmperor && !g.swallowingArt && g.innate <= 2 &&
@@ -172,6 +173,38 @@
       },
       cond: function (g, U) {
         return U.isHighDaoyun(g) && Math.random() < Math.min(0.28, 0.05 + g.daoyun / U.data.DAO_ABSOLUTE_MAX * 0.20);
+      },
+      choice: function (g, U) {
+        var p = U.clamp(0.08 + (g.daoyun || 0) / U.data.DAO_ABSOLUTE_MAX * 0.22, 0.06, 0.32);
+        g.pendingSwallowCreate = p;
+        return {
+          lead: '你以凡躯一遍遍拆别人的本源。某一夜，那些互不相容的法在识海里自行咬合，像要长成一门吞天的魔功',
+          info: '落成则从此可吞诸体，也从此举世皆敌。此番推演胜算 ' + U.pct(p),
+          note: '收手无死险，只是这门法会散。',
+          options: [
+            { id: 'stop', label: '斩断推演', desc: '不踏上魔路', safe: true },
+            { id: 'forge', label: '以凡躯立魔功', desc: '成则自创吞天，败则反噬伤寿', chance: p }
+          ]
+        };
+      },
+      resolve: function (g, U, optionId) {
+        var p = g.pendingSwallowCreate != null ? g.pendingSwallowCreate :
+          U.clamp(0.08 + (g.daoyun || 0) / U.data.DAO_ABSOLUTE_MAX * 0.22, 0.06, 0.32);
+        g.pendingSwallowCreate = null;
+        if (optionId === 'stop') {
+          U.printlog('你把那门还没长成的法从识海里拔了出去。凡躯吞天，不是这条路上人人都该走的');
+          return;
+        }
+        if (Math.random() < p) {
+          g.swallowingArt = true;
+          g.selfCreatedSwallowing = true;
+          U.gainDao(g, U.irand(25, 45), 24);
+          U.printlog('你以凡体推演诸般本源，竟自创吞天魔功！从此可吞噬特殊体质，但举世皆敌与反噬也将真正致命');
+          return;
+        }
+        var h = U.hurt(g, 60, 180);
+        U.printlog(h.loss ? '你欲以凡躯吞纳万道，功法雏形反噬，寿元 -' + h.loss :
+          '吞天法雏形一闪即灭，你没有强行踏上魔路');
       },
       ok: function (g, U) {
         g.swallowingArt = true;
