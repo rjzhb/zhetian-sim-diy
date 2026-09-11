@@ -530,6 +530,35 @@ function mortalSage(opt) {
   assert.ok(avg >= 0.7, '圣~大圣段不能再被摊空，实际 ' + avg.toFixed(2));
 })();
 
+/* ---------- 额度用尽后仍有路边事；仙台不再只剩低阶秘境 ---------- */
+(function () {
+  assert.strictEqual(typeof Sim.eventFlavorInterval, 'function', '应导出 eventFlavorInterval');
+  var g = Sim.createGame(0, []);
+  Sim.setPhysique(g, D.physiqueById('mortal'));
+  g.lvl = 45;
+  g.age = 200;
+  g.eventDrawsBySpan = { pre: 2 };
+  var gap = Sim.eventYearInterval(g);
+  assert.ok(gap <= 90, '梭哈额度用尽后不能把间隔拉成十万年，实际 ' + gap);
+  assert.ok(byId('th_xian_stele') && byId('th_xian_pill') && byId('th_quasi_private'),
+    '分境界梭哈包应有仙台古碑、夺丹和准帝私斗');
+  assert.ok(Sim.isStakeEvent(byId('th_xian_stele')), '仙台古碑应占梭哈额度');
+  assert.ok(Sim.isStakeEvent(byId('th_wang_mine')), '血色矿脉应是梭哈');
+  var thrill = E.filter(function (e) { return e.id && e.id.indexOf('th_') === 0; });
+  assert.ok(thrill.length >= 14, '分境界梭哈包事件太少：' + thrill.length);
+
+  var xian = Sim.createGame(0, []);
+  Sim.setPhysique(xian, D.physiqueById('mortal'));
+  xian.lvl = 45;
+  xian.age = 180;
+  xian.cult = 8000;
+  var pool = Sim.collectAvailableEvents(xian, true).filter(function (e) { return Sim.isStakeEvent(e); });
+  var names = {};
+  pool.forEach(function (e) { names[e.id] = 1; });
+  assert.ok(names.th_xian_stele || names.th_xian_well || names.th_xian_pill,
+    '仙台凡人梭哈池里应能看见新包，实际 ' + Object.keys(names).join(','));
+})();
+
 /* ---------- 古路/帝兵进奖池要看属性，不是人人一样 ---------- */
 (function () {
   var road = byId('rd_road_depart');

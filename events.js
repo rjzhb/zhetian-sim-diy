@@ -10,6 +10,7 @@
  *   events-road.js      星空古路、秘境副本、梭哈型关键机缘
  *   events-life.js      分境界路边故事，按体质/悟性分流
  *   events-life-late.js 仙台到准帝的第二套路边故事
+ *   events-thrill.js    分境界梭哈：仙台到准帝的第二套关键机缘
  *
  * 事件字段：
  *   id 唯一标识 / name 展示名 / tier 稀有度 1普通 2中级 3稀有 4传说
@@ -29,11 +30,12 @@
     require('./events-world.js'),
     require('./events-road.js'),
     require('./events-life.js'),
-    require('./events-life-late.js')
+    require('./events-life-late.js'),
+    require('./events-thrill.js')
   ] : [
     root.EVENT_PACK_CORE, root.EVENT_PACK_DAO, root.EVENT_PACK_PHYSIQUE,
     root.EVENT_PACK_WORLD, root.EVENT_PACK_ROAD, root.EVENT_PACK_LIFE,
-    root.EVENT_PACK_LIFE_LATE
+    root.EVENT_PACK_LIFE_LATE, root.EVENT_PACK_THRILL
   ];
 
   var EVENTS = [], seen = {}, i, j;

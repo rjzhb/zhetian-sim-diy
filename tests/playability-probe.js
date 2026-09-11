@@ -82,6 +82,7 @@ function runOne(physId, gift, style) {
     late: (g.eventDrawsBySpan && g.eventDrawsBySpan.late) || 0,
     t4: pops.filter(function (p) { return p.tier >= 4; }).length,
     create: pops.filter(function (p) { return p.tag === 'create'; }).length,
+    flavor: Math.max(0, (g.eventDraws || 0) - ((g.eventDrawsBySpan && ((g.eventDrawsBySpan.pre || 0) + (g.eventDrawsBySpan.mid || 0) + (g.eventDrawsBySpan.late || 0))) || 0)),
     firstCreate: firstCreate,
     ids: seen
   };
@@ -120,6 +121,7 @@ function summarize(rows) {
     late: avg('late'),
     t4: avg('t4'),
     create: avg('create'),
+    flavor: avg('flavor'),
     causes: causes,
     firstCreate: Object.keys(firsts).sort(function (a, b) { return firsts[b] - firsts[a]; })
       .map(function (id) { return id + ':' + firsts[id]; }),

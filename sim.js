@@ -1962,22 +1962,17 @@
     _curEv = prevCur;
   }
   function rollEvent(g, log) {
-    if (eventSpanRoom(g) <= 0) return;
     var raw = collectAvailableEvents(g, false);
-    var pool = [], i;
-    for (i = 0; i < raw.length; i++) if (isStakeEvent(raw[i])) pool.push(raw[i]);
-    if (!pool.length) return;
-    var weights = [], total = 0, i;
-    for (i = 0; i < pool.length; i++) {
-      var w = eventDrawWeight(g, pool[i]);
-      weights.push(w); total += w;
+    var stake = [], flavor = [], i;
+    for (i = 0; i < raw.length; i++) {
+      if (isStakeEvent(raw[i])) stake.push(raw[i]);
+      else flavor.push(raw[i]);
     }
-    if (!(total > 0)) return;
-    var r = Math.random() * total, acc = 0, ev = pool[pool.length - 1];
-    for (i = 0; i < pool.length; i++) {
-      acc += weights[i]; if (r < acc) { ev = pool[i]; break; }
+    if (eventSpanRoom(g) > 0 && stake.length) {
+      fireEvent(g, log, pickWeighted(g, stake));
+      return;
     }
-    fireEvent(g, log, ev);
+    if (flavor.length) fireEvent(g, log, pickWeighted(g, flavor));
   }
   var REALM_CHOICE_WAIT = 12;
   var HOMEWORK_BAN = { phy_dixue_cuiti: 1, phy_hundunqi_cuiti: 1 };
@@ -2093,9 +2088,16 @@
     if (k === 'mid') return 540;
     return Math.max(360, Math.round((life - age) * 0.5));
   }
+  function eventFlavorInterval(g) {
+    /* 梭哈额度用尽后仍要有路边事，否则半生日志是空白。 */
+    var k = eventSpanKey((g && g.lvl) || 1);
+    if (k === 'pre') return 64;
+    if (k === 'mid') return 110;
+    return 220;
+  }
   function eventYearInterval(g) {
     var wanted = eventWantedInSpan(g);
-    if (wanted <= 0) return 100000;
+    if (wanted <= 0) return eventFlavorInterval(g);
     var spanYears = eventSpanPaceYears(g);
     var floor = eventSpanKey((g && g.lvl) || 1) === 'mid' ? 90 : 24;
     return Math.max(floor, Math.round(spanYears / wanted));
@@ -4307,6 +4309,7 @@
     choiceWorthAsking: choiceWorthAsking,
     choiceStakeShare: choiceStakeShare,
     eventYearInterval: eventYearInterval,
+    eventFlavorInterval: eventFlavorInterval,
     earlyEventBudget: earlyEventBudget,
     daoByCap: daoByCap,
     eventPaysDao: eventPaysDao,
