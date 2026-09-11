@@ -105,6 +105,9 @@ var PROBES = [];
   PROBES.push({ phys: 'mortal', gift: 8, lvl: lvl, arts: 1, married: '摇光圣地' });
   PROBES.push({ phys: 'mortal', gift: 8, lvl: lvl, arts: 1, refusedMarriage: true });
 });
+/* 斩道/入圣失败后的余生只在门口旗标下出现 */
+PROBES.push({ phys: 'mortal', gift: 5, lvl: 60, arts: 1, cutFailed: true });
+PROBES.push({ phys: 'mortal', gift: 5, lvl: 70, arts: 1, saintFailed: true });
 
 function makeProbe(p) {
   var g = probeGame(p);
@@ -142,6 +145,8 @@ function makeProbe(p) {
     g.sectPatron = p.married;
   }
   if (p.refusedMarriage) g.sectMarriage = 'refused';
+  if (p.cutFailed) { g.cutDaoTried = true; g.cutDaoPassed = false; }
+  if (p.saintFailed) { g.saintTried = true; g.saintPassed = false; }
   return g;
 }
 

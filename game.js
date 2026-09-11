@@ -1197,6 +1197,8 @@
       else if (G.deadCause === 'accident') { t.textContent = '💀 不幸身陨'; blip(160, 0.4, 'sawtooth', 0.12); }
       else if (G.deadCause === 'swallow_siege') { t.textContent = '💀 举世皆敌 · 围攻陨落'; blip(120, 0.5, 'sawtooth', 0.15); }
       else if (G.deadCause === 'event') { t.textContent = '💀 身死道消'; blip(160, 0.4, 'sawtooth', 0.12); }
+      else if (G.cutDaoTried && !G.cutDaoPassed) { t.textContent = '⚔ 斩道止步'; blip(140, 0.4, 'sawtooth', 0.13); }
+      else if (G.saintTried && !G.saintPassed) { t.textContent = '⚔ 止步圣位'; blip(140, 0.4, 'sawtooth', 0.13); }
       else { t.textContent = '💀 与世长辞'; blip(160, 0.4, 'sawtooth', 0.12); }
       t.className = 'settle-title';
     }
@@ -1238,6 +1240,12 @@
       else if (G.deadCause === 'cannot_break_world') gd.textContent = '你已获得奇异世界坐标，但未达到轰穿界壁所需的150万战力';
       else if (G.deadCause === 'swallow_siege') gd.textContent = '你以吞天魔功炼化他人本源，终被举世围攻、身死道消';
       else gd.textContent = '你曾证道成帝，并逆活至第 ' + G.lifeNo + ' 世，凝成 ' + G.redDustMarks + ' 枚红尘印';
+      gd.hidden = false;
+    } else if (G.cutDaoTried && !G.cutDaoPassed) {
+      gd.textContent = '大能巅峰那一刀没落下去。这一世的名字，停在斩道门口';
+      gd.hidden = false;
+    } else if (G.saintTried && !G.saintPassed) {
+      gd.textContent = '过了斩道，也大多过不了圣位。你看见了另一种生命，却没踏进去';
       gd.hidden = false;
     } else gd.hidden = true;
 

@@ -187,6 +187,7 @@
       desc: '别人靠血脉过关，你靠把息调匀', weight: 15, maxCount: 3,
       minAge: 160, maxAge: 100000,
       available: function (g) {
+        if (g.lvl === 60 && g.cutDaoTried) return false;
         return !g.becameEmperor && (g.innate || 1) <= 4 && g.lvl >= 51 && g.lvl <= 69;
       },
       cond: function (g) { return Math.random() < 0.68; },
@@ -206,7 +207,7 @@
       desc: '大能巅峰，这一刀还没落下', weight: 18, maxCount: 2,
       minAge: 180, maxAge: 100000,
       available: function (g) {
-        return !g.becameEmperor && (g.innate || 1) <= 5 && g.lvl === 60 && !g.cutDaoPassed;
+        return !g.becameEmperor && (g.innate || 1) <= 5 && g.lvl === 60 && !g.cutDaoTried && !g.cutDaoPassed;
       },
       cond: function (g) { return Math.random() < 0.70; },
       ok: function (g, U) {
@@ -224,10 +225,28 @@
       }
     },
     {
+      id: 'th_after_cut', name: '斩道余生', tier: 2, tag: 'insight',
+      desc: '那一刀已经落过了，门还在', weight: 16, maxCount: 2,
+      minAge: 200, maxAge: 100000,
+      available: function (g) {
+        return !g.becameEmperor && g.lvl === 60 && g.cutDaoTried && !g.cutDaoPassed;
+      },
+      cond: function (g) { return Math.random() < 0.78; },
+      ok: function (g, U) {
+        var lf = U.gainLife(g, 18, 36);
+        U.printlog('门口又来了一个人。他问前面是什么。你说，王者。他进去了，你没有' +
+          (lf ? '。你在原处又坐了一夜，寿元+' + lf : ''));
+      },
+      fail: function (g, U) {
+        U.printlog('你又走到落刀的地方。门还在。你已经不是来砍的人了');
+      }
+    },
+    {
       id: 'th_stuck_sheng', name: '圣位枯坐', tier: 2, tag: 'insight',
       desc: '大圣这一层，凡骨只能坐', weight: 14, maxCount: 3,
       minAge: 400, maxAge: 100000,
       available: function (g) {
+        if (g.lvl === 70 && g.saintTried) return false;
         return !g.becameEmperor && (g.innate || 1) <= 4 && g.lvl >= 70 && g.lvl <= 90;
       },
       cond: function (g) { return Math.random() < 0.64; },
@@ -247,6 +266,23 @@
       },
       fail: function (g, U) {
         U.printlog('这一坐没有通。你起身添了灯油，再坐');
+      }
+    },
+    {
+      id: 'th_after_saint', name: '圣位余生', tier: 2, tag: 'insight',
+      desc: '圣位那一坎过不去，生命还在原来那边', weight: 14, maxCount: 2,
+      minAge: 400, maxAge: 100000,
+      available: function (g) {
+        return !g.becameEmperor && g.lvl === 70 && g.saintTried && !g.saintPassed;
+      },
+      cond: function (g) { return Math.random() < 0.76; },
+      ok: function (g, U) {
+        var lf = U.gainLife(g, 22, 44);
+        U.printlog('有人从圣位那一侧回头看你一眼。那一眼里的寿元、气血、神识，已经不是同一种东西' +
+          (lf ? '。你把目光收回来，寿元+' + lf : ''));
+      },
+      fail: function (g, U) {
+        U.printlog('你试着再迈半步。门槛还是门槛。过了斩道的人，也大多止步于此');
       }
     },
 

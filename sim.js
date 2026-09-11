@@ -2143,6 +2143,15 @@
       if (isStakeEvent(raw[i])) stake.push(raw[i]);
       else flavor.push(raw[i]);
     }
+    var afterCut = g.lvl === 60 && g.cutDaoTried && !g.cutDaoPassed;
+    var afterSaint = g.lvl === 70 && g.saintTried && !g.saintPassed;
+    if (afterCut || afterSaint) {
+      var restPool = collectStuckEvents(g);
+      if (restPool.length) {
+        fireEvent(g, log, pickDoorStuck(g, restPool));
+        return;
+      }
+    }
     if (eventSpanRoom(g) > 0 && stake.length) {
       /* 凡体卡在四极到入圣门口时，额度没花完也先坐下。两道门槛只堆战力，坐不穿。 */
       if ((g.innate || 1) <= 4 && (g.lvl || 1) >= 21 && (g.lvl || 1) <= 70 && Math.random() < 0.40) {
@@ -2157,12 +2166,16 @@
     }
     if (flavor.length) fireEvent(g, log, pickStuckBreak(g, flavor) || pickWeighted(g, flavor));
   }
+  function isDoorStory(ev) {
+    var id = ev && ev.id || '';
+    return id.indexOf('th_stuck_') === 0 || id === 'th_after_cut' || id === 'th_after_saint';
+  }
   /* 凡体卡关不看路边池标签。刚抽过悟道，也该能坐下把这一层坐穿。 */
   function collectStuckEvents(g) {
     var out = [], i, ev, mc = (g && g.maxCount) || {};
     for (i = 0; i < E.length; i++) {
       ev = E[i];
-      if (!ev || !ev.id || String(ev.id).indexOf('th_stuck_') !== 0) continue;
+      if (!isDoorStory(ev)) continue;
       var maxN = ev.maxCount != null ? ev.maxCount : 3;
       var left = mc[ev.id] != null ? mc[ev.id] : maxN;
       if (left <= 0) continue;
@@ -2174,15 +2187,19 @@
     return out;
   }
   function pickStuckBreak(g, flavor) {
-    if (!g || (g.innate || 1) > 4) return null;
+    var innate = (g && g.innate) || 1;
+    var afterCut = g && g.lvl === 60 && g.cutDaoTried && !g.cutDaoPassed;
+    var afterSaint = g && g.lvl === 70 && g.saintTried && !g.saintPassed;
+    if (!g || (innate > 4 && !afterCut && !afterSaint)) return null;
     if ((g.lvl || 1) < 21 || (g.lvl || 1) > 90) return null;
-    if (Math.random() > 0.62) return null;
+    /* 门槛失败后余生必须能看见，不再跟路边池掷骰。 */
+    if (!afterCut && !afterSaint && Math.random() > 0.62) return null;
     var found = collectStuckEvents(g);
     if (!found.length && flavor && flavor.length) {
       var i, ev;
       for (i = 0; i < flavor.length; i++) {
         ev = flavor[i];
-        if (ev && ev.id && String(ev.id).indexOf('th_stuck_') === 0) found.push(ev);
+        if (isDoorStory(ev)) found.push(ev);
       }
     }
     if (!found.length) return null;
@@ -2192,15 +2209,17 @@
   function pickDoorStuck(g, pool) {
     var i, ev, lvl = (g && g.lvl) || 1;
     if (lvl === 60) {
+      var cutId = (g && g.cutDaoTried && !g.cutDaoPassed) ? 'th_after_cut' : 'th_stuck_cut';
       for (i = 0; i < pool.length; i++) {
         ev = pool[i];
-        if (ev && ev.id === 'th_stuck_cut') return ev;
+        if (ev && ev.id === cutId) return ev;
       }
     }
     if (lvl === 70) {
+      var saintId = (g && g.saintTried && !g.saintPassed) ? 'th_after_saint' : 'th_stuck_sheng';
       for (i = 0; i < pool.length; i++) {
         ev = pool[i];
-        if (ev && ev.id === 'th_stuck_sheng') return ev;
+        if (ev && ev.id === saintId) return ev;
       }
     }
     return pool[Math.floor(Math.random() * pool.length)];
@@ -2261,6 +2280,7 @@
   function ensureArtChoice(g, log) {
     if (!g || g.dead || g.becameEmperor || g.pendingChoice) return;
     if (eventSpanRoom(g) <= 0) return;
+    if ((g.cutDaoTried && !g.cutDaoPassed) || (g.saintTried && !g.saintPassed)) return;
     if (g.artHomework) return;
     if (!daoArtGuarantee(g)) return;
     if ((g.lvl || 1) < 21) return;
@@ -2331,6 +2351,10 @@
     return 220;
   }
   function eventYearInterval(g) {
+    if ((g.lvl === 60 && g.cutDaoTried && !g.cutDaoPassed) ||
+      (g.lvl === 70 && g.saintTried && !g.saintPassed)) {
+      return eventFlavorInterval(g);
+    }
     var wanted = eventWantedInSpan(g);
     if (wanted <= 0) return eventFlavorInterval(g);
     var spanYears = eventSpanPaceYears(g);
