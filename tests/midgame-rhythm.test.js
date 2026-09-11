@@ -704,6 +704,29 @@ function mortalSage(opt) {
   Math.random = preRnd;
   assert.ok(beforeStake.maxCount && beforeStake.maxCount.th_stuck_fourpole != null &&
     beforeStake.maxCount.th_stuck_fourpole < 3, '梭哈额度没用完，四极夜关也该能坐下');
+  var seaStake = Sim.createGame(0, []);
+  Sim.setPhysique(seaStake, D.physiqueById('mortal'));
+  seaStake.innate = 1;
+  seaStake.aptitude = 1;
+  seaStake.lvl = 12;
+  seaStake.age = 20;
+  seaStake.eventDrawsBySpan = { pre: 0 };
+  var seaRnd = Math.random;
+  Math.random = function () { return 0.1; };
+  Sim.rollEvent(seaStake, []);
+  Math.random = seaRnd;
+  assert.ok(seaStake.maxCount && seaStake.maxCount.th_stuck_sea != null &&
+    seaStake.maxCount.th_stuck_sea < 3, '轮海道宫额度没用完也应能坐下续命');
+  var seaEve = byId('th_stuck_sea');
+  assert.ok(seaEve && !Sim.isStakeEvent(seaEve), '苦海夜坐应走路边池');
+  var seaBefore = seaStake.lvl;
+  seaEve.ok(seaStake, Sim.U);
+  assert.ok(seaStake.lifespan > 0, '苦海夜坐应能续上寿元');
+  var sacredSea = Sim.createGame(0, []);
+  Sim.setPhysique(sacredSea, D.physiqueById('sacred'));
+  sacredSea.lvl = 12;
+  sacredSea.age = 20;
+  assert.ok(!seaEve.available(sacredSea), '圣体不吃苦海夜坐');
   var nengStake = Sim.createGame(0, []);
   Sim.setPhysique(nengStake, D.physiqueById('mortal'));
   nengStake.innate = 1;
@@ -1135,15 +1158,39 @@ function mortalSage(opt) {
   yeFan.innate = 1;
   yeFan.aptitude = 1;
   assert.ok(Sim.cutDaoChance(yeFan) > Sim.cutDaoChance(strong), '道和力够的逆斩应高于普通人斩一刀');
-  assert.ok(Sim.cutDaoChance(yeFan) < 0.72, '逆斩也不是必过');
+  assert.ok(Sim.cutDaoChance(yeFan) < 0.92, '逆斩也不是必过');
+
+  var highGift = mortalAt(60, { daoyun: 220, cult: 24000, gift: 10 });
+  highGift.innate = 1;
+  highGift.aptitude = 1;
+  assert.ok(Sim.cutDaoChance(highGift) > Sim.cutDaoChance(strong) + 0.08,
+    '高悟性在门口应明显好斩，实际 ' + Sim.cutDaoChance(highGift) + ' / ' + Sim.cutDaoChance(strong));
 
   var chaos = Sim.createGame(0, []);
   Sim.setPhysique(chaos, D.physiqueById('chaos'));
   chaos.lvl = 60;
   chaos.daoyun = 200;
   chaos.cult = 40000;
-  assert.ok(Sim.cutDaoChance(chaos) > 0.45, '混沌斩道应明显高于凡人，实际 ' + Sim.cutDaoChance(chaos));
-  assert.strictEqual(Sim.canAdvance(chaos), false, '混沌没过斩道也不能年突破进王者');
+  assert.ok(Sim.noRealmBottleneck(chaos), '混沌体没有境界瓶颈');
+  assert.strictEqual(Sim.cutDaoChance(chaos), 1, '混沌斩道不应掷骰');
+  assert.strictEqual(Sim.enterSaintChance(chaos), 1, '混沌入圣不应掷骰');
+  assert.strictEqual(Sim.canAdvance(chaos), true, '混沌体不该卡在斩道门口');
+  assert.ok(Sim.quasiUnlocked(chaos), '混沌体进准帝也不该再卡机缘门');
+
+  var daoEmb = Sim.createGame(0, []);
+  Sim.setPhysique(daoEmb, D.physiqueById('innate_sacred_dao'));
+  daoEmb.lvl = 70;
+  assert.ok(Sim.noRealmBottleneck(daoEmb), '先天圣体道胎没有境界瓶颈');
+  assert.strictEqual(Sim.enterSaintChance(daoEmb), 1, '道胎入圣不应掷骰');
+  assert.strictEqual(Sim.canAdvance(daoEmb), true, '道胎不该卡在圣位');
+
+  var sacredDoor = Sim.createGame(0, []);
+  Sim.setPhysique(sacredDoor, D.physiqueById('sacred'));
+  sacredDoor.lvl = 70;
+  sacredDoor.daoyun = 400;
+  sacredDoor.cult = 40000;
+  assert.ok(Sim.enterSaintChance(sacredDoor) > 0.72, '荒古圣体入圣应很难卡住，实际 ' + Sim.enterSaintChance(sacredDoor));
+  assert.ok(!Sim.noRealmBottleneck(sacredDoor), '荒古圣体仍有证道之难，只是圣位不该当凡人砍');
 
   var log = [];
   Sim.ensureCutDao(door, log);

@@ -145,6 +145,25 @@
 
     /* ---------- 凡体卡关：不弹窗，额度用尽后进路边池，推一层并补寿 ---------- */
     {
+      id: 'th_stuck_sea', name: '苦海夜坐', tier: 2, tag: 'insight',
+      desc: '轮海道宫这点寿元，坐一夜才能续上', weight: 16, maxCount: 3,
+      minAge: 12, maxAge: 100000,
+      available: function (g) {
+        return !g.becameEmperor && (g.innate || 1) <= 4 && g.lvl >= 6 && g.lvl <= 20;
+      },
+      cond: function (g) { return Math.random() < 0.74; },
+      ok: function (g, U) {
+        var lf = U.gainLife(g, 22, 45);
+        var c = U.cultPct(g, 0.016, 0.030, 80);
+        sitThrough(g, U);
+        U.printlog('苦海里那口气今夜自己匀开了。你把命续上，再往前挪一步' +
+          (lf ? '，寿元+' + lf : '') + '，实力+' + c);
+      },
+      fail: function (g, U) {
+        U.printlog('苦海还是苦海。你把腿盘紧，明天再坐');
+      }
+    },
+    {
       id: 'th_stuck_fourpole', name: '四极夜关', tier: 2, tag: 'insight',
       desc: '第四极那口气一夜没散', weight: 16, maxCount: 3,
       minAge: 25, maxAge: 100000,

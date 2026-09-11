@@ -161,8 +161,13 @@
     return true;
   }
   /* 进准帝看机缘，不看枯坐、不看把战力堆满。帝路命格也算开局就押上的机缘。 */
+  function noRealmBottleneck(g) {
+    var id = g && g.physiqueId;
+    return id === 'chaos' || id === 'innate_sacred_dao';
+  }
   function quasiUnlocked(g) {
     if (!g) return false;
+    if (noRealmBottleneck(g)) return true;
     if (g.quasiFate) return true;
     if (hasImperialRoad(g)) return true;
     return false;
@@ -198,10 +203,29 @@
   function thresholdBodyBonus(g) {
     var innate = Math.min(10, Math.max(1, g.innate || 1));
     var bonus = 0;
-    if (innate >= 8) bonus += 0.08;
-    if (innate >= 9) bonus += 0.16;
-    if (innate >= 10) bonus += 0.10;
+    if (innate >= 6) bonus += 0.05;
+    if (innate >= 7) bonus += 0.07;
+    if (innate >= 8) bonus += 0.12;
+    if (innate >= 9) bonus += 0.18;
     return bonus;
+  }
+  function thresholdGiftBonus(g, fit, powerFit) {
+    /* 悟性高是门口加持，不是战力还嫩时的保送。 */
+    if ((powerFit || 0) < 0.75) return 0;
+    var gift = g && g.daoGift != null ? g.daoGift : 5;
+    var scale = clamp(fit || 0, 0, 1.2);
+    var raw = 0;
+    if (gift >= 10) raw = 0.28;
+    else if (gift >= 9) raw = 0.18;
+    else if (gift >= 8) raw = 0.10;
+    else if (gift >= 7) raw = 0.05;
+    return raw * scale;
+  }
+  function thresholdChanceCap(g) {
+    if (noRealmBottleneck(g)) return 1;
+    if ((g.innate || 1) >= 8 || (g.daoGift || 5) >= 9) return 0.96;
+    if ((g.daoGift || 5) >= 8) return 0.90;
+    return 0.80;
   }
   function thresholdPowerBonus(g, powerRef) {
     var powerFit = thresholdPowerFit(g, powerRef);
@@ -216,17 +240,22 @@
       currentCombatPower(g) >= CUT_DAO_POWER_REF * 0.9;
   }
   function cutDaoChance(g) {
+    if (noRealmBottleneck(g)) return 1;
     var fit = thresholdFit(g, CUT_DAO_DAO_REF, CUT_DAO_POWER_REF);
-    var chance = 0.02 + fit * 0.14 + thresholdBodyBonus(g) + thresholdPowerBonus(g, CUT_DAO_POWER_REF);
+    var chance = 0.02 + fit * 0.14 + thresholdBodyBonus(g) + thresholdPowerBonus(g, CUT_DAO_POWER_REF) +
+      thresholdGiftBonus(g, fit, thresholdPowerFit(g, CUT_DAO_POWER_REF));
     if (reverseCutReady(g, fit)) chance += 0.16;
     else if (isReverseCutPath(g) && fit >= 1) chance += 0.05;
-    return clamp(chance, 0.02, 0.80);
+    return clamp(chance, 0.02, thresholdChanceCap(g));
   }
   function enterSaintChance(g) {
+    if (noRealmBottleneck(g)) return 1;
     var fit = thresholdFit(g, ENTER_SAINT_DAO_REF, ENTER_SAINT_POWER_REF);
-    var chance = 0.03 + fit * 0.15 + thresholdBodyBonus(g) * 0.85 + thresholdPowerBonus(g, ENTER_SAINT_POWER_REF);
+    var chance = 0.03 + fit * 0.15 + thresholdBodyBonus(g) * 0.85 +
+      thresholdPowerBonus(g, ENTER_SAINT_POWER_REF) +
+      thresholdGiftBonus(g, fit, thresholdPowerFit(g, ENTER_SAINT_POWER_REF));
     if (g.swallowingArt && fit >= 1.1) chance += 0.08;
-    return clamp(chance, 0.03, 0.82);
+    return clamp(chance, 0.03, thresholdChanceCap(g));
   }
   function thresholdDaoReady(g) {
     var need = effectiveDaoyunNeed(g, g.lvl);
@@ -254,13 +283,18 @@
     var fit = thresholdFit(g, CUT_DAO_DAO_REF, CUT_DAO_POWER_REF);
     var reverse = reverseCutReady(g, fit);
     var chance = cutDaoChance(g);
-    var ok = Math.random() < chance;
+    var free = noRealmBottleneck(g);
+    var ok = free || Math.random() < chance;
     var text;
     if (ok) {
       g.cutDaoPassed = true;
       g.cutNearMiss = false;
       if (rekindle) {
         text = '你以为那一刀止住了。多年后刀意自己回来，把王者境从门口撕开';
+      } else if (free) {
+        text = (g.physiqueId === 'innate_sacred_dao')
+          ? '圣体道胎走到这里，王者境的门自己让开。此身没有这一坎'
+          : '此身无瓶颈，王者境自己开了';
       } else if (reverse) {
         text = '你逆斩大道，少年大帝联手压来。你硬接这一围，把王者境从他们手里撕开';
       } else {
@@ -302,11 +336,16 @@
   }
   function resolveEnterSaint(g, log) {
     g.saintTried = true;
-    var ok = Math.random() < enterSaintChance(g);
+    var free = noRealmBottleneck(g);
+    var ok = free || Math.random() < enterSaintChance(g);
     var text;
     if (ok) {
       g.saintPassed = true;
-      text = '王者巅峰，你踏进圣位。从此寿元、气血、神识都不再是同一种生命';
+      text = free
+        ? ((g.physiqueId === 'innate_sacred_dao')
+          ? '圣体道胎踏进圣位。寿元、气血、神识换了一重，门上没有坎'
+          : '此身无瓶颈，圣位自己开了。从此不是同一种生命')
+        : '王者巅峰，你踏进圣位。从此寿元、气血、神识都不再是同一种生命';
       push(log, { cls: 'rainbow', text: '第' + g.age + '岁，' + text });
       highlightLast(g, log, { title: '踏入圣位', kind: 'threshold', note: '生命都不一样了' });
       passRealmGate(g, log);
@@ -319,6 +358,12 @@
   function ensureCutDao(g, log) {
     if (!g || g.dead || g.becameEmperor || g.pendingChoice) return;
     if ((g.lvl || 1) !== 60 || g.cutDaoTried || g.cutDaoPassed) return;
+    if (noRealmBottleneck(g)) {
+      if (!thresholdDaoReady(g)) return;
+      g.thresholdWait = 0;
+      resolveCutDao(g, log);
+      return;
+    }
     if (!thresholdShouldAttempt(g, CUT_DAO_POWER_REF)) return;
     g.thresholdWait = 0;
     resolveCutDao(g, log);
@@ -326,6 +371,12 @@
   function ensureEnterSaint(g, log) {
     if (!g || g.dead || g.becameEmperor || g.pendingChoice) return;
     if ((g.lvl || 1) !== 70 || g.saintTried || g.saintPassed) return;
+    if (noRealmBottleneck(g)) {
+      if (!thresholdDaoReady(g)) return;
+      g.thresholdWait = 0;
+      resolveEnterSaint(g, log);
+      return;
+    }
     if (!thresholdShouldAttempt(g, ENTER_SAINT_POWER_REF)) return;
     g.thresholdWait = 0;
     resolveEnterSaint(g, log);
@@ -334,8 +385,8 @@
   function canAdvance(g) {
     var need = effectiveDaoyunNeed(g, g.lvl);
     if (need && g.daoyun < need) return false;
-    if ((g.lvl || 1) === 60 && !g.cutDaoPassed) return false;
-    if ((g.lvl || 1) === 70 && !g.saintPassed) return false;
+    if ((g.lvl || 1) === 60 && !g.cutDaoPassed && !noRealmBottleneck(g)) return false;
+    if ((g.lvl || 1) === 70 && !g.saintPassed && !noRealmBottleneck(g)) return false;
     if ((g.lvl || 1) >= 90 && !quasiUnlocked(g)) return false;
     return true;
   }
@@ -1600,6 +1651,7 @@
     swallowSiegeDeathChance: swallowSiegeDeathChance,
     swallowSiegeSurviveChance: swallowSiegeSurviveChance,
     isReverseCutPath: isReverseCutPath,
+    noRealmBottleneck: noRealmBottleneck,
     cutDaoChance: cutDaoChance,
     enterSaintChance: enterSaintChance,
     rekindleCutDao: rekindleCutDao,
@@ -2184,7 +2236,7 @@
     }
     if (eventSpanRoom(g) > 0 && stake.length) {
       /* 凡体卡在四极到入圣门口时，额度没花完也先坐下。两道门槛只堆战力，坐不穿。 */
-      if ((g.innate || 1) <= 4 && (g.lvl || 1) >= 21 && (g.lvl || 1) <= 70 && Math.random() < 0.40) {
+      if ((g.innate || 1) <= 4 && (g.lvl || 1) >= 10 && (g.lvl || 1) <= 70 && Math.random() < 0.40) {
         var earlyStuck = collectStuckEvents(g);
         if (earlyStuck.length) {
           fireEvent(g, log, pickDoorStuck(g, earlyStuck));
@@ -2222,7 +2274,7 @@
     var afterCut = g && g.lvl === 60 && g.cutDaoTried && !g.cutDaoPassed;
     var afterSaint = g && g.lvl === 70 && g.saintTried && !g.saintPassed;
     if (!g || (innate > 4 && !afterCut && !afterSaint)) return null;
-    if ((g.lvl || 1) < 21 || (g.lvl || 1) > 90) return null;
+    if ((g.lvl || 1) < 10 || (g.lvl || 1) > 90) return null;
     /* 门槛失败后余生必须能看见，不再跟路边池掷骰。 */
     if (!afterCut && !afterSaint && Math.random() > 0.62) return null;
     var found = collectStuckEvents(g);
@@ -4577,6 +4629,7 @@
     daoBreakFactor: daoBreakFactor,
     canAdvance: canAdvance,
     isReverseCutPath: isReverseCutPath,
+    noRealmBottleneck: noRealmBottleneck,
     thresholdFit: thresholdFit,
     cutDaoChance: cutDaoChance,
     enterSaintChance: enterSaintChance,
