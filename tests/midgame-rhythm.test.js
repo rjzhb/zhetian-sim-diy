@@ -662,7 +662,7 @@ function mortalSage(opt) {
   var neng = byId('th_stuck_neng');
   neng.ok(cutSit, Sim.U);
   assert.strictEqual(cutSit.lvl, 60, '枯坐不能坐过斩道');
-  assert.ok(!neng.available(cutSit), '斩道门口不应再抽大能调息');
+  assert.ok(neng.available(cutSit), '斩道门口应能坐下堆战力');
   var saintSit = Sim.createGame(0, []);
   Sim.setPhysique(saintSit, D.physiqueById('mortal'));
   saintSit.innate = 1;
@@ -715,6 +715,20 @@ function mortalSage(opt) {
   Math.random = nengRnd;
   assert.ok(nengStake.maxCount && nengStake.maxCount.th_stuck_neng != null &&
     nengStake.maxCount.th_stuck_neng < 3, '梭哈额度没用完，大能内层也该能坐下');
+  var doorStake = Sim.createGame(0, []);
+  Sim.setPhysique(doorStake, D.physiqueById('mortal'));
+  doorStake.innate = 1;
+  doorStake.aptitude = 1;
+  doorStake.lvl = 60;
+  doorStake.age = 500;
+  doorStake.eventDrawsBySpan = { pre: 0 };
+  var doorRnd = Math.random;
+  Math.random = function () { return 0.1; };
+  Sim.rollEvent(doorStake, []);
+  Math.random = doorRnd;
+  assert.ok(doorStake.maxCount && doorStake.maxCount.th_stuck_neng != null &&
+    doorStake.maxCount.th_stuck_neng < 3, '斩道门口额度没用完也应能坐下堆战力');
+  assert.strictEqual(doorStake.lvl, 60, '门口坐下不能坐进王者');
   var tagged = Sim.createGame(0, []);
   Sim.setPhysique(tagged, D.physiqueById('mortal'));
   tagged.innate = 1;

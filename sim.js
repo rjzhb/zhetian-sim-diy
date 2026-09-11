@@ -2144,8 +2144,8 @@
       else flavor.push(raw[i]);
     }
     if (eventSpanRoom(g) > 0 && stake.length) {
-      /* 凡体卡在四极到大能内层时，额度没花完也先坐下。斩道门口不坐穿。 */
-      if ((g.innate || 1) <= 4 && (g.lvl || 1) >= 21 && (g.lvl || 1) <= 59 && Math.random() < 0.40) {
+      /* 凡体卡在四极到斩道门口时，额度没花完也先坐下。门口只堆战力，坐不穿。 */
+      if ((g.innate || 1) <= 4 && (g.lvl || 1) >= 21 && (g.lvl || 1) <= 60 && Math.random() < 0.40) {
         var earlyStuck = collectStuckEvents(g);
         if (earlyStuck.length) {
           fireEvent(g, log, earlyStuck[Math.floor(Math.random() * earlyStuck.length)]);
