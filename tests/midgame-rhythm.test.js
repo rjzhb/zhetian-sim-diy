@@ -761,11 +761,11 @@ function mortalSage(opt) {
   nengStake.age = 400;
   nengStake.eventDrawsBySpan = { pre: 0 };
   var nengRnd = Math.random;
-  Math.random = function () { return 0.1; };
+  Math.random = function () { return 0.9; };
   Sim.rollEvent(nengStake, []);
   Math.random = nengRnd;
   assert.ok(nengStake.maxCount && nengStake.maxCount.th_stuck_neng != null &&
-    nengStake.maxCount.th_stuck_neng < 3, '梭哈额度没用完，大能内层也该能坐下');
+    nengStake.maxCount.th_stuck_neng < 3, '大能内层卡住时，骰子再大也应先夜坐');
   var doorStake = Sim.createGame(0, []);
   Sim.setPhysique(doorStake, D.physiqueById('mortal'));
   doorStake.innate = 1;
