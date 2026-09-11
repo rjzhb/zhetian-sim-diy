@@ -432,6 +432,8 @@ function mortalSage(opt) {
   var late = Sim.eventYearInterval({ lvl: 94, physiqueId: 'mortal', aptitude: 1, lifespan: 9000, age: 2000 });
   assert.ok(late > mid && mid > early, '间隔应按寿元摊，准帝应远长于轮海：轮海' + early + ' 仙台' + mid + ' 准帝' + late);
   assert.ok(late >= 400, '准帝剩余寿元近万年，不能二十年一件，实际 ' + late);
+  var saint = Sim.eventYearInterval({ lvl: 80, physiqueId: 'mortal', aptitude: 1, lifespan: 5500, age: 600 });
+  assert.ok(saint <= 220, '圣人到大圣必须按本档年摊，不能摊空，实际 ' + saint);
   assert.strictEqual(typeof Sim.eventSpanBudget, 'function', '应导出 eventSpanBudget');
   assert.strictEqual(Sim.eventSpanBudget({ lvl: 20 }), 2, '圣人前最多 2 次');
   assert.strictEqual(Sim.eventSpanBudget({ lvl: 80 }), 3, '圣人到大圣最多 3 次');
@@ -482,6 +484,27 @@ function mortalSage(opt) {
   var swLow = Sim.eventDrawWeight(gAt(5, 75), swallow);
   var swHigh = Sim.eventDrawWeight(gAt(10, 75), swallow);
   assert.ok(swHigh > swLow * 1.5, '高悟凡体更该看见自创吞天：低 ' + swLow + ' 高 ' + swHigh);
+})();
+
+/* ---------- 圣人到大圣不能再被寿元摊空 ---------- */
+(function () {
+  var i, sum = 0, over = 0, n = 16;
+  for (i = 0; i < n; i++) {
+    var g = Sim.createGame(60, [], { tier: 10, name: '万古道心', initialDaoyun: 400 });
+    Sim.setPhysique(g, D.physiqueById('mortal'));
+    var y = 0;
+    while (!g.dead && !g.ascended && (g.lvl || 1) < 91 && y < 40000) {
+      y++;
+      Sim.rollYear(g);
+      while (g.pendingChoice) Sim.resolveChoice(g, Sim.defaultChoiceOption(g.pendingChoice), []);
+    }
+    var mid = (g.eventDrawsBySpan && g.eventDrawsBySpan.mid) || 0;
+    sum += mid;
+    if (mid > 3) over++;
+  }
+  var avg = sum / n;
+  assert.strictEqual(over, 0, '圣~大圣不得超过 3');
+  assert.ok(avg >= 1.2, '悟性10凡体圣~大圣应能碰到梭哈，实际 ' + avg.toFixed(2));
 })();
 
 /* ---------- 古路/帝兵进奖池要看属性，不是人人一样 ---------- */

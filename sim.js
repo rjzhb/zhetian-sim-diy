@@ -2082,13 +2082,23 @@
   function eventWantedInSpan(g) {
     return eventSpanRoom(g);
   }
+  function eventSpanPaceYears(g) {
+    var k = eventSpanKey((g && g.lvl) || 1);
+    var age = (g && g.age) || 0;
+    var life = Math.max(typicalLifeRef(g), (g && g.lifespan) || 0);
+    if (k === 'pre') {
+      return Math.max(60, Math.min(life - age, Math.round(typicalLifeRef(g) * 0.7)));
+    }
+    /* 圣人到准帝，高悟往往三五百年就跨过去。按整段寿元摊会变成 0 次。 */
+    if (k === 'mid') return 540;
+    return Math.max(360, Math.round((life - age) * 0.5));
+  }
   function eventYearInterval(g) {
-    /* 按剩余寿元摊，不按绝对年。轮海几十年和准帝近万年不是同一把尺。 */
     var wanted = eventWantedInSpan(g);
     if (wanted <= 0) return 100000;
-    var span = Math.max(typicalLifeRef(g), (g && g.lifespan) || 0);
-    var room = Math.max(span - ((g && g.age) || 0), Math.round(span * 0.35));
-    return Math.max(24, Math.round(room / wanted));
+    var spanYears = eventSpanPaceYears(g);
+    var floor = eventSpanKey((g && g.lvl) || 1) === 'mid' ? 90 : 24;
+    return Math.max(floor, Math.round(spanYears / wanted));
   }
   function eventYearChance(g) {
     return (1 / eventYearInterval(g)) * (g.tm.evf || 1) * pval(g, 'evf', 1) * ((g.era && g.era.evf) || 1);
