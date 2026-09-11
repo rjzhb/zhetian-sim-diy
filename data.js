@@ -397,9 +397,19 @@
     /* 人道与帝者时间线 */
     EMPEROR_PATH_FADE_AGE: 7500,
     EMPEROR_PATH_CLOSE_AGE: 10000,
-    /* 除主角外，路人帝最早也要在玩家超过六千年未证道后才可能出现。 */
+    /* 路人帝看同期天骄走完那条路的稀有度，不看「你活过了多少年」。
+     * 一代里大约 3 个能叫天骄的人；大多到不了准帝，准帝里能成帝的也很少。
+     * 6000 年只表示这一代还没走到门口，不是过线就该冒出一位帝。 */
     WORLD_RIVAL_EMPEROR_MIN_YEAR: 6000,
-    WORLD_RIVAL_EMPEROR_YEARLY: 0.0002,
+    WORLD_RIVAL_GENIUS_COHORT: 3,
+    WORLD_RIVAL_QUASI_CHANCE: 0.08,
+    WORLD_RIVAL_EMPEROR_GIVEN_QUASI: 0.06,
+    WORLD_RIVAL_GENERATION_YEARS: 4000,
+    WORLD_RIVAL_EMPEROR_YEARLY: (function () {
+      var one = 0.08 * 0.06;
+      var gen = 1 - Math.pow(1 - one, 3);
+      return 1 - Math.pow(1 - gen, 1 / 4000);
+    })(),
     /* 路人大帝一世约一万至一万四千年；坐化后道痕再压约一万年，此间无人能成帝。 */
     WORLD_EMPEROR_LIFE_MIN: 10000,
     WORLD_EMPEROR_LIFE_MAX: 14000,

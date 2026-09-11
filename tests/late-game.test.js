@@ -699,6 +699,23 @@ try {
   Math.random = oldRandom;
 }
 assert.ok(lateChanceCalendar.worldEmperor, 'after 6000 years a rival emperor should have a real chance to appear');
+assert.ok(DATA.WORLD_RIVAL_EMPEROR_YEARLY > 0 && DATA.WORLD_RIVAL_EMPEROR_YEARLY < 0.00002,
+  '路人帝年率必须按天骄成帝漏斗来，不能按空等时钟来');
+const lingerCalendar = Sim.createGame(0, []);
+lingerCalendar.worldYear = 6000;
+lingerCalendar.worldEmperor = null;
+lingerCalendar.becameEmperor = false;
+lingerCalendar.playerEmperorActive = false;
+lingerCalendar.nextWorldEmperorYear = null;
+lingerCalendar.daoTraceUntil = null;
+try {
+  Math.random = function () { return 0.05; };
+  Sim.advanceWorldCalendar(lingerCalendar, 2000, []);
+} finally {
+  Math.random = oldRandom;
+}
+assert.strictEqual(lingerCalendar.worldEmperor, null,
+  '同期天骄再过两千年，也不该轻易证道成帝');
 
 const traceCalendar = Sim.createGame(0, []);
 traceCalendar.worldYear = 0;
