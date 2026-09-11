@@ -144,17 +144,39 @@
     }
     return false;
   }
-  function mortalWallBypass(g) {
-    if (pureDaoPath(g)) return true;
+  function isQuasiFateEvent(ev) {
+    if (!ev) return false;
+    if ((ev.id || '') === 'imperial_gate') return false;
+    if (ev.id && String(ev.id).indexOf('th_stuck_') === 0) return false;
+    var tag = ev.tag || '';
+    if (tag === 'allin' || tag === 'quasi') return true;
+    if (tag === 'starroad' && (ev.tier || 1) >= 3) return true;
+    if ((ev.tier || 1) >= 4) return true;
+    return false;
+  }
+  function markQuasiFate(g, ev) {
+    if (!g || (g.lvl || 1) < 81) return false;
+    if (!isQuasiFateEvent(ev)) return false;
+    g.quasiFate = true;
+    return true;
+  }
+  /* 进准帝看机缘，不看枯坐、不看把战力堆满。帝路命格也算开局就押上的机缘。 */
+  function quasiUnlocked(g) {
+    if (!g) return false;
+    if (g.quasiFate) return true;
     if (hasImperialRoad(g)) return true;
+    return false;
+  }
+  function mortalWallBypass(g) {
+    if (quasiUnlocked(g)) return true;
+    if (pureDaoPath(g)) return true;
     if ((g.cult || 0) >= MORTAL_POWER_GATE) return true;
-    if (g && g.mortalSatGate) return true;
     return false;
   }
   function canAdvance(g) {
     var need = effectiveDaoyunNeed(g, g.lvl);
     if (need && g.daoyun < need) return false;
-    if (g.innate <= 2 && !g.swallowingArt && g.lvl >= 90 && !mortalWallBypass(g)) return false;
+    if ((g.lvl || 1) >= 90 && !quasiUnlocked(g)) return false;
     return true;
   }
   function daoByCap(g, share, floor) {
@@ -477,6 +499,7 @@
       var ev = null;
       for (i = 0; i < E.length; i++) if (E[i].id === choice.evId) ev = E[i];
       if (!ev || !ev.resolve) return false;
+      markQuasiFate(g, ev);
       var prevCur = _curEv;
       _curEv = { ev: ev, g: g, log: log, printed: false };
       ev.resolve(g, choice.stakes ? choiceStakeU(g, chosen) : U, chosen.id, log);
@@ -1970,6 +1993,7 @@
       }
     }
     if (!ev.cond || ev.cond(g, U)) {
+      markQuasiFate(g, ev);
       if (ev.ok) ev.ok(g, U, log);
       grantEventDaoyun(g, ev, log);
     } else {
@@ -2006,8 +2030,7 @@
       if (!ev || !ev.id || String(ev.id).indexOf('th_stuck_') !== 0) continue;
       var maxN = ev.maxCount != null ? ev.maxCount : 3;
       var left = mc[ev.id] != null ? mc[ev.id] : maxN;
-      /* 大圣巅峰：前面三次枯坐用在 71–87，门口必须还能再坐一次。 */
-      if (left <= 0 && !((g.lvl || 1) >= 88 && ev.id === 'th_stuck_sheng')) continue;
+      if (left <= 0) continue;
       if (g.age < (ev.minAge != null ? ev.minAge : 0)) continue;
       if (g.age > (ev.maxAge != null ? ev.maxAge : 100000)) continue;
       if (!eventAvailable(g, ev)) continue;
@@ -4342,6 +4365,8 @@
     effectiveDaoyunNeed: effectiveDaoyunNeed,
     daoBreakFactor: daoBreakFactor,
     canAdvance: canAdvance,
+    quasiUnlocked: quasiUnlocked,
+    markQuasiFate: markQuasiFate,
     quasiLayerMultiplier: quasiLayerMultiplier,
     attemptBreak: attemptBreak,
     cultGain: cultGain,

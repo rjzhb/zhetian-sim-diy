@@ -39,11 +39,11 @@
   function inBand(lo, hi) {
     return function (g) { return !g.becameEmperor && g.lvl >= lo && g.lvl <= hi; };
   }
-  /* 卡关要真能推一层：道蕴不够就先坐到门槛，大圣巅峰把凡体墙坐穿。 */
-  function sitThrough(g, U, openGate) {
+  /* 卡关能推到大圣门口。进准帝不是坐出来的，要撞上机缘。 */
+  function sitThrough(g, U) {
     var need = U.effectiveDaoyunNeed ? U.effectiveDaoyunNeed(g, g.lvl) : 0;
     if (need && (g.daoyun || 0) < need) g.daoyun = need;
-    if (openGate) g.mortalSatGate = true;
+    if ((g.lvl || 1) >= 90) return 0;
     return U.up(g, 1);
   }
 
@@ -212,10 +212,10 @@
       ok: function (g, U) {
         var lf = U.gainLife(g, 40, 80);
         var c = U.cultPct(g, 0.024, 0.042, 1200);
-        var gate = (g.lvl || 1) >= 88;
-        sitThrough(g, U, gate);
-        U.printlog(gate ?
-          '蒲团上坐到骨节发响。门在前面，没有血脉替你开，是你自己把门槛坐平了' :
+        var atDoor = (g.lvl || 1) >= 90;
+        sitThrough(g, U);
+        U.printlog(atDoor ?
+          '蒲团坐穿了，门还在前面。进准帝要的不是再坐一夜，是一场真正够格的机缘' :
           '圣位这一层没有人来点破。你把息坐稳，自己往前挪了一步' +
           (lf ? '，寿元+' + lf : '') + '，实力+' + c);
       },

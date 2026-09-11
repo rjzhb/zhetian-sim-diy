@@ -31,7 +31,9 @@ function mortalSage(opt) {
   assert.strictEqual(Sim.canAdvance(blocked), false, '凡体大圣无帝路、战力不够，墙还在');
 
   var byPower = mortalSage({ cult: 280000 });
-  assert.strictEqual(Sim.canAdvance(byPower), true, '战力顶到大圣天花板附近应能进准帝');
+  assert.strictEqual(Sim.canAdvance(byPower), false, '只把战力堆满不是机缘，不能进准帝');
+  byPower.quasiFate = true;
+  assert.strictEqual(Sim.canAdvance(byPower), true, '大圣之后接住机缘才能进准帝');
 
   var byRes = mortalSage({ traits: ['o21', 'o25'], cult: 80000 });
   assert.strictEqual(byRes.resonance, 'imperial', '双金帝路应共鸣');
@@ -40,6 +42,19 @@ function mortalSage(opt) {
   var byGold = mortalSage({ traits: ['o21', 'o06'], cult: 80000 });
   assert.ok(byGold.resonance !== 'imperial', '单张帝路金卡不应算共鸣');
   assert.strictEqual(Sim.canAdvance(byGold), true, '有帝路金卡也应能越过凡体墙');
+
+  var early = mortalSage();
+  early.lvl = 80;
+  assert.strictEqual(Sim.markQuasiFate(early, { tag: 'allin', tier: 3 }), false, '大圣之前接机缘还不能开准帝门');
+  early.lvl = 85;
+  assert.ok(Sim.markQuasiFate(early, { tag: 'allin', tier: 3 }), '大圣之后梭哈应记下准帝机缘');
+  early.lvl = 90;
+  assert.strictEqual(Sim.canAdvance(early), true, '记下的机缘应能送进准帝');
+  assert.strictEqual(Sim.markQuasiFate(early, { id: 'th_stuck_sheng', tag: 'insight' }), false,
+    '枯坐事件不能当准帝机缘');
+  early.quasiFate = false;
+  assert.strictEqual(Sim.markQuasiFate(early, { tag: 'create', tier: 2 }), false,
+    '创法是立法，不是踏进准帝的机缘');
 })();
 
 /* ---------- 低阶秘境降权 ---------- */
@@ -633,25 +648,8 @@ function mortalSage(opt) {
   shengG.cult = 80000;
   var shengBefore = shengG.lvl;
   sheng.ok(shengG, Sim.U);
-  assert.ok(shengG.lvl > shengBefore, '大圣巅峰枯坐应能坐进准帝，实际 ' + shengG.lvl);
-  var lastSit = Sim.createGame(0, []);
-  Sim.setPhysique(lastSit, D.physiqueById('mortal'));
-  lastSit.innate = 1;
-  lastSit.aptitude = 1;
-  lastSit.daoGift = 5;
-  lastSit.lvl = 90;
-  lastSit.age = 4200;
-  lastSit.lifespan = 6200;
-  lastSit.daoyun = 400;
-  lastSit.daoyunCap = 800;
-  lastSit.cult = 80000;
-  lastSit.maxCount = { th_stuck_sheng: 0 };
-  lastSit.eventDrawsBySpan = { mid: 3 };
-  var lastRnd = Math.random;
-  Math.random = function () { return 0.1; };
-  Sim.rollEvent(lastSit, []);
-  Math.random = lastRnd;
-  assert.ok(lastSit.lvl >= 91, '圣位额度用尽后，大圣巅峰仍该再坐进准帝，实际 ' + lastSit.lvl);
+  assert.strictEqual(shengG.lvl, shengBefore, '枯坐不能送进准帝，实际 ' + shengG.lvl);
+  assert.ok(!shengG.quasiFate, '枯坐不是进准帝的机缘');
   var n, sawStuck = 0;
   for (n = 0; n < 40; n++) {
     var bias = Sim.createGame(0, []);
