@@ -165,7 +165,7 @@
     },
     {
       id: 'th_stuck_fourpole', name: '四极夜关', tier: 2, tag: 'insight',
-      desc: '第四极那口气一夜没散', weight: 16, maxCount: 3,
+      desc: '第四极那口气一夜没散', weight: 16, maxCount: 8,
       minAge: 25, maxAge: 100000,
       available: function (g) {
         return !g.becameEmperor && (g.innate || 1) <= 4 && g.lvl >= 21 && g.lvl <= 40;

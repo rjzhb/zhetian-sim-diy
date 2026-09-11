@@ -606,6 +606,7 @@ function mortalSage(opt) {
   assert.ok(thrill.length >= 17, '分境界梭哈包事件太少：' + thrill.length);
   var stuck = byId('th_stuck_fourpole');
   assert.ok(stuck && !Sim.isStakeEvent(stuck), '四极夜关应走路边池，不占梭哈');
+  assert.ok((stuck.maxCount || 0) >= 8, '四极到化龙二十层，三次夜关坐不穿寿元');
   var stuckG = Sim.createGame(0, []);
   Sim.setPhysique(stuckG, D.physiqueById('mortal'));
   stuckG.innate = 1;
@@ -698,7 +699,8 @@ function mortalSage(opt) {
     bias.age = 90;
     bias.eventDrawsBySpan = { pre: 3 };
     Sim.rollEvent(bias, []);
-    if (bias.maxCount && bias.maxCount.th_stuck_fourpole != null && bias.maxCount.th_stuck_fourpole < 3) {
+    if (bias.maxCount && bias.maxCount.th_stuck_fourpole != null &&
+        bias.maxCount.th_stuck_fourpole < (stuck.maxCount || 8)) {
       sawStuck++;
       break;
     }
@@ -716,7 +718,7 @@ function mortalSage(opt) {
   Sim.rollEvent(beforeStake, []);
   Math.random = preRnd;
   assert.ok(beforeStake.maxCount && beforeStake.maxCount.th_stuck_fourpole != null &&
-    beforeStake.maxCount.th_stuck_fourpole < 3, '梭哈额度没用完，四极夜关也该能坐下');
+    beforeStake.maxCount.th_stuck_fourpole < (stuck.maxCount || 8), '梭哈额度没用完，四极夜关也该能坐下');
   var seaStake = Sim.createGame(0, []);
   Sim.setPhysique(seaStake, D.physiqueById('mortal'));
   seaStake.innate = 1;
@@ -945,7 +947,7 @@ function mortalSage(opt) {
   Sim.rollEvent(tagged, []);
   Math.random = stuckRnd;
   assert.ok(tagged.maxCount && tagged.maxCount.th_stuck_fourpole != null &&
-    tagged.maxCount.th_stuck_fourpole < 3, '刚抽过悟道，四极夜关仍该能坐下');
+    tagged.maxCount.th_stuck_fourpole < (stuck.maxCount || 8), '刚抽过悟道，四极夜关仍该能坐下');
 
   var xian = Sim.createGame(0, []);
   Sim.setPhysique(xian, D.physiqueById('mortal'));
