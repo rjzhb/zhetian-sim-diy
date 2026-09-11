@@ -261,11 +261,15 @@ assert.ok(htmlSource.indexOf('deathless-mask') >= 0 &&
 assert.ok(htmlSource.indexOf('ui-version-switch') >= 0 &&
   htmlSource.indexOf('beta-map-shell') >= 0 &&
   (htmlSource.match(/data-star-node=/g) || []).length >= 6,
-  'the real game must expose a classic/Beta switch and a multi-node star map');
+  'the dormant Beta build must retain its multi-node star map for later development');
+assert.ok(/class="ui-version-switch"[^>]*hidden/.test(htmlSource) &&
+  /id="btn-game-version"[^>]*hidden/.test(htmlSource),
+  'the unfinished Beta map entry points must remain hidden from players');
 const betaGameSource = fs.readFileSync(path.join(__dirname, '..', 'game.js'), 'utf8');
-assert.ok(betaGameSource.indexOf("KEY_UI_VERSION = 'zt_ui_version'") >= 0 &&
+assert.ok(betaGameSource.indexOf('BETA_MAP_ENABLED = false') >= 0 &&
+  betaGameSource.indexOf("KEY_UI_VERSION = 'zt_ui_version'") >= 0 &&
   betaGameSource.indexOf('function renderBetaMap(') >= 0,
-  'Beta selection must persist and the star map must render from live game state');
+  'the Beta implementation must remain feature-gated while its code is retained');
 const styleSource = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
 assert.ok(styleSource.indexOf('.beta-star-map') >= 0 &&
   styleSource.indexOf('body.ui-beta') >= 0,

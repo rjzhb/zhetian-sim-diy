@@ -29,6 +29,7 @@
 
   /* ---------- 音效（WebAudio） ---------- */
   var SOUND = true;
+  var BETA_MAP_ENABLED = false;
   var KEY_SOUND = 'zt_sound';
   var KEY_UI_VERSION = 'zt_ui_version';
   var UI_VERSION = 'classic';
@@ -305,23 +306,33 @@
     if (v === 'home') { loadBiliPlayCount(); loadBiliChengdiCount(); }
   }
   function loadUIVersion() {
+    if (!BETA_MAP_ENABLED) {
+      UI_VERSION = 'classic';
+      try { localStorage.removeItem(KEY_UI_VERSION); } catch (e) {}
+      return;
+    }
     try { UI_VERSION = localStorage.getItem(KEY_UI_VERSION) === 'beta' ? 'beta' : 'classic'; }
     catch (e) { UI_VERSION = 'classic'; }
   }
   function applyUIVersion() {
-    var beta = UI_VERSION === 'beta';
+    var beta = BETA_MAP_ENABLED && UI_VERSION === 'beta';
     document.body.classList.toggle('ui-beta', beta);
     var shell = $('beta-map-shell');
     if (shell) shell.hidden = !beta;
     var classicBtn = $('btn-ui-classic'), betaBtn = $('btn-ui-beta');
     if (classicBtn) classicBtn.classList.toggle('active', !beta);
     if (betaBtn) betaBtn.classList.toggle('active', beta);
+    var switcher = document.querySelector('.ui-version-switch');
+    if (switcher) switcher.hidden = !BETA_MAP_ENABLED;
     var gameToggle = $('btn-game-version');
-    if (gameToggle) gameToggle.textContent = beta ? '切回经典版' : '切换星域 Beta';
+    if (gameToggle) {
+      gameToggle.hidden = !BETA_MAP_ENABLED;
+      gameToggle.textContent = beta ? '切回经典版' : '切换星域 Beta';
+    }
     if (beta && G) renderBetaMap();
   }
   function setUIVersion(version) {
-    UI_VERSION = version === 'beta' ? 'beta' : 'classic';
+    UI_VERSION = BETA_MAP_ENABLED && version === 'beta' ? 'beta' : 'classic';
     try { localStorage.setItem(KEY_UI_VERSION, UI_VERSION); } catch (e) {}
     applyUIVersion();
   }
