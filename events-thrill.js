@@ -203,7 +203,7 @@
     },
     {
       id: 'th_stuck_neng', name: '大能调息', tier: 2, tag: 'insight',
-      desc: '别人靠血脉过关，你靠把息调匀', weight: 15, maxCount: 3,
+      desc: '别人靠血脉过关，你靠把息调匀', weight: 15, maxCount: 8,
       minAge: 160, maxAge: 100000,
       available: function (g) {
         if (g.lvl === 60 && g.cutDaoTried) return false;

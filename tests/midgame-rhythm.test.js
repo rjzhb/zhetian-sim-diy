@@ -486,9 +486,7 @@ function mortalSage(opt) {
         Sim.resolveChoice(g, Sim.defaultChoiceOption(g.pendingChoice), []);
       }
     }
-    var drew = g.eventDrawsBySpan && g.eventDrawsBySpan.pre != null
-      ? g.eventDrawsBySpan.pre
-      : (g.eventDraws || 0);
+    var drew = (g.eventDrawsBySpan && g.eventDrawsBySpan.pre) || 0;
     if (drew > 3) over++;
   }
   assert.strictEqual(over, 0, '普通凡体圣人前不得超过 3 次事件');
@@ -677,6 +675,7 @@ function mortalSage(opt) {
   cutSit.daoyun = 200;
   cutSit.daoyunCap = 400;
   var neng = byId('th_stuck_neng');
+  assert.ok((neng.maxCount || 0) >= 8, '大能内层十几层，三次调息坐不穿寿元');
   neng.ok(cutSit, Sim.U);
   assert.strictEqual(cutSit.lvl, 60, '枯坐不能坐过斩道');
   assert.ok(neng.available(cutSit), '斩道门口应能坐下堆战力');
@@ -770,7 +769,7 @@ function mortalSage(opt) {
   Sim.rollEvent(nengStake, []);
   Math.random = nengRnd;
   assert.ok(nengStake.maxCount && nengStake.maxCount.th_stuck_neng != null &&
-    nengStake.maxCount.th_stuck_neng < 3, '大能内层卡住时，骰子再大也应先夜坐');
+    nengStake.maxCount.th_stuck_neng < (neng.maxCount || 8), '大能内层卡住时，骰子再大也应先夜坐');
   var doorStake = Sim.createGame(0, []);
   Sim.setPhysique(doorStake, D.physiqueById('mortal'));
   doorStake.innate = 1;
