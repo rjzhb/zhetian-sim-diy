@@ -2356,12 +2356,6 @@
       push(log, { cls: 'rainbow', text: '第' + g.age + '岁，你观万法而自创吞天之意；此路逆天，唯有熔炼万体才可继续前行' });
     }
 
-    if (g.age > D.EMPEROR_PATH_CLOSE_AGE) {
-      g.dead = true; g.deadCause = 'missed_emperor_path';
-      push(log, { cls: 'dead', text: '第' + g.age + '岁，黄金帝路彻底闭合，你血气衰败，最终坐化于准帝绝巅之前' });
-      return;
-    }
-
     /* 特殊事件：祭道传承（近无概率）直接证道成帝 */
     if (!g.ascended && !g.worldEmperor && Math.random() < D.JIDAO_CHANCE) {
       g.gotJidao = true;

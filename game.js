@@ -30,6 +30,9 @@
   /* ---------- 音效（WebAudio） ---------- */
   var SOUND = true;
   var KEY_SOUND = 'zt_sound';
+  var KEY_UI_VERSION = 'zt_ui_version';
+  var UI_VERSION = 'classic';
+  var betaSelectedNode = 'beidou';
   /* ---------- 金色命格模式（纯本地，不联网、不影响任何榜单） ---------- */
   var GOLD_MODE = 'none';
   var FORCE_XIANTI = false;
@@ -300,6 +303,80 @@
     var views = document.querySelectorAll('.view'), i;
     for (i = 0; i < views.length; i++) views[i].hidden = views[i].id !== 'view-' + v;
     if (v === 'home') { loadBiliPlayCount(); loadBiliChengdiCount(); }
+  }
+  function loadUIVersion() {
+    try { UI_VERSION = localStorage.getItem(KEY_UI_VERSION) === 'beta' ? 'beta' : 'classic'; }
+    catch (e) { UI_VERSION = 'classic'; }
+  }
+  function applyUIVersion() {
+    var beta = UI_VERSION === 'beta';
+    document.body.classList.toggle('ui-beta', beta);
+    var shell = $('beta-map-shell');
+    if (shell) shell.hidden = !beta;
+    var classicBtn = $('btn-ui-classic'), betaBtn = $('btn-ui-beta');
+    if (classicBtn) classicBtn.classList.toggle('active', !beta);
+    if (betaBtn) betaBtn.classList.toggle('active', beta);
+    var gameToggle = $('btn-game-version');
+    if (gameToggle) gameToggle.textContent = beta ? '切回经典版' : '切换星域 Beta';
+    if (beta && G) renderBetaMap();
+  }
+  function setUIVersion(version) {
+    UI_VERSION = version === 'beta' ? 'beta' : 'classic';
+    try { localStorage.setItem(KEY_UI_VERSION, UI_VERSION); } catch (e) {}
+    applyUIVersion();
+  }
+  function betaPlayerNode(g) {
+    if (!g) return 'beidou';
+    if (g.inStrangeWorld) return 'strange';
+    if (g.forbiddenLord) return 'forbidden';
+    if (g.emperor || g.lvl >= 61) return 'ancient-road';
+    return 'beidou';
+  }
+  function renderBetaMap() {
+    if (!G || UI_VERSION !== 'beta') return;
+    var eraName = G.inStrangeWorld ? '奇异世界' : (G.era ? G.era.name : '平常时代');
+    var heaven = G.playerEmperorActive ? '你执掌天心' :
+      (G.worldEmperor ? G.worldEmperor.name + '镇压万道' :
+      (G.daoSuppressed ? '帝痕未散' : '天心无主'));
+    $('beta-map-era').textContent = eraName + ' · ' + heaven + ' · 万古历' + fmt(Math.round(G.worldYear || 0)) + '年';
+
+    var playerNode = betaPlayerNode(G);
+    var marker = $('beta-player-marker');
+    marker.className = 'beta-player-marker node-at-' +
+      (playerNode === 'ancient-road' ? 'road' : playerNode);
+    var routeText = playerNode === 'strange' ? '你已踏入奇异世界' :
+      (playerNode === 'forbidden' ? '你自斩后沉睡于生命禁区' :
+      (playerNode === 'ancient-road' ? '你正在星空古路与万族争渡' : '你正在北斗修行'));
+    $('beta-player-route').textContent = routeText + ' · ' + G.age + '岁 · ' + DATA.titleOf(Math.min(100, G.lvl));
+    $('beta-rival-state').textContent = G.worldEmperor ?
+      G.worldEmperor.name + '仍在当世，帝路受到压制' :
+      (G.lvl >= 91 ? '诸天准帝都在等待最后一战' : '同代天骄正在不同古星成长');
+
+    var nodes = document.querySelectorAll('[data-star-node]');
+    for (var i = 0; i < nodes.length; i++) {
+      var id = nodes[i].getAttribute('data-star-node');
+      var unlocked = id === 'beidou' || id === 'ziwei' || id === 'forbidden' ||
+        (id === 'ancient-road' && G.lvl >= 51) ||
+        (id === 'earth' && G.lvl >= 71) ||
+        (id === 'eternal' && G.lvl >= 81) ||
+        (id === 'strange' && (G.knowsStrangeWorld || G.inStrangeWorld));
+      nodes[i].classList.toggle('locked', !unlocked);
+      nodes[i].classList.toggle('active', id === betaSelectedNode);
+    }
+    $('beta-omen-emperor').hidden = !G.worldEmperor && !G.daoSuppressed;
+    $('beta-omen-tomb').hidden = G.lvl < 31 || G.inStrangeWorld;
+    $('beta-forbidden-state').textContent = G.forbiddenLord ? '你正在此地沉睡' :
+      (G.worldEmperor ? '至尊蛰伏' : '至尊气息若隐若现');
+  }
+  function selectBetaNode(node) {
+    if (!node) return;
+    betaSelectedNode = node.getAttribute('data-star-node') || 'beidou';
+    var nodes = document.querySelectorAll('[data-star-node]');
+    for (var i = 0; i < nodes.length; i++) nodes[i].classList.toggle('active', nodes[i] === node);
+    $('beta-location-title').textContent = node.getAttribute('data-title') || node.textContent;
+    $('beta-location-desc').textContent = node.classList.contains('locked') ?
+      '这片星域仍被混沌迷雾遮蔽，需要更高境界或特殊机缘才能得知坐标。' :
+      (node.getAttribute('data-desc') || '');
   }
   var settingsReturn = 'home';
   function openSettings(from) {
@@ -721,6 +798,7 @@
     /* 同步体质 */
     var gt = $('game-title'); if (gt) gt.textContent = physiqueName(G);
     renderTraitLine();
+    renderBetaMap();
   }
   function renderTraitLine() {
     var box = $('trait-line'); if (!box) return;
@@ -1325,6 +1403,15 @@
   /* ---------- 事件绑定 ---------- */
   function bindEvents() {
     $('btn-start').addEventListener('click', startGame);
+    $('btn-ui-classic').addEventListener('click', function () { setUIVersion('classic'); });
+    $('btn-ui-beta').addEventListener('click', function () { setUIVersion('beta'); });
+    $('btn-game-version').addEventListener('click', function () {
+      setUIVersion(UI_VERSION === 'beta' ? 'classic' : 'beta');
+    });
+    var starNodes = document.querySelectorAll('[data-star-node]');
+    for (var sni = 0; sni < starNodes.length; sni++) {
+      starNodes[sni].addEventListener('click', function () { selectBetaNode(this); });
+    }
     $('trait-confirm').addEventListener('click', confirmTrait);
     $('trait-cancel').addEventListener('click', function () { blip(400, 0.06, 'triangle', 0.08); closeTraitPick(); });
     $('btn-rank').addEventListener('click', function () { blip(500, 0.06, 'triangle', 0.08); openRank(); });
@@ -1378,11 +1465,13 @@
   /* ---------- 启动 ---------- */
   loadSound();
   loadSpeed();
+  loadUIVersion();
   clearPersistedCheats();
   loadPlayer();
   loadAchLocal();
   refreshHome();
   syncAdminUI();
+  applyUIVersion();
   bindEvents();
   show('home');
   setTimeout(loadSDK, 1200);

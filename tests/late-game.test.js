@@ -12,6 +12,26 @@ assert.ok(DATA.REALM_LIFE[10][0] >= 8000 && DATA.REALM_LIFE[10][1] >= 9000,
   'a quasi-emperor life must be able to reach about 9000 years');
 assert.ok(DATA.EMPEROR_PATH_CLOSE_AGE >= 9000,
   'the imperial road must stay open through a full quasi-emperor lifespan');
+const livingSacredAfterOldPathLimit = Sim.createGame(0, []);
+Sim.setPhysique(livingSacredAfterOldPathLimit, DATA.physiqueById('sacred'));
+livingSacredAfterOldPathLimit.lvl = 90;
+livingSacredAfterOldPathLimit.age = DATA.EMPEROR_PATH_CLOSE_AGE;
+livingSacredAfterOldPathLimit.lifeBase = DATA.EMPEROR_PATH_CLOSE_AGE + 5000;
+livingSacredAfterOldPathLimit.lifeBonus = 0;
+livingSacredAfterOldPathLimit.lifespan = DATA.EMPEROR_PATH_CLOSE_AGE + 5000;
+let sacredPathLimitLog;
+try {
+  Math.random = function () { return 0.999999; };
+  sacredPathLimitLog = Sim.rollYear(livingSacredAfterOldPathLimit);
+} finally {
+  Math.random = oldRandom;
+}
+assert.strictEqual(livingSacredAfterOldPathLimit.dead, false,
+  'a sacred body with remaining lifespan must not die merely because the old emperor-path age limit passed');
+assert.ok(livingSacredAfterOldPathLimit.age < livingSacredAfterOldPathLimit.lifespan);
+assert.ok(!sacredPathLimitLog.some(function (entry) {
+  return entry.text.indexOf('帝路彻底闭合') >= 0 || entry.text.indexOf('最终坐化') >= 0;
+}), 'passing an arbitrary path age must not falsely narrate death');
 assert.strictEqual(typeof Sim.drawDaoGift, 'function');
 assert.strictEqual(typeof Sim.daoGiftName, 'function');
 assert.strictEqual(Sim.daoGiftName(9), '绝世天才');
@@ -238,6 +258,18 @@ assert.ok(htmlSource.indexOf('deathless-mask') >= 0 &&
   htmlSource.indexOf('btn-deathless-use') >= 0 &&
   htmlSource.indexOf('btn-deathless-decline') >= 0,
   'the first emperor-life ending must expose a visible immortal-medicine choice');
+assert.ok(htmlSource.indexOf('ui-version-switch') >= 0 &&
+  htmlSource.indexOf('beta-map-shell') >= 0 &&
+  (htmlSource.match(/data-star-node=/g) || []).length >= 6,
+  'the real game must expose a classic/Beta switch and a multi-node star map');
+const betaGameSource = fs.readFileSync(path.join(__dirname, '..', 'game.js'), 'utf8');
+assert.ok(betaGameSource.indexOf("KEY_UI_VERSION = 'zt_ui_version'") >= 0 &&
+  betaGameSource.indexOf('function renderBetaMap(') >= 0,
+  'Beta selection must persist and the star map must render from live game state');
+const styleSource = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
+assert.ok(styleSource.indexOf('.beta-star-map') >= 0 &&
+  styleSource.indexOf('body.ui-beta') >= 0,
+  'the Beta map must have a dedicated responsive visual layer');
 
 const sacredDaoBurst = Sim.createGame(0, []);
 Sim.setPhysique(sacredDaoBurst, DATA.physiqueById('sacred'));

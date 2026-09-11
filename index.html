@@ -30,6 +30,14 @@
       <div class="home-btns">
         <button class="btn btn-primary btn-big" id="btn-start">开始证道</button>
       </div>
+      <div class="ui-version-switch" aria-label="界面版本">
+        <button class="ui-version-option active" id="btn-ui-classic" data-ui-version="classic">
+          <b>经典文字版</b><span>稳定 · 原版完整保留</span>
+        </button>
+        <button class="ui-version-option" id="btn-ui-beta" data-ui-version="beta">
+          <b>星域地图</b><span>Beta · 可随时切回经典版</span>
+        </button>
+      </div>
       <div class="admin-badge" id="admin-badge" hidden="">🛠 金色命格模式已开启</div>
       <div class="home-ach-row">
         <button class="btn btn-big" id="btn-rank">🏆 排行榜</button>
@@ -53,8 +61,74 @@
     <section id="view-game" class="view" hidden="">
       <div class="game-top">
         <div class="game-title" id="game-title">遮天模拟器</div>
+        <button class="game-version-toggle" id="btn-game-version" type="button">切换星域 Beta</button>
         <button class="btn-pause" id="btn-pause">⏸</button>
       </div>
+
+      <div class="beta-map-shell" id="beta-map-shell" hidden="">
+        <div class="beta-map-head">
+          <div>
+            <span class="beta-kicker">星域地图 BETA</span>
+            <b id="beta-map-era">平常时代 · 天心无主</b>
+          </div>
+          <div class="beta-map-legend"><i></i>世界正在演化</div>
+        </div>
+        <div class="beta-star-map" id="beta-star-map">
+          <div class="beta-nebula nebula-a"></div>
+          <div class="beta-nebula nebula-b"></div>
+          <div class="beta-nebula nebula-c"></div>
+          <div class="beta-star-dust"></div>
+          <svg class="beta-routes" viewBox="0 0 100 62" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M18 18 Q35 24 48 31"></path>
+            <path class="route-active" d="M48 31 Q64 18 78 16"></path>
+            <path d="M48 31 Q30 40 16 48"></path>
+            <path d="M48 31 Q66 38 82 47"></path>
+            <path class="route-danger" d="M48 31 Q52 47 49 55"></path>
+            <path class="route-hidden" d="M78 16 Q88 9 97 5"></path>
+          </svg>
+
+          <button class="star-node node-ziwei" data-star-node="ziwei" data-title="紫微古星" data-desc="太阳圣皇故土，古教遗迹与人皇道痕并存">
+            <span class="star-visual star-sun"></span><b>紫微古星</b><small>太阳古教遗址</small>
+          </button>
+          <button class="star-node node-beidou active" data-star-node="beidou" data-title="北斗古星" data-desc="东荒、中州、南岭、北原与西漠汇聚，七大生命禁区环伺">
+            <span class="star-visual star-beidou"><i></i></span><b>北斗古星</b><small>帝坟异动</small>
+          </button>
+          <button class="star-node node-road" data-star-node="ancient-road" data-title="人族星空古路" data-desc="无数天骄争渡的帝路，越往深处越接近万族最终战场">
+            <span class="star-visual star-gate"></span><b>星空古路</b><small>三名天骄争渡</small>
+          </button>
+          <button class="star-node node-earth locked" data-star-node="earth" data-title="地球祖星" data-desc="末法笼罩的古老祖星，九龙拉棺留下难以追寻的航迹">
+            <span class="star-visual star-earth"></span><b>地球祖星</b><small>坐标模糊</small>
+          </button>
+          <button class="star-node node-eternal locked" data-star-node="eternal" data-title="永恒国度" data-desc="科技文明与修行体系交织，正在搜寻宇宙中的特殊体质">
+            <span class="star-visual star-eternal"></span><b>永恒国度</b><small>尚未发现</small>
+          </button>
+          <button class="star-node node-forbidden" data-star-node="forbidden" data-title="生命禁区" data-desc="沉睡着跨越时代的古代至尊，血气衰败但道行仍深不可测">
+            <span class="star-visual star-forbidden"></span><b>生命禁区</b><small id="beta-forbidden-state">至尊沉睡</small>
+          </button>
+          <button class="star-node node-strange locked" data-star-node="strange" data-title="奇异世界" data-desc="界壁后的长生世界，坐标与内部局势都被迷雾遮蔽">
+            <span class="star-visual star-strange"></span><b>奇异世界</b><small>界壁不可见</small>
+          </button>
+
+          <div class="beta-player-marker node-at-beidou" id="beta-player-marker">
+            <span class="flying-light"></span>
+            <b>你</b>
+          </div>
+          <div class="beta-omen omen-tomb" id="beta-omen-tomb"><i></i><span>帝坟夜开</span></div>
+          <div class="beta-omen omen-emperor" id="beta-omen-emperor" hidden=""><i></i><span>帝道镇压</span></div>
+        </div>
+        <div class="beta-map-foot">
+          <div>
+            <span class="beta-location-label">当前观察</span>
+            <b id="beta-location-title">北斗古星</b>
+            <p id="beta-location-desc">东荒、中州、南岭、北原与西漠汇聚，七大生命禁区环伺</p>
+          </div>
+          <div class="beta-live-state">
+            <span id="beta-player-route">你正在北斗修行</span>
+            <span id="beta-rival-state">同代天骄仍在各地争渡</span>
+          </div>
+        </div>
+      </div>
+
       <div class="attr-grid">
         <div class="attr-card">
           <div class="attr-name">体质</div>
