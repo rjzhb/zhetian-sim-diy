@@ -386,6 +386,7 @@
         var c = U.cultPct(g, 0.04, 0.09, 2800);
         U.gainDao(g, U.irand(10, 24), 8);
         U.printlog('你在星海暗市辨出真品，换得' + PICK(gains) + '，实力+' + c);
+        if (U.markStory) U.markStory(g, 'dark_buy');
       },
       fail: function (g, U) {
         g.cult = Math.max(1, U.round(g.cult * 0.97));

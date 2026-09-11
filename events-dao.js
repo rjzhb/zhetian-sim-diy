@@ -1050,6 +1050,7 @@
         U.gainDao(g, d);
         if (g.aptitude < 10 && Math.random() < 0.45) U.apt(g, 1);
         U.printlog('一卷' + PICK(T3_GONG) + '的残篇在市集上被当废纸贱卖，因为通篇缺字，无人读得懂。你蹲在摊边翻了半日，回去便把缺失的段落补了出来——补得未必与原作相同，却同样能行，实力+' + c + '，道蕴+' + d);
+        if (U.markStory) U.markStory(g, 'remnant_owner');
       },
       fail: function (g, U) {
         U.printlog('你抱着那卷残篇啃了两年，最后承认：缺的不是字，是当年写它的人没打算让后来者看懂。你把它收进箱底，打算等自己再长些本事再来');

@@ -811,6 +811,42 @@
         U.printlog(h.loss ? '讨债的人比潮还狠。你退了半步，寿元-' + h.loss :
           '讨债的人在门外站了一夜，天亮就走了');
       }
+    },
+    {
+      id: 'th_echo_script', name: '残篇故人', tier: 2, tag: 'echo',
+      desc: '补过的那卷残篇还有原主', needStory: 'remnant_owner', weight: 8, maxCount: 1,
+      minAge: 14, maxAge: 100000,
+      available: function (g) { return !g.becameEmperor && (g.lvl || 1) >= 11; },
+      cond: function (g) { return Math.random() < 0.80; },
+      ok: function (g, U) {
+        if (U.clearStory) U.clearStory(g, 'remnant_owner');
+        var c = U.cultPct(g, 0.014, 0.026, 260);
+        var d = U.irand(3, 6);
+        U.gainDao(g, d);
+        U.printlog('补残篇的人找上门来。他看过你补的字，没有夺书，只把缺的另一角也留给你，实力+' + c + '，道蕴+' + d);
+      },
+      fail: function (g, U) {
+        if (U.clearStory) U.clearStory(g, 'remnant_owner');
+        U.printlog('有人在市集打听那卷残篇。你把书换了个匣，没有见他');
+      }
+    },
+    {
+      id: 'th_echo_market', name: '髓香追来', tier: 2, tag: 'echo',
+      desc: '暗市那件东西有人记得气味', needStory: 'dark_buy', weight: 8, maxCount: 1,
+      minAge: 80, maxAge: 100000,
+      available: function (g) { return !g.becameEmperor && (g.lvl || 1) >= 61; },
+      cond: function (g) { return Math.random() < 0.80; },
+      ok: function (g, U) {
+        if (U.clearStory) U.clearStory(g, 'dark_buy');
+        var c = U.cultPct(g, 0.022, 0.038, 1400);
+        U.printlog('暗市散了，有人循着髓香追到你的船上。你把货炼进自己，把尾巴甩掉，实力+' + c);
+      },
+      fail: function (g, U) {
+        if (U.clearStory) U.clearStory(g, 'dark_buy');
+        var h = U.hurt(g, 30, 80);
+        U.printlog(h.loss ? '追货的人比卖家还狠。你把东西沉进星海，寿元-' + h.loss :
+          '有船跟了你一夜，天亮时看不见了');
+      }
     }
   ];
 

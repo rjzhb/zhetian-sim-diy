@@ -1320,6 +1320,36 @@ function mortalSage(opt) {
   assert.ok(hook.maxCount && hook.maxCount.th_echo_omen != null && hook.maxCount.th_echo_omen < 1,
     '有余恨时，下一次抽事应先出教主余恨');
   assert.ok(!Sim.hasStory(hook, 'omen_grudge'), '余波出过之后，钩子应摘掉');
+
+  var remnant = byId('th_echo_script');
+  assert.ok(remnant, '应有残篇故人');
+  g.lvl = 20;
+  g.age = 40;
+  assert.ok(!Sim.eventAvailable(g, remnant), '没补过残篇，故人不该找来');
+  Sim.markStory(g, 'remnant_owner');
+  assert.ok(Sim.eventAvailable(g, remnant), '补过残篇后，故人应能找来');
+  var taught = Sim.createGame(0, []);
+  Sim.setPhysique(taught, D.physiqueById('mortal'));
+  taught.lvl = 20;
+  taught.age = 40;
+  taught.daoGift = 8;
+  byId('dao_mortal_untaught').ok(taught, Sim.U);
+  assert.ok(Sim.hasStory(taught, 'remnant_owner'), '补出残篇应留下故人钩子');
+
+  var market = byId('th_echo_market');
+  assert.ok(market, '应有髓香追来');
+  g.lvl = 65;
+  g.age = 200;
+  Sim.clearStory(g, 'remnant_owner');
+  assert.ok(!Sim.eventAvailable(g, market), '没走过暗市，不该有人追髓');
+  Sim.markStory(g, 'dark_buy');
+  assert.ok(Sim.eventAvailable(g, market), '暗市得手后，髓香追来应能抽到');
+  var buy = Sim.createGame(0, []);
+  Sim.setPhysique(buy, D.physiqueById('mortal'));
+  buy.lvl = 65;
+  buy.age = 200;
+  byId('star_sea_auction').ok(buy, Sim.U);
+  assert.ok(Sim.hasStory(buy, 'dark_buy'), '暗市得手应留下髓香');
 })();
 
 console.log('midgame-rhythm: ok');
