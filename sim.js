@@ -2393,8 +2393,13 @@
     var i, ev, lvl = (g && g.lvl) || 1;
     if (lvl === 60) {
       var cutId = 'th_stuck_cut';
-      if (g && g.cutNearMiss && !g.cutDaoPassed && !g.cutDaoRekindled) cutId = 'th_cut_rekindle';
-      else if (g && g.cutDaoTried && !g.cutDaoPassed) cutId = 'th_after_cut';
+      var afterLeft = ((g && g.maxCount) || {}).th_after_cut;
+      var satAfter = afterLeft != null && afterLeft < 2;
+      if (g && g.cutNearMiss && !g.cutDaoPassed && !g.cutDaoRekindled && satAfter) {
+        cutId = 'th_cut_rekindle';
+      } else if (g && g.cutDaoTried && !g.cutDaoPassed) {
+        cutId = 'th_after_cut';
+      }
       for (i = 0; i < pool.length; i++) {
         ev = pool[i];
         if (ev && ev.id === cutId) return ev;

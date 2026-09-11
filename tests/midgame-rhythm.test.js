@@ -892,16 +892,24 @@ function mortalSage(opt) {
   nearDoor.aptitude = 1;
   nearDoor.lvl = 60;
   nearDoor.age = 900;
+  nearDoor.cult = 8000;
   nearDoor.cutDaoTried = true;
   nearDoor.cutDaoPassed = false;
   nearDoor.cutNearMiss = true;
   nearDoor.eventDrawsBySpan = { pre: 0 };
+  var cultBeforeSit = nearDoor.cult;
   var rkRnd = Math.random;
   Math.random = function () { return 0.1; };
   Sim.rollEvent(nearDoor, []);
+  assert.ok(nearDoor.maxCount && nearDoor.maxCount.th_after_cut != null &&
+    nearDoor.maxCount.th_after_cut < 2, '只差一线后应先坐一夜余生，再回潮');
+  assert.ok(!nearDoor.maxCount.th_cut_rekindle || nearDoor.maxCount.th_cut_rekindle === 1,
+    '余生还没坐，不该先回潮');
+  assert.ok(nearDoor.cult > cultBeforeSit, '余生应把战力再沉一分，回潮才有翻盘');
+  Sim.rollEvent(nearDoor, []);
   Math.random = rkRnd;
   assert.ok(nearDoor.maxCount && nearDoor.maxCount.th_cut_rekindle != null &&
-    nearDoor.maxCount.th_cut_rekindle < 1, '只差一线后门口应先抽刀意回潮');
+    nearDoor.maxCount.th_cut_rekindle < 1, '坐过余生后门口应抽刀意回潮');
   var cutBefore = kingDoor.lvl;
   cutEve.ok(kingDoor, Sim.U);
   assert.strictEqual(kingDoor.lvl, cutBefore, '斩道前夜不能把人送进王者');

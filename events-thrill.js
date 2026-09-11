@@ -274,8 +274,9 @@
       cond: function (g) { return Math.random() < 0.78; },
       ok: function (g, U) {
         var lf = U.gainLife(g, 18, 36);
+        var c = U.cultPct(g, 0.018, 0.032, 700);
         U.printlog('门口又来了一个人。他问前面是什么。你说，王者。他进去了，你没有' +
-          (lf ? '。你在原处又坐了一夜，寿元+' + lf : ''));
+          (lf ? '。你在原处又坐了一夜，寿元+' + lf : '') + '，实力+' + c);
       },
       fail: function (g, U) {
         U.printlog('你又走到落刀的地方。门还在。你已经不是来砍的人了');
