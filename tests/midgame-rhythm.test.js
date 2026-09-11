@@ -668,9 +668,11 @@ function mortalSage(opt) {
   saintSit.innate = 1;
   saintSit.aptitude = 1;
   saintSit.lvl = 70;
+  saintSit.age = 800;
   saintSit.daoyun = 400;
   saintSit.daoyunCap = 800;
   var shengAtKing = byId('th_stuck_sheng');
+  assert.ok(shengAtKing.available(saintSit), '入圣门口应能坐下堆战力');
   shengAtKing.ok(saintSit, Sim.U);
   assert.strictEqual(saintSit.lvl, 70, '枯坐不能坐过入圣');
   var n, sawStuck = 0;
@@ -729,6 +731,20 @@ function mortalSage(opt) {
   assert.ok(doorStake.maxCount && doorStake.maxCount.th_stuck_neng != null &&
     doorStake.maxCount.th_stuck_neng < 3, '斩道门口额度没用完也应能坐下堆战力');
   assert.strictEqual(doorStake.lvl, 60, '门口坐下不能坐进王者');
+  var saintStake = Sim.createGame(0, []);
+  Sim.setPhysique(saintStake, D.physiqueById('mortal'));
+  saintStake.innate = 1;
+  saintStake.aptitude = 1;
+  saintStake.lvl = 70;
+  saintStake.age = 800;
+  saintStake.eventDrawsBySpan = { pre: 0 };
+  var saintRnd = Math.random;
+  Math.random = function () { return 0.1; };
+  Sim.rollEvent(saintStake, []);
+  Math.random = saintRnd;
+  assert.ok(saintStake.maxCount && saintStake.maxCount.th_stuck_sheng != null &&
+    saintStake.maxCount.th_stuck_sheng < 3, '入圣门口额度没用完也应能坐下堆战力');
+  assert.strictEqual(saintStake.lvl, 70, '门口坐下不能坐进圣人');
   var tagged = Sim.createGame(0, []);
   Sim.setPhysique(tagged, D.physiqueById('mortal'));
   tagged.innate = 1;

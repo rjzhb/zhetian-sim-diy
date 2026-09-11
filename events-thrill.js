@@ -206,18 +206,22 @@
       desc: '大圣这一层，凡骨只能坐', weight: 14, maxCount: 3,
       minAge: 400, maxAge: 100000,
       available: function (g) {
-        return !g.becameEmperor && (g.innate || 1) <= 4 && g.lvl >= 71 && g.lvl <= 90;
+        return !g.becameEmperor && (g.innate || 1) <= 4 && g.lvl >= 70 && g.lvl <= 90;
       },
       cond: function (g) { return Math.random() < 0.64; },
       ok: function (g, U) {
         var lf = U.gainLife(g, 40, 80);
         var c = U.cultPct(g, 0.024, 0.042, 1200);
-        var atDoor = (g.lvl || 1) >= 90;
+        var atQuasi = (g.lvl || 1) >= 90;
+        var atSaintDoor = (g.lvl || 1) === 70;
         sitThrough(g, U);
-        U.printlog(atDoor ?
+        U.printlog(atQuasi ?
           '蒲团坐穿了，门还在前面。进准帝要的不是再坐一夜，是一场真正够格的机缘' :
+          atSaintDoor ?
+          '王者巅峰，你把息坐沉，不敢硬闯圣位。先把战力堆着' +
+            (lf ? '，寿元+' + lf : '') + '，实力+' + c :
           '圣位这一层没有人来点破。你把息坐稳，自己往前挪了一步' +
-          (lf ? '，寿元+' + lf : '') + '，实力+' + c);
+            (lf ? '，寿元+' + lf : '') + '，实力+' + c);
       },
       fail: function (g, U) {
         U.printlog('这一坐没有通。你起身添了灯油，再坐');
