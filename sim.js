@@ -1705,7 +1705,10 @@
     cutDaoChance: cutDaoChance,
     enterSaintChance: enterSaintChance,
     rekindleCutDao: rekindleCutDao,
-    cutWasClose: cutWasClose
+    cutWasClose: cutWasClose,
+    markStory: markStory,
+    hasStory: hasStory,
+    clearStory: clearStory
   };
   /* 体质异变：按体质 7-10 权重抽取，替换先天体质/资质 */
   function drawHighTalent(g) {
@@ -1954,8 +1957,24 @@
     return !!(ev && (ev.needPhys || ev.needFamily || ev.daoMin != null ||
       ev.daoMax != null || ev.innateMin != null || ev.innateMax != null));
   }
+  function markStory(g, key) {
+    if (!g || !key) return false;
+    g.eventChains = g.eventChains || {};
+    g.eventChains[key] = true;
+    return true;
+  }
+  function hasStory(g, key) {
+    return !!(g && g.eventChains && key && g.eventChains[key]);
+  }
+  function clearStory(g, key) {
+    if (!g || !g.eventChains || !key) return false;
+    if (!g.eventChains[key]) return false;
+    delete g.eventChains[key];
+    return true;
+  }
   function eventAvailable(g, ev) {
     if (!ev) return true;
+    if (ev.needStory && !hasStory(g, ev.needStory)) return false;
     if (ev.available && !ev.available(g, U)) return false;
     return eventFits(g, ev);
   }
@@ -2042,6 +2061,7 @@
     if ((g.lvl || 1) >= 91 && ev.tier >= 4) w *= 2.4;
     /* 对得上体质/悟性的专属事件抬权，让两局人生岔开，而不是所有人抽同一套 */
     if (eventExclusive(ev)) w *= 2.4;
+    if (ev.needStory && hasStory(g, ev.needStory)) w *= 3.6;
     return w;
   }
 
@@ -2275,6 +2295,11 @@
       if (isStakeEvent(raw[i])) stake.push(raw[i]);
       else flavor.push(raw[i]);
     }
+    var echoes = collectEchoEvents(g);
+    if (echoes.length) {
+      fireEvent(g, log, echoes[Math.floor(Math.random() * echoes.length)]);
+      return;
+    }
     var afterCut = g.lvl === 60 && g.cutDaoTried && !g.cutDaoPassed;
     var afterSaint = g.lvl === 70 && g.saintTried && !g.saintPassed;
     if (afterCut || afterSaint) {
@@ -2301,6 +2326,21 @@
       return;
     }
     if (flavor.length) fireEvent(g, log, pickStuckBreak(g, flavor) || pickWeighted(g, flavor));
+  }
+  function collectEchoEvents(g) {
+    var out = [], i, ev, mc = (g && g.maxCount) || {};
+    for (i = 0; i < E.length; i++) {
+      ev = E[i];
+      if (!ev || !ev.needStory || !hasStory(g, ev.needStory)) continue;
+      var maxN = ev.maxCount != null ? ev.maxCount : 1;
+      var left = mc[ev.id] != null ? mc[ev.id] : maxN;
+      if (left <= 0) continue;
+      if (g.age < (ev.minAge != null ? ev.minAge : 0)) continue;
+      if (g.age > (ev.maxAge != null ? ev.maxAge : 100000)) continue;
+      if (!eventAvailable(g, ev)) continue;
+      out.push(ev);
+    }
+    return out;
   }
   function isDoorStory(ev) {
     var id = ev && ev.id || '';
@@ -4732,6 +4772,9 @@
     nextSwallowTarget: nextSwallowTarget,
     becomeChaosFromSwallow: becomeChaosFromSwallow,
     eventDaoyunTier: eventDaoyunTier,
+    markStory: markStory,
+    hasStory: hasStory,
+    clearStory: clearStory,
     eventAvailable: eventAvailable,
     eventFits: eventFits,
     physiqueFamily: physiqueFamily,

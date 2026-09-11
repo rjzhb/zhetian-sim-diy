@@ -1259,4 +1259,67 @@ function mortalSage(opt) {
   assert.ok(passed <= 22, '大部分凡人过不了斩道，80 次过了 ' + passed);
 })();
 
+/* ---------- 事件先后：前事留下钩子，后事才能出现 ---------- */
+(function () {
+  var g = Sim.createGame(0, []);
+  Sim.setPhysique(g, D.physiqueById('mortal'));
+  g.innate = 1;
+  g.lvl = 55;
+  g.age = 400;
+  assert.ok(!Sim.hasStory(g, 'omen_grudge'), '开局不该带着天象余恨');
+  var echo = byId('th_echo_omen');
+  assert.ok(echo, '应有教主余恨');
+  assert.ok(!Sim.isStakeEvent(echo), '余波不占梭哈额度');
+  assert.ok(!echo.choice, '余波不是选择题');
+  assert.ok(!Sim.eventAvailable(g, echo), '没争过天象，教主不该上门');
+  Sim.markStory(g, 'omen_grudge');
+  assert.ok(Sim.hasStory(g, 'omen_grudge'), '天象失败应记下余恨');
+  assert.ok(Sim.eventAvailable(g, echo), '记下余恨后，教主余恨应能抽到');
+
+  var herb = byId('th_echo_herb');
+  assert.ok(herb, '应有药气泄露');
+  g.lvl = 30;
+  g.age = 80;
+  assert.ok(!Sim.eventAvailable(g, herb), '没吃过圣药，不该有人闻香而来');
+  Sim.markStory(g, 'herb_scent');
+  assert.ok(Sim.eventAvailable(g, herb), '吃过圣药后，药气泄露应能抽到');
+
+  var tide = byId('th_echo_tide');
+  g.lvl = 65;
+  g.age = 200;
+  assert.ok(!Sim.eventAvailable(g, tide), '没迎过王者潮，不该有潮退旧债');
+  Sim.markStory(g, 'tide_debt');
+  assert.ok(Sim.eventAvailable(g, tide), '迎过潮后，旧债应能找上门');
+
+  var omen = byId('heavenly_omen');
+  var lost = Sim.createGame(0, []);
+  Sim.setPhysique(lost, D.physiqueById('mortal'));
+  lost.lvl = 55;
+  lost.age = 400;
+  omen.fail(lost, Sim.U);
+  assert.ok(Sim.hasStory(lost, 'omen_grudge'), '天象争夺失败应留下教主余恨');
+
+  var yaog = Sim.createGame(0, []);
+  Sim.setPhysique(yaog, D.physiqueById('mortal'));
+  yaog.lvl = 30;
+  yaog.age = 80;
+  byId('shengyao').ok(yaog, Sim.U, []);
+  assert.ok(Sim.hasStory(yaog, 'herb_scent'), '服下圣药应留下药气');
+
+  var hook = Sim.createGame(0, []);
+  Sim.setPhysique(hook, D.physiqueById('mortal'));
+  hook.innate = 1;
+  hook.lvl = 55;
+  hook.age = 400;
+  hook.eventDrawsBySpan = { pre: 3 };
+  Sim.markStory(hook, 'omen_grudge');
+  var rnd = Math.random;
+  Math.random = function () { return 0.1; };
+  Sim.rollEvent(hook, []);
+  Math.random = rnd;
+  assert.ok(hook.maxCount && hook.maxCount.th_echo_omen != null && hook.maxCount.th_echo_omen < 1,
+    '有余恨时，下一次抽事应先出教主余恨');
+  assert.ok(!Sim.hasStory(hook, 'omen_grudge'), '余波出过之后，钩子应摘掉');
+})();
+
 console.log('midgame-rhythm: ok');

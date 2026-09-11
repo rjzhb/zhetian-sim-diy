@@ -789,6 +789,7 @@
       resolve: function (g, U, id) {
         if (id === 'seal') { U.printlog('潮在门外散掉。你听见三声很远的金铁鸣'); return; }
         var c = U.cultPct(g, 0.07, 0.12, 2700);
+        if (U.markStory) U.markStory(g, 'tide_debt');
         U.printlog('潮过之后洞府里的灰尘都是齐的。你的王者境被拍实了一分，实力+' + c);
       }
     }),

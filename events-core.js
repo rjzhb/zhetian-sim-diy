@@ -407,6 +407,7 @@
       },
       fail: function (g, U) {
         var h = U.hurt(g, 60, 180);
+        if (U.markStory) U.markStory(g, 'omen_grudge');
         U.printlog(h.loss ? '争夺天象失败，你被数位教主围攻，寿元 -' + h.loss :
           '群雄杀意太盛，你只在外围观摩天象');
       }
@@ -511,6 +512,7 @@
         U.printlog('寻得' + hb + '，服之炼化' + (lf ? '，寿元+' + lf : '') + (up ? '，体魄蜕变、资质提升！' : '，实力略有精进'));
         var c = U.cultPct(g, 0.05, 0.1, 800);
         U.printlog('药力冲关，实力+' + c);
+        if (U.markStory) U.markStory(g, 'herb_scent');
         U.up(g, U.irand(1, 2), log);
       },
       fail: null

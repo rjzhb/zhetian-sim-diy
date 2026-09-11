@@ -755,7 +755,63 @@
         U.printlog('你把源种整枚按进自己的道海。关下那炷香灭了，对方看了你很久，什么都没说，实力+' + c);
       },
       deadText: '源种认主失败，你死在帝关下，连关都没碰到'
-    })
+    }),
+
+    /* ---------- 余波：前事留下钩子，后事才上门，不弹窗 ---------- */
+    {
+      id: 'th_echo_omen', name: '教主余恨', tier: 2, tag: 'echo',
+      desc: '天象那夜没完', needStory: 'omen_grudge', weight: 8, maxCount: 1,
+      minAge: 50, maxAge: 100000,
+      available: function (g) { return !g.becameEmperor && (g.lvl || 1) >= 51; },
+      cond: function (g) { return Math.random() < 0.82; },
+      ok: function (g, U) {
+        if (U.clearStory) U.clearStory(g, 'omen_grudge');
+        var c = U.cultPct(g, 0.018, 0.032, 900);
+        U.printlog('天象那夜围你的人又来了。你没开门，在后山把来人打退，实力+' + c);
+      },
+      fail: function (g, U) {
+        if (U.clearStory) U.clearStory(g, 'omen_grudge');
+        var h = U.hurt(g, 28, 70);
+        U.printlog(h.loss ? '教主的人堵在洞府外，你走偏门才脱身，寿元-' + h.loss :
+          '教主的人在山下转了一夜，没有上来');
+      }
+    },
+    {
+      id: 'th_echo_herb', name: '药气泄露', tier: 2, tag: 'echo',
+      desc: '圣药的香还没散', needStory: 'herb_scent', weight: 8, maxCount: 1,
+      minAge: 20, maxAge: 100000,
+      available: function (g) { return !g.becameEmperor && (g.lvl || 1) >= 11; },
+      cond: function (g) { return Math.random() < 0.80; },
+      ok: function (g, U) {
+        if (U.clearStory) U.clearStory(g, 'herb_scent');
+        var c = U.cultPct(g, 0.016, 0.028, 400);
+        var lf = U.gainLife(g, 12, 28);
+        U.printlog('有人循着药香摸到洞府。你把剩余药渣炼进自身，把来人打发走了' +
+          (lf ? '，寿元+' + lf : '') + '，实力+' + c);
+      },
+      fail: function (g, U) {
+        if (U.clearStory) U.clearStory(g, 'herb_scent');
+        U.printlog('药香引来了采药人。他们在山门外转了一圈，没有敢进');
+      }
+    },
+    {
+      id: 'th_echo_tide', name: '潮退旧债', tier: 2, tag: 'echo',
+      desc: '潮里拍过你的人还记得', needStory: 'tide_debt', weight: 8, maxCount: 1,
+      minAge: 120, maxAge: 100000,
+      available: function (g) { return !g.becameEmperor && (g.lvl || 1) >= 61 && (g.lvl || 1) <= 80; },
+      cond: function (g) { return Math.random() < 0.80; },
+      ok: function (g, U) {
+        if (U.clearStory) U.clearStory(g, 'tide_debt');
+        var c = U.cultPct(g, 0.020, 0.036, 1100);
+        U.printlog('潮退之后，有人来讨那一夜的气运。你把债还在拳上，王者境又实了一分，实力+' + c);
+      },
+      fail: function (g, U) {
+        if (U.clearStory) U.clearStory(g, 'tide_debt');
+        var h = U.hurt(g, 24, 60);
+        U.printlog(h.loss ? '讨债的人比潮还狠。你退了半步，寿元-' + h.loss :
+          '讨债的人在门外站了一夜，天亮就走了');
+      }
+    }
   ];
 
   if (typeof module !== 'undefined' && module.exports) module.exports = EVENTS;
