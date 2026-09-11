@@ -148,6 +148,7 @@
     if (pureDaoPath(g)) return true;
     if (hasImperialRoad(g)) return true;
     if ((g.cult || 0) >= MORTAL_POWER_GATE) return true;
+    if (g && g.mortalSatGate) return true;
     return false;
   }
   function canAdvance(g) {
@@ -1349,6 +1350,7 @@
     },
     gainLife: function (g, lo, hi) { return gainLife(g, lo, hi); },
     gainDao: function (g, amount, capAdd) { return payEventDao(g, amount, capAdd); },
+    effectiveDaoyunNeed: effectiveDaoyunNeed,
     grantCreateDao: grantCreateDao,
     daoByCap: daoByCap,
     eventPaysDao: eventPaysDao,
@@ -1817,6 +1819,7 @@
   }
   function isStakeEvent(ev) {
     if (!ev || ev.ask === false) return false;
+    if ((ev.tier || 1) < 2) return false;
     if (ev.tier >= 4) return true;
     var tag = ev.tag || '';
     if (tag === 'allin' || tag === 'create' || tag === 'starroad') return true;
@@ -1870,10 +1873,21 @@
     if (hasImperialRoad(g)) w += 0.18;
     return clamp(w, 0.15, 2.8);
   }
+  /* 停屏只留给能逆天改命的闸门。T1 杂事、T2 秘境/人生岔路自行落幕。 */
   function choiceWorthAsking(ev, spec) {
     if (!ev || !spec || !spec.options || !spec.options.length) return false;
     if (ev.ask === false) return false;
-    return isStakeEvent(ev) || isThrillEvent(ev, spec);
+    if ((ev.tier || 1) < 2) return false;
+    var id = ev.id || '';
+    var tag = ev.tag || '';
+    if (id === 'phy_dixue_cuiti' || id === 'phy_hundunqi_cuiti') return false;
+    if (id === 'imperial_gate') return true;
+    if (tag === 'create') return true;
+    if ((ev.tier || 1) >= 4) return true;
+    if (tag === 'allin') return true;
+    if (tag === 'starroad' && (ev.tier || 1) >= 3) return true;
+    if (tag === 'quasi') return true;
+    return false;
   }
   /* 奖惩跟眼前这份战力走，不跟事件里写死的小数走。
    * 轮海约 8%，准帝约 22%。后期差一点机缘也要能动当前格局。 */
@@ -1936,9 +1950,11 @@
         spec.title = spec.title || ev.name;
         spec.prompt = spec.prompt || ('第' + g.age + '岁，' + (spec.lead || ev.desc || ev.name));
         spec.cls = spec.cls || ('ev' + ev.tier);
-        var ask = opt.forceAsk || choiceWorthAsking(ev, spec);
+        var ask = choiceWorthAsking(ev, spec);
+        if (!ask && opt.forceAsk && (ev.tier || 1) >= 2) ask = true;
         if (ask) {
           spec.stakes = true;
+          spec.fateGate = true;
           var band = D.realmIdx(g.lvl);
           if (band >= 2) {
             g.choiceByRealm = g.choiceByRealm || {};
@@ -1974,10 +1990,10 @@
     }
     if (flavor.length) fireEvent(g, log, pickStuckBreak(g, flavor) || pickWeighted(g, flavor));
   }
-  /* 凡体悟性普通号卡在四极到王者：路边事优先抽能推一层的卡关，否则他们只是把空白日志填满。 */
+  /* 凡体悟性普通号卡在四极到大圣：路边事优先抽能推一层的卡关，否则他们只是把空白日志填满。 */
   function pickStuckBreak(g, flavor) {
     if (!g || (g.innate || 1) > 3) return null;
-    if ((g.lvl || 1) < 21 || (g.lvl || 1) > 70) return null;
+    if ((g.lvl || 1) < 21 || (g.lvl || 1) > 90) return null;
     if (Math.random() > 0.42) return null;
     var i, ev, found = [];
     for (i = 0; i < flavor.length; i++) {
@@ -4390,6 +4406,7 @@
     openChoice: openChoice,
     registerChoiceHandler: registerChoiceHandler,
     defaultChoiceOption: defaultChoiceOption,
+    quietChoiceOption: quietChoiceOption,
     allInDeathOdds: allInDeathOdds,
     allInOutcome: allInOutcome,
     allInPayoff: allInPayoff,

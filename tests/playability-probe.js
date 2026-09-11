@@ -30,12 +30,12 @@ function spanOf(lvl) {
   return 'late';
 }
 
-/* 爽感分：弹窗合度 + 种类 + 高光 − 帝关刷屏 − 重复作业。
- * 短命目标 2–4 窗，活到圣人 4–8 窗；超过 10 一律不及格。 */
+/* 爽感分：看过多少事 + 改命闸门合度 + 高光 − 帝关刷屏 − 重复作业。
+ * 停屏只留给改命闸门。短命目标 1–3 窗，活到圣人 3–6 窗；超过 8 一律不及格。 */
 function clamp01(x) { return x < 0 ? 0 : (x > 1 ? 1 : x); }
 function popFit(pops, saint) {
-  var lo = saint ? 4 : 2, hi = saint ? 8 : 4;
-  if (pops > 10) return 0;
+  var lo = saint ? 3 : 1, hi = saint ? 6 : 3;
+  if (pops > 8) return 0;
   if (pops < lo) return lo ? pops / lo : 0;
   if (pops <= hi) return 1;
   return clamp01(1 - (pops - hi) / hi);
@@ -47,15 +47,18 @@ function thrillScore(row) {
   var gate = row.gate || 0;
   var t3 = row.t3 || 0;
   var spot = row.spot || 0;
+  var flavor = row.flavor || 0;
+  var stories = (row.pre || 0) + (row.mid || 0) + (row.late || 0) + flavor;
   var variety = unique / Math.max(1, pops);
   var gateShare = gate / Math.max(1, pops);
   var repeatShare = repeats / Math.max(1, pops);
   var raw = 100 * (
-    0.28 * popFit(pops, row.saint) +
-    0.22 * clamp01(variety) +
-    0.18 * clamp01(t3 / 2) +
+    0.16 * popFit(pops, row.saint) +
+    0.14 * clamp01(variety) +
+    0.16 * clamp01(t3 / 2) +
     0.16 * clamp01(spot / 2) +
-    0.16 * clamp01(unique / 4)
+    0.14 * clamp01(unique / 3) +
+    0.24 * clamp01(stories / 10)
   ) - 25 * Math.max(0, gateShare - 0.25) - 15 * Math.max(0, repeatShare - 0.20);
   return Math.round(clamp01(raw / 100) * 1000) / 10;
 }

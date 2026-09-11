@@ -669,9 +669,39 @@
     if (!pendingLogs.length && (G.dead || G.ascended)) { stopPlay(); finishGame(G.dead ? 'dead' : 'god'); }
   }
 
+  function eventById(id) {
+    var list = (typeof EVENTS !== 'undefined' && EVENTS) || [];
+    var i;
+    for (i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+  function pendingIsFateGate(pc) {
+    if (!pc) return false;
+    if (pc.fateGate) return true;
+    var ev = eventById(pc.evId);
+    if (!ev) return true;
+    return Sim.choiceWorthAsking(ev, pc);
+  }
+  function autoResolveSideChoice() {
+    var pc = G && G.pendingChoice;
+    if (!pc) return false;
+    var pick = Sim.quietChoiceOption ? Sim.quietChoiceOption(pc) : Sim.defaultChoiceOption(pc);
+    var log = [], i;
+    Sim.resolveChoice(G, pick, log);
+    for (i = 0; i < log.length; i++) fullLog.push(log[i]);
+    renderLog(log);
+    renderAttrs();
+    return true;
+  }
   function openPendingChoiceIfNeeded() {
     if (!G) return false;
-    if (G.pendingChoice) return openEventChoice();
+    if (G.pendingChoice) {
+      if (!pendingIsFateGate(G.pendingChoice)) {
+        autoResolveSideChoice();
+        return false;
+      }
+      return openEventChoice();
+    }
     if (G.awaitingDeathlessChoice) return openDeathlessChoice();
     if (G.awaitingStrangeWorldChoice) return openStrangeWorldChoice();
     if (G.awaitingDarkTurmoil) return openDarkTurmoilChoice();

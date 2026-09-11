@@ -39,6 +39,13 @@
   function inBand(lo, hi) {
     return function (g) { return !g.becameEmperor && g.lvl >= lo && g.lvl <= hi; };
   }
+  /* 卡关要真能推一层：道蕴不够就先坐到门槛，大圣巅峰把凡体墙坐穿。 */
+  function sitThrough(g, U, openGate) {
+    var need = U.effectiveDaoyunNeed ? U.effectiveDaoyunNeed(g, g.lvl) : 0;
+    if (need && (g.daoyun || 0) < need) g.daoyun = need;
+    if (openGate) g.mortalSatGate = true;
+    return U.up(g, 1);
+  }
 
   /* 三档：退避 / 深入 / 核心。核心不致命，只重伤。仙台凡体靠这个破境。 */
   function forkEvent(cfg) {
@@ -142,13 +149,13 @@
       desc: '第四极那口气一夜没散', weight: 16, maxCount: 3,
       minAge: 25, maxAge: 100000,
       available: function (g) {
-        return !g.becameEmperor && (g.innate || 1) <= 3 && g.lvl >= 21 && g.lvl <= 35;
+        return !g.becameEmperor && (g.innate || 1) <= 3 && g.lvl >= 21 && g.lvl <= 40;
       },
       cond: function (g) { return Math.random() < 0.72; },
       ok: function (g, U) {
         var lf = U.gainLife(g, 28, 55);
         var c = U.cultPct(g, 0.018, 0.035, 220);
-        U.up(g, 1);
+        sitThrough(g, U);
         U.printlog('第四极那口气在夜里忽然通了。你没求任何人，只是自己坐到了天亮' +
           (lf ? '，寿元+' + lf : '') + '，实力+' + c);
       },
@@ -167,7 +174,7 @@
       ok: function (g, U) {
         var lf = U.gainLife(g, 30, 58);
         var c = U.cultPct(g, 0.020, 0.038, 400);
-        U.up(g, 1);
+        sitThrough(g, U);
         U.printlog('仙台这一层的窗户纸被你坐薄了。不是顿悟，是坐到它自己破' +
           (lf ? '，寿元+' + lf : '') + '，实力+' + c);
       },
@@ -180,18 +187,40 @@
       desc: '别人靠血脉过关，你靠把息调匀', weight: 15, maxCount: 3,
       minAge: 160, maxAge: 100000,
       available: function (g) {
-        return !g.becameEmperor && (g.innate || 1) <= 3 && g.lvl >= 51 && g.lvl <= 68;
+        return !g.becameEmperor && (g.innate || 1) <= 3 && g.lvl >= 51 && g.lvl <= 70;
       },
       cond: function (g) { return Math.random() < 0.68; },
       ok: function (g, U) {
         var lf = U.gainLife(g, 32, 60);
         var c = U.cultPct(g, 0.022, 0.040, 700);
-        U.up(g, 1);
+        sitThrough(g, U);
         U.printlog('同境的人靠血脉一步跨过去。你把息调匀，自己走过去' +
           (lf ? '，寿元+' + lf : '') + '，实力+' + c);
       },
       fail: function (g, U) {
         U.printlog('息乱了一次，你停下来，没有硬闯。凡骨过关，急不得');
+      }
+    },
+    {
+      id: 'th_stuck_sheng', name: '圣位枯坐', tier: 2, tag: 'insight',
+      desc: '大圣这一层，凡骨只能坐', weight: 14, maxCount: 3,
+      minAge: 400, maxAge: 100000,
+      available: function (g) {
+        return !g.becameEmperor && (g.innate || 1) <= 3 && g.lvl >= 71 && g.lvl <= 90;
+      },
+      cond: function (g) { return Math.random() < 0.64; },
+      ok: function (g, U) {
+        var lf = U.gainLife(g, 40, 80);
+        var c = U.cultPct(g, 0.024, 0.042, 1200);
+        var gate = (g.lvl || 1) >= 88;
+        sitThrough(g, U, gate);
+        U.printlog(gate ?
+          '蒲团上坐到骨节发响。门在前面，没有血脉替你开，是你自己把门槛坐平了' :
+          '圣位这一层没有人来点破。你把息坐稳，自己往前挪了一步' +
+          (lf ? '，寿元+' + lf : '') + '，实力+' + c);
+      },
+      fail: function (g, U) {
+        U.printlog('这一坐没有通。你起身添了灯油，再坐');
       }
     },
 

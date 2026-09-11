@@ -409,6 +409,41 @@ function mortalSage(opt) {
   var bingSpec = bing.choice(saint, Sim.U);
   assert.strictEqual(Sim.choiceWorthAsking(road, roadSpec), true, '踏上星空古路必须弹窗');
   assert.strictEqual(Sim.choiceWorthAsking(bing, bingSpec), true, '帝兵出世必须弹窗');
+  var lowMi = byId('rd_mi_low_delve');
+  var lowG = Sim.createGame(0, []);
+  Sim.setPhysique(lowG, D.physiqueById('mortal'));
+  lowG.lvl = 30;
+  lowG.age = 50;
+  assert.strictEqual(Sim.choiceWorthAsking(lowMi, lowMi.choice(lowG, Sim.U)), false,
+    '低阶秘境自行落幕，不要停下来做选择题');
+  var stele = byId('th_xian_stele');
+  var steleG = Sim.createGame(0, []);
+  Sim.setPhysique(steleG, D.physiqueById('mortal'));
+  steleG.lvl = 45;
+  steleG.age = 180;
+  steleG.cult = 8000;
+  assert.strictEqual(Sim.choiceWorthAsking(stele, stele.choice(steleG, Sim.U)), false,
+    '仙台古碑三档叉自行落幕，不是作业卷');
+  var dixue = byId('phy_dixue_cuiti');
+  assert.ok(dixue, '帝血淬体应在库里');
+  assert.strictEqual(Sim.choiceWorthAsking(dixue, dixue.choice(lowG, Sim.U)), false,
+    '帝血淬体是传说作业，自行落幕，不要停下来问敢不敢');
+  var tale = byId('rd_gamble_tale');
+  var tinker = byId('dao_tinker_old_art');
+  assert.ok(tale && tinker, 'T1 杂事应在库里');
+  assert.strictEqual(Sim.isStakeEvent(tale), false, '赌命者的故事是路边听闻，不占梭哈');
+  assert.strictEqual(Sim.isStakeEvent(tinker), false, '拆解旧法是日常，不占梭哈');
+  assert.strictEqual(Sim.choiceWorthAsking(tale, { options: [{ id: 'x', safe: true }] }), false,
+    'T1 一律不弹窗');
+  var firstCreate = byId('dao_create_guard_first');
+  var cg = Sim.createGame(0, []);
+  Sim.setPhysique(cg, D.physiqueById('mortal'));
+  cg.lvl = 25;
+  cg.age = 40;
+  cg.cult = 3000;
+  cg.artGlimpse = true;
+  assert.strictEqual(Sim.choiceWorthAsking(firstCreate, firstCreate.choice(cg, Sim.U)), true,
+    '第一次落笔是逆天改命，必须停');
 })();
 
 /* ---------- 圣人前额度硬顶 2，且只能是梭哈 ---------- */
@@ -541,7 +576,7 @@ function mortalSage(opt) {
   Sim.setPhysique(g, D.physiqueById('mortal'));
   g.lvl = 45;
   g.age = 200;
-  g.eventDrawsBySpan = { pre: 2 };
+  g.eventDrawsBySpan = { pre: 3 };
   var gap = Sim.eventYearInterval(g);
   assert.ok(gap <= 90, '梭哈额度用尽后不能把间隔拉成十万年，实际 ' + gap);
   assert.strictEqual(typeof Sim.imperialGateMayAsk, 'function', '应导出 imperialGateMayAsk');
@@ -563,17 +598,42 @@ function mortalSage(opt) {
   var before = stuckG.lvl;
   stuck.ok(stuckG, Sim.U);
   assert.ok(stuckG.lvl > before, '四极夜关成功应推一层，实际 ' + stuckG.lvl);
-  var bias = Sim.createGame(0, []);
-  Sim.setPhysique(bias, D.physiqueById('mortal'));
-  bias.innate = 1;
-  bias.aptitude = 1;
-  bias.lvl = 25;
-  bias.age = 90;
-  bias.eventDrawsBySpan = { pre: 2 };
+  var xianStuck = byId('th_stuck_xian');
+  var xianG = Sim.createGame(0, []);
+  Sim.setPhysique(xianG, D.physiqueById('mortal'));
+  xianG.innate = 1;
+  xianG.aptitude = 1;
+  xianG.daoGift = 5;
+  xianG.lvl = 50;
+  xianG.daoyun = 4;
+  xianG.daoyunCap = 200;
+  var xianBefore = xianG.lvl;
+  xianStuck.ok(xianG, Sim.U);
+  assert.ok(xianG.lvl > xianBefore, '仙台枯坐在道蕴不够时也应推一层，实际 ' + xianG.lvl);
+  var sheng = byId('th_stuck_sheng');
+  assert.ok(sheng && !Sim.isStakeEvent(sheng), '圣位枯坐应走路边池，不占梭哈');
+  var shengG = Sim.createGame(0, []);
+  Sim.setPhysique(shengG, D.physiqueById('mortal'));
+  shengG.innate = 1;
+  shengG.aptitude = 1;
+  shengG.daoGift = 5;
+  shengG.lvl = 90;
+  shengG.daoyun = 400;
+  shengG.daoyunCap = 800;
+  shengG.cult = 80000;
+  var shengBefore = shengG.lvl;
+  sheng.ok(shengG, Sim.U);
+  assert.ok(shengG.lvl > shengBefore, '大圣巅峰枯坐应能坐进准帝，实际 ' + shengG.lvl);
   var n, sawStuck = 0;
   for (n = 0; n < 40; n++) {
-    var log = [];
-    Sim.rollEvent(bias, log);
+    var bias = Sim.createGame(0, []);
+    Sim.setPhysique(bias, D.physiqueById('mortal'));
+    bias.innate = 1;
+    bias.aptitude = 1;
+    bias.lvl = 25;
+    bias.age = 90;
+    bias.eventDrawsBySpan = { pre: 3 };
+    Sim.rollEvent(bias, []);
     if (bias.maxCount && bias.maxCount.th_stuck_fourpole != null && bias.maxCount.th_stuck_fourpole < 3) {
       sawStuck++;
       break;
