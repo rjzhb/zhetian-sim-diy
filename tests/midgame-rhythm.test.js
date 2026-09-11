@@ -727,6 +727,19 @@ function mortalSage(opt) {
   sacredSea.lvl = 12;
   sacredSea.age = 20;
   assert.ok(!seaEve.available(sacredSea), '圣体不吃苦海夜坐');
+  var seaEarly = Sim.createGame(0, []);
+  Sim.setPhysique(seaEarly, D.physiqueById('mortal'));
+  seaEarly.innate = 1;
+  seaEarly.aptitude = 1;
+  seaEarly.lvl = 8;
+  seaEarly.age = 20;
+  seaEarly.eventDrawsBySpan = { pre: 0 };
+  var seaEarlyRnd = Math.random;
+  Math.random = function () { return 0.1; };
+  Sim.rollEvent(seaEarly, []);
+  Math.random = seaEarlyRnd;
+  assert.ok(seaEarly.maxCount && seaEarly.maxCount.th_stuck_sea != null &&
+    seaEarly.maxCount.th_stuck_sea < 3, '苦海未满十层也应能夜坐续命');
   var nengStake = Sim.createGame(0, []);
   Sim.setPhysique(nengStake, D.physiqueById('mortal'));
   nengStake.innate = 1;

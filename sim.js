@@ -2314,7 +2314,7 @@
        * 斩道/入圣门口不再先掷骰，否则前夜会被梭哈额度吃掉。 */
       var atGate = ((g.lvl || 1) === 60 && !g.cutDaoTried) ||
         ((g.lvl || 1) === 70 && !g.saintTried);
-      if ((g.innate || 1) <= 4 && (g.lvl || 1) >= 10 && (g.lvl || 1) <= 70 &&
+      if ((g.innate || 1) <= 4 && (g.lvl || 1) >= 6 && (g.lvl || 1) <= 70 &&
           (atGate || Math.random() < 0.40)) {
         var earlyStuck = collectStuckEvents(g);
         if (earlyStuck.length) {
@@ -2368,7 +2368,7 @@
     var afterCut = g && g.lvl === 60 && g.cutDaoTried && !g.cutDaoPassed;
     var afterSaint = g && g.lvl === 70 && g.saintTried && !g.saintPassed;
     if (!g || (innate > 4 && !afterCut && !afterSaint)) return null;
-    if ((g.lvl || 1) < 10 || (g.lvl || 1) > 90) return null;
+    if ((g.lvl || 1) < 6 || (g.lvl || 1) > 90) return null;
     /* 门槛失败后余生必须能看见。斩道/入圣门口也不再先掷骰把前夜扔回去。 */
     var atGate = ((g.lvl || 1) === 60 && !g.cutDaoTried) ||
       ((g.lvl || 1) === 70 && !g.saintTried);
