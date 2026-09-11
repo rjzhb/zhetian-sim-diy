@@ -437,9 +437,9 @@ function mortalSage(opt) {
       }
     }
     var drew = (g.eventDrawsBySpan && g.eventDrawsBySpan.pre) || g.eventDraws || 0;
-    if (drew > 2) over++;
+    if (drew > 3) over++;
   }
-  assert.strictEqual(over, 0, '圣人前不得超过 2 次事件');
+  assert.strictEqual(over, 0, '普通凡体圣人前不得超过 3 次事件');
   assert.strictEqual(bad, 0, '弹窗必须是创法/古路/秘境/帝兵这类梭哈');
 })();
 
@@ -456,7 +456,11 @@ function mortalSage(opt) {
   var saint = Sim.eventYearInterval({ lvl: 80, physiqueId: 'mortal', aptitude: 1, lifespan: 5500, age: 600 });
   assert.ok(saint <= 220, '圣人到大圣必须按本档年摊，不能摊空，实际 ' + saint);
   assert.strictEqual(typeof Sim.eventSpanBudget, 'function', '应导出 eventSpanBudget');
-  assert.strictEqual(Sim.eventSpanBudget({ lvl: 20 }), 2, '圣人前最多 2 次');
+  assert.strictEqual(Sim.eventSpanBudget({ lvl: 20 }), 2, '未标明体质时圣人前仍是 2');
+  assert.strictEqual(Sim.eventSpanBudget({ lvl: 20, innate: 1, daoGift: 5 }), 3,
+    '普通凡体圣人前应有 3 窗');
+  assert.strictEqual(Sim.eventSpanBudget({ lvl: 20, innate: 1, daoGift: 10 }), 2,
+    '高悟凡体圣人前仍是 2');
   assert.strictEqual(Sim.eventSpanBudget({ lvl: 80 }), 3, '圣人到大圣最多 3 次');
   assert.ok(Sim.eventSpanBudget({ lvl: 94 }) >= 5 && Sim.eventSpanBudget({ lvl: 94 }) <= 6,
     '准帝应有 5~6 次额度');

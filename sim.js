@@ -2066,7 +2066,11 @@
   }
   function eventSpanBudget(g) {
     var k = eventSpanKey((g && g.lvl) || 1);
-    if (k === 'pre') return 2;
+    if (k === 'pre') {
+      /* 普通凡体半生停在圣人前，2 窗爽感分只有 40。多一窗，高悟不给。 */
+      if (g && g.innate != null && g.innate <= 3 && (g.daoGift || 5) <= 6) return 3;
+      return 2;
+    }
     if (k === 'mid') return 3;
     return 6;
   }
