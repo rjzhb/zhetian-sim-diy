@@ -1997,7 +1997,9 @@
       ev = E[i];
       if (!ev || !ev.id || String(ev.id).indexOf('th_stuck_') !== 0) continue;
       var maxN = ev.maxCount != null ? ev.maxCount : 3;
-      if ((mc[ev.id] != null ? mc[ev.id] : maxN) <= 0) continue;
+      var left = mc[ev.id] != null ? mc[ev.id] : maxN;
+      /* 大圣巅峰：前面三次枯坐用在 71–87，门口必须还能再坐一次。 */
+      if (left <= 0 && !((g.lvl || 1) >= 88 && ev.id === 'th_stuck_sheng')) continue;
       if (g.age < (ev.minAge != null ? ev.minAge : 0)) continue;
       if (g.age > (ev.maxAge != null ? ev.maxAge : 100000)) continue;
       if (!eventAvailable(g, ev)) continue;

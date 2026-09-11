@@ -624,6 +624,24 @@ function mortalSage(opt) {
   var shengBefore = shengG.lvl;
   sheng.ok(shengG, Sim.U);
   assert.ok(shengG.lvl > shengBefore, '大圣巅峰枯坐应能坐进准帝，实际 ' + shengG.lvl);
+  var lastSit = Sim.createGame(0, []);
+  Sim.setPhysique(lastSit, D.physiqueById('mortal'));
+  lastSit.innate = 1;
+  lastSit.aptitude = 1;
+  lastSit.daoGift = 5;
+  lastSit.lvl = 90;
+  lastSit.age = 4200;
+  lastSit.lifespan = 6200;
+  lastSit.daoyun = 400;
+  lastSit.daoyunCap = 800;
+  lastSit.cult = 80000;
+  lastSit.maxCount = { th_stuck_sheng: 0 };
+  lastSit.eventDrawsBySpan = { mid: 3 };
+  var lastRnd = Math.random;
+  Math.random = function () { return 0.1; };
+  Sim.rollEvent(lastSit, []);
+  Math.random = lastRnd;
+  assert.ok(lastSit.lvl >= 91, '圣位额度用尽后，大圣巅峰仍该再坐进准帝，实际 ' + lastSit.lvl);
   var n, sawStuck = 0;
   for (n = 0; n < 40; n++) {
     var bias = Sim.createGame(0, []);
