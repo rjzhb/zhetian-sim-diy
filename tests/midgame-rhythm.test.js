@@ -637,6 +637,19 @@ function mortalSage(opt) {
   var xianBefore = xianG.lvl;
   xianStuck.ok(xianG, Sim.U);
   assert.ok(xianG.lvl > xianBefore, '仙台枯坐在道蕴不够时也应推一层，实际 ' + xianG.lvl);
+  var xianDoor = Sim.createGame(0, []);
+  Sim.setPhysique(xianDoor, D.physiqueById('mortal'));
+  xianDoor.innate = 1;
+  xianDoor.aptitude = 1;
+  xianDoor.lvl = 48;
+  xianDoor.age = 400;
+  xianDoor.eventDrawsBySpan = { pre: 0 };
+  var xianDoorRnd = Math.random;
+  Math.random = function () { return 0.9; };
+  Sim.rollEvent(xianDoor, []);
+  Math.random = xianDoorRnd;
+  assert.ok(xianDoor.maxCount && xianDoor.maxCount.th_stuck_xian != null &&
+    xianDoor.maxCount.th_stuck_xian < 3, '化龙到仙台卡住时，骰子再大也应先夜坐');
   var sheng = byId('th_stuck_sheng');
   assert.ok(sheng && !Sim.isStakeEvent(sheng), '圣位枯坐应走路边池，不占梭哈');
   var shengG = Sim.createGame(0, []);

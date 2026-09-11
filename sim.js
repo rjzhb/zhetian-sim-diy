@@ -2312,10 +2312,8 @@
     if (eventSpanRoom(g) > 0 && stake.length) {
       /* 凡体卡在四极到入圣门口时，额度没花完也先坐下。两道门槛只堆战力，坐不穿。
        * 斩道/入圣门口不再先掷骰，否则前夜会被梭哈额度吃掉。 */
-      var atGate = ((g.lvl || 1) === 60 && !g.cutDaoTried) ||
-        ((g.lvl || 1) === 70 && !g.saintTried);
       if ((g.innate || 1) <= 4 && (g.lvl || 1) >= 6 && (g.lvl || 1) <= 70 &&
-          (atGate || Math.random() < 0.40)) {
+          (wantClimbSit(g) || Math.random() < 0.40)) {
         var earlyStuck = collectStuckEvents(g);
         if (earlyStuck.length) {
           fireEvent(g, log, pickDoorStuck(g, earlyStuck));
@@ -2326,6 +2324,14 @@
       return;
     }
     if (flavor.length) fireEvent(g, log, pickStuckBreak(g, flavor) || pickWeighted(g, flavor));
+  }
+  function wantClimbSit(g) {
+    var lvl = (g && g.lvl) || 1;
+    if (!g || (g.innate || 1) > 4) return false;
+    if (lvl >= 21 && lvl <= 55) return true;
+    if (lvl === 60 && !g.cutDaoTried) return true;
+    if (lvl === 70 && !g.saintTried) return true;
+    return false;
   }
   function collectEchoEvents(g) {
     var out = [], i, ev, mc = (g && g.maxCount) || {};
@@ -2369,10 +2375,8 @@
     var afterSaint = g && g.lvl === 70 && g.saintTried && !g.saintPassed;
     if (!g || (innate > 4 && !afterCut && !afterSaint)) return null;
     if ((g.lvl || 1) < 6 || (g.lvl || 1) > 90) return null;
-    /* 门槛失败后余生必须能看见。斩道/入圣门口也不再先掷骰把前夜扔回去。 */
-    var atGate = ((g.lvl || 1) === 60 && !g.cutDaoTried) ||
-      ((g.lvl || 1) === 70 && !g.saintTried);
-    if (!afterCut && !afterSaint && !atGate && Math.random() > 0.62) return null;
+    /* 门槛失败后余生必须能看见。化龙到仙台、斩道/入圣门口也不再先掷骰。 */
+    if (!afterCut && !afterSaint && !wantClimbSit(g) && Math.random() > 0.62) return null;
     var found = collectStuckEvents(g);
     if (!found.length && flavor && flavor.length) {
       var i, ev;
