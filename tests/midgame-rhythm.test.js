@@ -728,10 +728,8 @@ function mortalSage(opt) {
   Math.random = function () { return 0.1; };
   Sim.rollEvent(doorStake, []);
   Math.random = doorRnd;
-  assert.ok(
-    (doorStake.maxCount && doorStake.maxCount.th_stuck_neng != null && doorStake.maxCount.th_stuck_neng < 3) ||
-    (doorStake.maxCount && doorStake.maxCount.th_stuck_cut != null && doorStake.maxCount.th_stuck_cut < 2),
-    '斩道门口额度没用完也应能坐下或看见前夜');
+  assert.ok(doorStake.maxCount && doorStake.maxCount.th_stuck_cut != null &&
+    doorStake.maxCount.th_stuck_cut < 2, '斩道门口应先看见前夜，而不是被调息挤掉');
   assert.strictEqual(doorStake.lvl, 60, '门口坐下不能坐进王者');
   var cutEve = byId('th_stuck_cut');
   assert.ok(cutEve && !Sim.isStakeEvent(cutEve), '斩道前夜应走路边池，不占梭哈');

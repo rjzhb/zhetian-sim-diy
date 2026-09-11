@@ -2148,7 +2148,7 @@
       if ((g.innate || 1) <= 4 && (g.lvl || 1) >= 21 && (g.lvl || 1) <= 70 && Math.random() < 0.40) {
         var earlyStuck = collectStuckEvents(g);
         if (earlyStuck.length) {
-          fireEvent(g, log, earlyStuck[Math.floor(Math.random() * earlyStuck.length)]);
+          fireEvent(g, log, pickDoorStuck(g, earlyStuck));
           return;
         }
       }
@@ -2186,7 +2186,24 @@
       }
     }
     if (!found.length) return null;
-    return found[Math.floor(Math.random() * found.length)];
+    return pickDoorStuck(g, found);
+  }
+  /* 斩道/入圣门口优先抽前夜或门口枯坐，别被大能调息把能看的事挤掉。 */
+  function pickDoorStuck(g, pool) {
+    var i, ev, lvl = (g && g.lvl) || 1;
+    if (lvl === 60) {
+      for (i = 0; i < pool.length; i++) {
+        ev = pool[i];
+        if (ev && ev.id === 'th_stuck_cut') return ev;
+      }
+    }
+    if (lvl === 70) {
+      for (i = 0; i < pool.length; i++) {
+        ev = pool[i];
+        if (ev && ev.id === 'th_stuck_sheng') return ev;
+      }
+    }
+    return pool[Math.floor(Math.random() * pool.length)];
   }
   var REALM_CHOICE_WAIT = 12;
   var HOMEWORK_BAN = { phy_dixue_cuiti: 1, phy_hundunqi_cuiti: 1 };
