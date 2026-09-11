@@ -1985,6 +1985,14 @@
       else flavor.push(raw[i]);
     }
     if (eventSpanRoom(g) > 0 && stake.length) {
+      /* 凡体卡在四极到仙台时，额度没花完也先坐下。否则夜关要等梭哈抽完才轮到。 */
+      if ((g.innate || 1) <= 3 && (g.lvl || 1) >= 21 && (g.lvl || 1) <= 50 && Math.random() < 0.40) {
+        var earlyStuck = collectStuckEvents(g);
+        if (earlyStuck.length) {
+          fireEvent(g, log, earlyStuck[Math.floor(Math.random() * earlyStuck.length)]);
+          return;
+        }
+      }
       fireEvent(g, log, pickWeighted(g, stake));
       return;
     }

@@ -658,6 +658,19 @@ function mortalSage(opt) {
     }
   }
   assert.ok(sawStuck, '凡体卡在四极时，路边事宜优先抽到卡关破境');
+  var beforeStake = Sim.createGame(0, []);
+  Sim.setPhysique(beforeStake, D.physiqueById('mortal'));
+  beforeStake.innate = 1;
+  beforeStake.aptitude = 1;
+  beforeStake.lvl = 25;
+  beforeStake.age = 90;
+  beforeStake.eventDrawsBySpan = { pre: 0 };
+  var preRnd = Math.random;
+  Math.random = function () { return 0.1; };
+  Sim.rollEvent(beforeStake, []);
+  Math.random = preRnd;
+  assert.ok(beforeStake.maxCount && beforeStake.maxCount.th_stuck_fourpole != null &&
+    beforeStake.maxCount.th_stuck_fourpole < 3, '梭哈额度没用完，四极夜关也该能坐下');
   var tagged = Sim.createGame(0, []);
   Sim.setPhysique(tagged, D.physiqueById('mortal'));
   tagged.innate = 1;
