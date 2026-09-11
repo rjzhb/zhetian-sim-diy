@@ -202,6 +202,28 @@
       }
     },
     {
+      id: 'th_stuck_cut', name: '斩道前夜', tier: 2, tag: 'insight',
+      desc: '大能巅峰，这一刀还没落下', weight: 18, maxCount: 2,
+      minAge: 180, maxAge: 100000,
+      available: function (g) {
+        return !g.becameEmperor && (g.innate || 1) <= 5 && g.lvl === 60 && !g.cutDaoPassed;
+      },
+      cond: function (g) { return Math.random() < 0.70; },
+      ok: function (g, U) {
+        var lf = U.gainLife(g, 28, 52);
+        var c = U.cultPct(g, 0.024, 0.044, 900);
+        var reverse = U.isReverseCutPath && U.isReverseCutPath(g);
+        U.printlog(reverse ?
+          '少年大帝的气机在远方压过来。你今夜不斩，只把刀压在膝上，把战力再沉一分' +
+            (lf ? '，寿元+' + lf : '') + '，实力+' + c :
+          '同境有人斩过去了，有人跪在门口起不来。你把这一刀又掂了一遍，仍然没落' +
+            (lf ? '，寿元+' + lf : '') + '，实力+' + c);
+      },
+      fail: function (g, U) {
+        U.printlog('刀意散了一夜。斩道还在前面，你连压刀的资格都差一点');
+      }
+    },
+    {
       id: 'th_stuck_sheng', name: '圣位枯坐', tier: 2, tag: 'insight',
       desc: '大圣这一层，凡骨只能坐', weight: 14, maxCount: 3,
       minAge: 400, maxAge: 100000,

@@ -728,9 +728,26 @@ function mortalSage(opt) {
   Math.random = function () { return 0.1; };
   Sim.rollEvent(doorStake, []);
   Math.random = doorRnd;
-  assert.ok(doorStake.maxCount && doorStake.maxCount.th_stuck_neng != null &&
-    doorStake.maxCount.th_stuck_neng < 3, '斩道门口额度没用完也应能坐下堆战力');
+  assert.ok(
+    (doorStake.maxCount && doorStake.maxCount.th_stuck_neng != null && doorStake.maxCount.th_stuck_neng < 3) ||
+    (doorStake.maxCount && doorStake.maxCount.th_stuck_cut != null && doorStake.maxCount.th_stuck_cut < 2),
+    '斩道门口额度没用完也应能坐下或看见前夜');
   assert.strictEqual(doorStake.lvl, 60, '门口坐下不能坐进王者');
+  var cutEve = byId('th_stuck_cut');
+  assert.ok(cutEve && !Sim.isStakeEvent(cutEve), '斩道前夜应走路边池，不占梭哈');
+  var kingDoor = Sim.createGame(0, []);
+  Sim.setPhysique(kingDoor, D.physiqueById('human_king'));
+  kingDoor.lvl = 60;
+  kingDoor.age = 500;
+  assert.ok(cutEve.available(kingDoor), '人王在斩道门口应能看见前夜');
+  var sacredDoor = Sim.createGame(0, []);
+  Sim.setPhysique(sacredDoor, D.physiqueById('sacred'));
+  sacredDoor.lvl = 60;
+  sacredDoor.age = 500;
+  assert.ok(!cutEve.available(sacredDoor), '圣体不该再吃斩道前夜');
+  var cutBefore = kingDoor.lvl;
+  cutEve.ok(kingDoor, Sim.U);
+  assert.strictEqual(kingDoor.lvl, cutBefore, '斩道前夜不能把人送进王者');
   var saintStake = Sim.createGame(0, []);
   Sim.setPhysique(saintStake, D.physiqueById('mortal'));
   saintStake.innate = 1;
