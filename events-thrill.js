@@ -184,7 +184,7 @@
     },
     {
       id: 'th_stuck_xian', name: '仙台枯坐', tier: 2, tag: 'insight',
-      desc: '这一层的窗户纸，坐薄了', weight: 16, maxCount: 3,
+      desc: '这一层的窗户纸，坐薄了', weight: 16, maxCount: 8,
       minAge: 80, maxAge: 100000,
       available: function (g) {
         return !g.becameEmperor && (g.innate || 1) <= 4 && g.lvl >= 41 && g.lvl <= 55;

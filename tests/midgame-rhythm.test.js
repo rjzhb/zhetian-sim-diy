@@ -486,7 +486,9 @@ function mortalSage(opt) {
         Sim.resolveChoice(g, Sim.defaultChoiceOption(g.pendingChoice), []);
       }
     }
-    var drew = (g.eventDrawsBySpan && g.eventDrawsBySpan.pre) || g.eventDraws || 0;
+    var drew = g.eventDrawsBySpan && g.eventDrawsBySpan.pre != null
+      ? g.eventDrawsBySpan.pre
+      : (g.eventDraws || 0);
     if (drew > 3) over++;
   }
   assert.strictEqual(over, 0, '普通凡体圣人前不得超过 3 次事件');
@@ -627,6 +629,7 @@ function mortalSage(opt) {
   kingG.age = 90;
   assert.ok(!stuck.available(kingG), '人王体不该再吃凡体卡关');
   var xianStuck = byId('th_stuck_xian');
+  assert.ok((xianStuck.maxCount || 0) >= 8, '仙台十几层，三次枯坐坐不穿寿元');
   var xianG = Sim.createGame(0, []);
   Sim.setPhysique(xianG, D.physiqueById('mortal'));
   xianG.innate = 1;
@@ -650,7 +653,7 @@ function mortalSage(opt) {
   Sim.rollEvent(xianDoor, []);
   Math.random = xianDoorRnd;
   assert.ok(xianDoor.maxCount && xianDoor.maxCount.th_stuck_xian != null &&
-    xianDoor.maxCount.th_stuck_xian < 3, '化龙到仙台卡住时，骰子再大也应先夜坐');
+    xianDoor.maxCount.th_stuck_xian < (xianStuck.maxCount || 8), '化龙到仙台卡住时，骰子再大也应先夜坐');
   var sheng = byId('th_stuck_sheng');
   assert.ok(sheng && !Sim.isStakeEvent(sheng), '圣位枯坐应走路边池，不占梭哈');
   var shengG = Sim.createGame(0, []);
