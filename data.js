@@ -13,6 +13,8 @@
     return d;
   }
   /* 仅收录原著中有明确名称的体质；tier 只用于复用旧数值公式，不代表前台排名。 */
+  /* zhx 直接加在证道成功率上。混沌体 / 先天圣体道胎成帝本就没有瓶颈，
+   * 这是原著口径，不是数值事故——不要按金卡量级去削。 */
   var PHYSIQUES = [
     { id: 'mortal', name: '凡体', tier: 1, weight: 1, fx: pm({}), desc: '无特殊血脉，胜在道路不受体质束缚' },
     { id: 'star', name: '星辰体', tier: 2, weight: 1, fx: pm({ cgt: 1.03, evt: 1.1 }), desc: '亲近星辰之力，实力与机缘略有增益' },
@@ -126,10 +128,27 @@
   var QUASI_LAYER_MULT = [2.2, 2.8, 3.6, 4.6, 6, 8, 10.5, 14];
   var QUASI_CHAOS_MULT = [1.5, 1.7, 2.0, 2.4, 2.9, 3.6, 4.5, 5.8];
   var DAO_ABSOLUTE_MAX = 3000;
-  var OVERWHELM_DAO_CULT = 900000;
-  var HEAVENLY_EMPEROR_CULT = 3000000;
-  /* 无帝之世的大成圣体是极道至尊，战力远高于叩关门槛，近乎宇宙第一。 */
-  var SACRED_JIDAO_CULT = 1600000;
+  /* ---------- 战力阶梯 ----------
+   * 以「无缺大帝 = 约 100 万」为锚，其余按原著的相对强弱排：
+   *   准帝九重天  约 30 万   —— 顶级体质配顶级悟性能摸到的上限
+   *   大成荒古圣体 约 60~70 万 —— 远超准帝九重（约 2 倍），但只有大帝的六七成：
+   *                            能叫板无缺大帝，正面打必死，这就是「叫板」二字的分寸
+   *   以力证道新帝 约 85~95 万 —— 另类成道，接近无缺大帝而不及
+   *   无缺大帝    85~105 万
+   *   破灭万道门槛 110 万     —— 必须压过当世大帝才谈得上破灭万道
+   *   圣体破灭门槛 135 万     —— 有帝 + 圣体诅咒是双重关，要比凡体破灭再高一截
+   *   天帝 / 不死天皇 150 万
+   * 旧刻度里准帝九重 19 万到天帝 300 万是 15.5 倍的断裂，
+   * 且大成圣体 160~200 万反而高过新晋大帝的 105~135 万，梯度是倒的。
+   * 现在准帝九重到天帝收紧到 5 倍。 */
+  var WORLD_EMPEROR_CULT_MIN = 850000;
+  var WORLD_EMPEROR_CULT_MAX = 1050000;
+  var OVERWHELM_DAO_CULT = 1100000;
+  /* 有帝之世的荒古圣体要同时压过帝压和圣体诅咒，门槛高于凡体破灭。 */
+  var SACRED_OVERWHELM_CULT = 1350000;
+  var HEAVENLY_EMPEROR_CULT = 1500000;
+  /* 无帝之世的大成圣体是极道至尊，但仍在大帝之下。 */
+  var SACRED_JIDAO_CULT = 700000;
   var SACRED_EMPEROR_DAO_CAP = 2800;
 
   /* 各境界寿元上限带（下标 = 境界 1-10：轮海…准帝）。
@@ -347,8 +366,11 @@
     QUASI_CHAOS_MULT: QUASI_CHAOS_MULT,
     DAO_ABSOLUTE_MAX: DAO_ABSOLUTE_MAX,
     OVERWHELM_DAO_CULT: OVERWHELM_DAO_CULT,
+    SACRED_OVERWHELM_CULT: SACRED_OVERWHELM_CULT,
     HEAVENLY_EMPEROR_CULT: HEAVENLY_EMPEROR_CULT,
     SACRED_JIDAO_CULT: SACRED_JIDAO_CULT,
+    WORLD_EMPEROR_CULT_MIN: WORLD_EMPEROR_CULT_MIN,
+    WORLD_EMPEROR_CULT_MAX: WORLD_EMPEROR_CULT_MAX,
     SACRED_EMPEROR_DAO_CAP: SACRED_EMPEROR_DAO_CAP,
     REALM_LIFE: REALM_LIFE,
     TRAITS: TRAITS, TRAIT_PATHS: TRAIT_PATHS, TRAIT_COLOR_NAME: TRAIT_COLOR_NAME, traitById: traitById, traitDesc: traitDesc,
@@ -359,7 +381,7 @@
     ACHIEVEMENTS: ACHIEVEMENTS,
     /* 诞生寿元 60-100（之后按境界上限带补充） */
     LIFE_MIN: 60, LIFE_MAX: 100,
-    /* 事件：每年触发概率 = EVENT_TARGET / 当前寿元（一生约 30 次） */
+    /* 旧口径：一生约 30 次。现改为按年密度抽（约 50 年一件），此值只作文档对照。 */
     EVENT_TARGET: 30,
     /* 修行水到渠成：每年触发概率 = STEADY_TARGET / 当前寿元（一生约 50 次） */
     STEADY_TARGET: 50,
@@ -388,9 +410,9 @@
     EMPEROR_EVENT_TARGET: 24,
     RED_DUST_LIVES: 9,
     /* 不死天皇高世蜕变阶段的战力基准；普通一世大帝通常远低于此值。 */
-    UNDEAD_EMPEROR_CULT: 3000000,
+    UNDEAD_EMPEROR_CULT: 1500000,
     /* 即使知道奇异世界坐标，也必须达到此战力才能轰穿界壁。 */
-    STRANGE_WORLD_BREAK_CULT: 1500000,
+    STRANGE_WORLD_BREAK_CULT: 1250000,
     STRANGE_WORLD_YEARS_MIN: 200000,
     STRANGE_WORLD_YEARS_MAX: 500000,
     /* 成仙路需近一纪元才会显现；开启后横渡仍极难。 */

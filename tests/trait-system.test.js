@@ -136,6 +136,17 @@ try {
   Math.random = initialRandom;
 }
 
+const goldDao = SIM.createGame(0, ['o06', 'o07'], { tier: 5, name: '颖悟', initialDaoyun: 70 });
+assert.strictEqual(goldDao.daoGift, 10, '两张金悟道应把悟性抬到满档，而不是只堆道蕴数字');
+assert.strictEqual(goldDao.daoGiftName, SIM.daoGiftName(10));
+assert.strictEqual(goldDao.resonance, 'dao');
+const purpleDao = SIM.createGame(0, ['p06', 'p07'], { tier: 5, name: '颖悟', initialDaoyun: 70 });
+assert.strictEqual(purpleDao.daoGift, 9, '两张紫悟道应把悟性从 5 抬到 9');
+const mixedGold = SIM.createGame(0, ['o06', 'o16'], { tier: 5, name: '颖悟', initialDaoyun: 70 });
+assert.strictEqual(mixedGold.daoGift, 8, '一张金悟道应把悟性从 5 抬到 8');
+const plain = SIM.createGame(0, ['o01', 'o16'], { tier: 5, name: '颖悟', initialDaoyun: 70 });
+assert.strictEqual(plain.daoGift, 5, '非悟道路线的金卡不应改悟性档');
+
 const samePath = SIM.createGame(0, ['w01', 'b01']);
 assert.strictEqual(samePath.resonance, 'body', 'matching paths should resonate');
 const mixedPath = SIM.createGame(0, ['w01', 'w06']);
@@ -269,6 +280,24 @@ assert.ok(midHunt > 0.08, 'swallowing several physiques must draw a real world-h
 assert.ok(SIM.swallowSiegeDeathChance(hunted) > midHunt,
   'the more bodies the demon embryo swallows, the likelier the world siege becomes');
 assert.ok(siegeEvent.available(hunted, SIM.U), 'the hunt event must appear after swallowing others');
+
+function huntedAt(lvl) {
+  var g = SIM.createGame(0, ['o03']);
+  SIM.setPhysique(g, DATA.physiqueById('mortal'));
+  g.lvl = lvl;
+  SIM.swallowTargets().forEach(function (p) { g.swallowState.taken[p.id] = true; });
+  g.swallowReady = true;
+  return g;
+}
+var seaSiege = SIM.swallowSiegeDeathChance(huntedAt(8));
+var saintSiege = SIM.swallowSiegeDeathChance(huntedAt(75));
+var greatSiege = SIM.swallowSiegeDeathChance(huntedAt(85));
+var quasiSiege = SIM.swallowSiegeDeathChance(huntedAt(94));
+assert.ok(seaSiege > saintSiege, '圣人被围殴应低于轮海：轮海 ' + seaSiege + ' 圣人 ' + saintSiege);
+assert.ok(greatSiege < 0.04, '大圣以上很难被围殴致死，实际 ' + greatSiege);
+assert.ok(quasiSiege < 0.015, '准帝几乎不可能被围殴致死，实际 ' + quasiSiege);
+assert.ok(quasiSiege < greatSiege, '准帝围殴致死应低于大圣');
+assert.ok(SIM.swallowSiegeSurviveChance(huntedAt(94)) > 0.92, '准帝遇围攻应几乎都能杀出重围');
 assert.ok(SIM.swallowTargets().every(function (p) {
   return p.id !== 'chaos' && p.id !== 'innate_sacred_dao';
 }), 'peak physiques cannot be swallowed as fuel for the other peak');

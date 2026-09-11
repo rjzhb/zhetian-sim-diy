@@ -44,7 +44,7 @@
     if (FORCE_MAX_DAO) return '此世悟性『万古道心』。' + (prefix || '') + '出生道蕴已达到理论极限 3000，专用于测试极端悟道路线上限。';
     if (!pendingDaoGift) pendingDaoGift = Sim.drawDaoGift();
     return '此世悟性『' + pendingDaoGift.name + '』。' + (prefix || '') +
-      '道蕴/悟道命格能创法、压瓶颈、堆道海，与体质同等重要。';
+      '悟道命格会抬高此世悟性：金+3、紫+2、蓝+1。高悟才能真正立法，与体质同等重要。';
   }
   function clearPersistedCheats() {
     try {
@@ -78,6 +78,12 @@
     }
   }
   var KEY_SPEED = 'zt_speed';
+  function clearStickyAutoChoice() {
+    Sim.setAutoChoice(false);
+    try { localStorage.removeItem('zt_auto_choice'); } catch (e) {}
+    var box = $('choice-auto');
+    if (box) box.checked = false;
+  }
   var audioCtx = null;
   function ensureAudio() {
     try {
@@ -577,6 +583,9 @@
     $('darkturmoil-mask').hidden = true;
     $('immortalpath-mask').hidden = true;
     $('strangeworld-mask').hidden = true;
+    resetChoiceSheet();
+    $('choice-mask').hidden = true;
+    clearStickyAutoChoice();
     renderAttrs();
     $('log-box').innerHTML = '';
     pendingLogs = [];
@@ -645,7 +654,7 @@
     do {
       log = Sim.rollYear(G);
       guard++;
-    } while (log.length === 0 && !G.dead && !G.ascended && guard < 100000);
+    } while (log.length === 0 && !G.dead && !G.ascended && !G.pendingChoice && guard < 100000);
     for (var i = 0; i < log.length; i++) fullLog.push(log[i]);
     renderAttrs();
     var brkCount = 0, j;
@@ -662,12 +671,225 @@
 
   function openPendingChoiceIfNeeded() {
     if (!G) return false;
+    if (G.pendingChoice) return openEventChoice();
     if (G.awaitingDeathlessChoice) return openDeathlessChoice();
     if (G.awaitingStrangeWorldChoice) return openStrangeWorldChoice();
     if (G.awaitingDarkTurmoil) return openDarkTurmoilChoice();
     if (G.awaitingImmortalPath) return openImmortalPathChoice();
     return openSelfSlashChoiceIfNeeded();
   }
+  /* ---------- 通用机缘抉择：事件把选项交给玩家，概率如实展示 ---------- */
+  function resetChoiceSheet() {
+    $('choice-options').hidden = false;
+    $('choice-result').hidden = true;
+    $('choice-result').innerHTML = '';
+    $('choice-deltas').hidden = true;
+    $('choice-deltas').innerHTML = '';
+    $('choice-continue').hidden = true;
+    $('choice-auto-row').hidden = false;
+    var autoBox = $('choice-auto');
+    if (autoBox) autoBox.checked = false;
+  }
+  function openEventChoice() {
+    var pc = G.pendingChoice;
+    if (!pc) return false;
+    stopPlay();
+    resetChoiceSheet();
+    $('choice-title').textContent = pc.title || '机缘抉择';
+    var leadText = pc.prompt || pc.lead || '';
+    var lead = $('choice-lead');
+    lead.textContent = leadText;
+    lead.hidden = !leadText;
+    $('choice-info').textContent = pc.info || '';
+    var box = $('choice-options');
+    box.innerHTML = '';
+    for (var i = 0; i < pc.options.length; i++) {
+      box.appendChild(buildChoiceButton(pc.options[i]));
+    }
+    var logBox = $('log-box');
+    if (logBox) logBox.scrollTop = 0;
+    $('choice-mask').hidden = false;
+    return true;
+  }
+  function fillReviewLines(box, logs, lastCls) {
+    box.innerHTML = '';
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < logs.length; i++) {
+      var d = document.createElement('div');
+      d.className = 'rv-' + (logs[i].cls || 'year');
+      if (lastCls && i === logs.length - 1) d.className += ' ' + lastCls;
+      d.textContent = logs[i].text;
+      frag.appendChild(d);
+    }
+    box.appendChild(frag);
+  }
+  function buildChoiceButton(opt) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'choice-opt' + (opt.safe ? ' co-safe' : '') + (opt.risk === 'deadly' ? ' co-deadly' : '');
+    var label = document.createElement('div');
+    label.className = 'co-label';
+    label.textContent = opt.label;
+    if (opt.chance != null) {
+      var odds = document.createElement('span');
+      odds.className = 'co-odds';
+      odds.textContent = '成功率 ' + Math.round(opt.chance * 1000) / 10 + '%';
+      label.appendChild(odds);
+    }
+    btn.appendChild(label);
+    var desc = opt.desc || '';
+    if (opt.risk === 'deadly') desc = (desc ? desc + '｜' : '') + '失败将身陨';
+    if (desc) {
+      var d = document.createElement('div');
+      d.className = 'co-desc';
+      d.textContent = desc;
+      btn.appendChild(d);
+    }
+    btn.onclick = function () { resolveEventChoice(opt.id); };
+    return btn;
+  }
+  function choiceResultText(text) {
+    return String(text || '').replace(/^第\d+岁，遇到[^，]+，/, '').replace(/^第\d+岁，/, '');
+  }
+  function snapChoiceAttrs(g) {
+    if (!g) return null;
+    return {
+      cult: g.cult || 0,
+      age: g.age || 0,
+      life: g.lifespan || 0,
+      dao: Math.round(g.daoyun || 0),
+      cap: Math.round(g.daoyunCap || 0)
+    };
+  }
+  function playCount(el, from, to, format) {
+    if (!el) return;
+    if (from === to) { el.textContent = format(to); return; }
+    var t0 = Date.now(), dur = 720;
+    function step() {
+      var t = Math.min(1, (Date.now() - t0) / dur);
+      var e = 1 - Math.pow(1 - t, 3);
+      el.textContent = format(Math.round(from + (to - from) * e));
+      if (t < 1) requestAnimationFrame(step);
+    }
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(step);
+    else el.textContent = format(to);
+  }
+  function signedDelta(n) {
+    if (n > 0) return '+' + fmt(n);
+    if (n < 0) return '-' + fmt(-n);
+    return '0';
+  }
+  function flashAttr(id, up) {
+    var el = $(id);
+    if (!el || !el.parentNode) return;
+    var card = el.parentNode;
+    card.classList.remove('attr-pop-up', 'attr-pop-down');
+    void card.offsetWidth;
+    card.classList.add(up ? 'attr-pop-up' : 'attr-pop-down');
+  }
+  function fillChoiceDeltas(before) {
+    var box = $('choice-deltas');
+    if (!box || !G || !before) {
+      if (box) box.hidden = true;
+      return;
+    }
+    var after = snapChoiceAttrs(G);
+    var rows = [];
+    if (after.cult !== before.cult) {
+      rows.push({ name: '实力', from: before.cult, to: after.cult, fmt: fmt, attr: 'attr-cult' });
+    }
+    if (after.life !== before.life) {
+      rows.push({
+        name: '命限', from: before.life, to: after.life, fmt: fmt, attr: 'attr-life',
+        show: function (n) { return after.age + '/' + n; }
+      });
+    }
+    if (after.dao !== before.dao || after.cap !== before.cap) {
+      rows.push({
+        name: '道蕴', from: before.dao, to: after.dao, fmt: fmt, attr: 'attr-daoyun',
+        show: function (n) { return n + '/' + after.cap; }
+      });
+    }
+    box.innerHTML = '';
+    if (!rows.length) { box.hidden = true; return; }
+    var i;
+    for (i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      var d = row.to - row.from;
+      var up = d > 0;
+      var item = document.createElement('div');
+      item.className = 'choice-delta ' + (up ? 'cd-up' : 'cd-down');
+      var name = document.createElement('span');
+      name.className = 'cd-name';
+      name.textContent = row.name;
+      var num = document.createElement('span');
+      num.className = 'cd-num';
+      var show = row.show || row.fmt;
+      num.textContent = show(row.from);
+      var delta = document.createElement('span');
+      delta.className = 'cd-delta';
+      delta.textContent = signedDelta(d);
+      item.appendChild(name);
+      item.appendChild(num);
+      item.appendChild(delta);
+      box.appendChild(item);
+      playCount(num, row.from, row.to, show);
+      if (row.attr) {
+        flashAttr(row.attr, up);
+        playCount($(row.attr), row.from, row.to, row.attr === 'attr-life' ?
+          function (n) { return after.age + '/' + n; } :
+          (row.attr === 'attr-daoyun' ? function (n) { return n + '/' + after.cap; } : fmt));
+      }
+    }
+    box.hidden = false;
+  }
+  function showChoiceResult(pc, picked, log, before) {
+    stopPlay();
+    $('choice-title').textContent = pc.title || '机缘抉择';
+    var lead = $('choice-lead');
+    lead.textContent = picked && picked.label ? '你选择了「' + picked.label + '」' : '';
+    lead.hidden = !lead.textContent;
+    $('choice-info').textContent = '';
+    $('choice-options').innerHTML = '';
+    $('choice-options').hidden = true;
+    $('choice-auto-row').hidden = true;
+    var rows = [];
+    for (var i = 0; i < log.length; i++) {
+      if (!log[i] || !log[i].text) continue;
+      rows.push({ cls: log[i].cls, text: choiceResultText(log[i].text) });
+    }
+    if (!rows.length) rows.push({ cls: 'year', text: '此事就此翻过。' });
+    var accent = (G && G.dead) ? 'rv-now' : null;
+    fillReviewLines($('choice-result'), rows, accent);
+    $('choice-result').hidden = false;
+    fillChoiceDeltas(before);
+    $('choice-continue').textContent = (G && (G.dead || G.ascended)) ? '查看结局' : '继续';
+    $('choice-continue').hidden = false;
+    $('choice-mask').hidden = false;
+  }
+  function continueChoiceResult() {
+    if (!$('choice-mask') || $('choice-mask').hidden) return;
+    resetChoiceSheet();
+    $('choice-mask').hidden = true;
+    if (!G) return;
+    if (G.dead || G.ascended) { stopPlay(); finishGame(G.dead ? 'dead' : 'god'); return; }
+    if (openPendingChoiceIfNeeded()) return;
+    startPlay();
+  }
+  function resolveEventChoice(optionId) {
+    if (!G || !G.pendingChoice) return;
+    var pc = G.pendingChoice;
+    var picked = null, i;
+    for (i = 0; i < pc.options.length; i++) if (pc.options[i].id === optionId) picked = pc.options[i];
+    ensureAudio(); blip(660, 0.12, 'triangle', 0.1);
+    var before = snapChoiceAttrs(G);
+    var log = [];
+    Sim.resolveChoice(G, optionId, log);
+    for (i = 0; i < log.length; i++) fullLog.push(log[i]);
+    renderLog(log); renderAttrs();
+    showChoiceResult(pc, picked, log, before);
+  }
+
   function openDeathlessChoice() {
     stopPlay();
     $('deathless-info').textContent = '第一世帝命即将结束 · 当前道蕴 ' +
@@ -893,6 +1115,8 @@
   function exitGame() {
     stopPlay();
     hideMask();
+    resetChoiceSheet();
+    $('choice-mask').hidden = true;
     G = null;
     show('home');
   }
@@ -901,6 +1125,8 @@
   function finishGame(reason) {
     if (!G) return;
     stopPlay(); hideMask();
+    resetChoiceSheet();
+    $('choice-mask').hidden = true;
     pendingLogs = [];
     settleReason = reason;
 
@@ -1388,15 +1614,7 @@
     }
   }
   function openReview() {
-    var box = $('review-log'); box.innerHTML = '';
-    var frag = document.createDocumentFragment();
-    for (var i = 0; i < fullLog.length; i++) {
-      var d = document.createElement('div');
-      d.className = 'rv-' + (fullLog[i].cls || 'year');
-      d.textContent = fullLog[i].text;
-      frag.appendChild(d);
-    }
-    box.appendChild(frag);
+    fillReviewLines($('review-log'), fullLog, null);
     $('review-mask').hidden = false;
   }
   function closeReview() { $('review-mask').hidden = true; }
@@ -1441,6 +1659,16 @@
     $('btn-immortalpath-wait').addEventListener('click', function () { resolveImmortalPath('wait'); });
     $('btn-strangeworld-wushi').addEventListener('click', function () { resolveStrangeWorldChoice('wushi'); });
     $('btn-strangeworld-hide').addEventListener('click', function () { resolveStrangeWorldChoice('hide'); });
+    $('choice-continue').addEventListener('click', function () {
+      blip(560, 0.08, 'triangle', 0.08);
+      continueChoiceResult();
+    });
+    $('choice-auto').addEventListener('change', function () {
+      if (!this.checked || !G || !G.pendingChoice) return;
+      var pick = Sim.defaultChoiceOption(G.pendingChoice);
+      this.checked = false;
+      resolveEventChoice(pick);
+    });
     $('btn-pause-settle').addEventListener('click', function () { blip(500, 0.08, 'triangle', 0.1); finishGame('pause'); });
     $('btn-pause-exit').addEventListener('click', function () { exitGame(); });
     $('btn-settle-again').addEventListener('click', startGame);
@@ -1476,6 +1704,7 @@
   /* ---------- 启动 ---------- */
   loadSound();
   loadSpeed();
+  clearStickyAutoChoice();
   loadUIVersion();
   clearPersistedCheats();
   loadPlayer();

@@ -420,6 +420,20 @@
     </div>
   </div>
 
+  <!-- ============ 通用机缘抉择（事件驱动） ============ -->
+  <div id="choice-mask" class="mask choice-mask" hidden="">
+    <div class="mask-box choice-box">
+      <div class="mask-title" id="choice-title">机缘抉择</div>
+      <div class="choice-lead" id="choice-lead"></div>
+      <div class="mask-info" id="choice-info"></div>
+      <div id="choice-options"></div>
+      <div class="choice-result" id="choice-result" hidden=""></div>
+      <div class="choice-deltas" id="choice-deltas" hidden=""></div>
+      <button type="button" class="btn btn-primary" id="choice-continue" hidden="">继续</button>
+      <label class="choice-auto" id="choice-auto-row"><input type="checkbox" id="choice-auto"> 这次按稳健项自动选</label>
+    </div>
+  </div>
+
   <!-- ============ 奇异世界：无始对峙抉择 ============ -->
   <div id="strangeworld-mask" class="mask" hidden="">
     <div class="mask-box choice-box">
@@ -432,6 +446,14 @@
   </div>
 
   <script src="./data.js"></script>
+  <script src="./events-pools.js"></script>
+  <script src="./events-core.js"></script>
+  <script src="./events-dao.js"></script>
+  <script src="./events-physique.js"></script>
+  <script src="./events-world.js"></script>
+  <script src="./events-road.js"></script>
+  <script src="./events-life.js"></script>
+  <script src="./events-life-late.js"></script>
   <script src="./events.js"></script>
   <script src="./sim.js"></script>
   <script src="./game.js"></script>

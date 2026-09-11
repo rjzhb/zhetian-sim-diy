@@ -489,16 +489,52 @@ assert.ok(!fastSleep.forbiddenSleepLeft,
 Sim.setFast(false);
 
 assert.strictEqual(typeof Sim.undeadEmperorForRoll, 'function');
-assert.deepStrictEqual(Sim.undeadEmperorForRoll(0), { lives: 2, cult: 1650000 });
-assert.deepStrictEqual(Sim.undeadEmperorForRoll(0.1), { lives: 3, cult: 2100000 });
-assert.deepStrictEqual(Sim.undeadEmperorForRoll(0.25), { lives: 4, cult: 2550000 });
-assert.deepStrictEqual(Sim.undeadEmperorForRoll(0.5), { lives: 5, cult: 3000000 });
-assert.deepStrictEqual(Sim.undeadEmperorForRoll(0.75), { lives: 6, cult: 3600000 });
-assert.deepStrictEqual(Sim.undeadEmperorForRoll(0.9), { lives: 7, cult: 4300000 });
-assert.deepStrictEqual(Sim.undeadEmperorForRoll(0.97), { lives: 8, cult: 5200000 });
-assert.deepStrictEqual(Sim.undeadEmperorForRoll(0.995), { lives: 9, cult: 8000000, immortal: true });
-assert.ok(Sim.undeadEmperorForRoll(0.5, 2000000).lives >
-  Sim.undeadEmperorForRoll(0.5, 0).lives, 'later world years should shift the enemy toward later lives');
+/* 世数由玩家何时入界决定：第一世刚轰开界壁时，对手多半只活到第三至第五世。 */
+function undeadLifeShare(worldYear, lifeNo, target) {
+  let hit = 0;
+  const N = 4000;
+  for (let i = 0; i < N; i++) {
+    const lives = Sim.undeadEmperorForRoll((i + 0.5) / N, worldYear, { lifeNo: lifeNo }).lives;
+    if (target.indexOf(lives) >= 0) hit++;
+  }
+  return hit / N;
+}
+assert.ok(undeadLifeShare(0, 1, [3, 4, 5]) >= 0.75,
+  'entering on the first emperor life should mostly meet a three-to-five-life undead emperor');
+assert.ok(undeadLifeShare(0, 1, [8, 9]) <= 0.01,
+  'an early challenger must not run into an eight- or nine-life undead emperor');
+assert.ok(undeadLifeShare(0, 1, [9]) <= 0.005,
+  'a red-dust-immortal undead emperor is an outlier, not an early-game roll');
+assert.ok(Sim.undeadEmperorMean(2000000, 1) > Sim.undeadEmperorMean(0, 1),
+  'later world years should shift the enemy toward later lives');
+assert.ok(Sim.undeadEmperorMean(0, 6) > Sim.undeadEmperorMean(0, 1),
+  'entering after several reversed lives should also meet a more advanced enemy');
+assert.ok(undeadLifeShare(3600000, 9, [6, 7, 8]) >= 0.7,
+  'entering late must face a far more advanced undead emperor');
+
+/* 单人杀不死不死天皇：极限配置只能相持或逼退 */
+assert.strictEqual(typeof Sim.canSlayUndead, 'function');
+assert.strictEqual(typeof Sim.undeadRepelChance, 'function');
+const soloPeak = Sim.createGame(0, []);
+Sim.setPhysique(soloPeak, DATA.physiqueById('innate_sacred_dao'));
+Sim.becomeDi(soloPeak, [], 'force');
+soloPeak.inStrangeWorld = true;
+soloPeak.undeadCult = 3000000;
+soloPeak.cult = 6000000;
+soloPeak.daoyun = 3000;
+soloPeak.daoyunCap = 3000;
+assert.strictEqual(Sim.canSlayUndead(soloPeak), false,
+  'without the Wushi alliance even a perfect build must not be able to slay the undead emperor');
+assert.ok(Sim.undeadRepelChance(soloPeak) > 0.5,
+  'a peak build should still be able to stand its ground and drive him off');
+soloPeak.strangeWorldAlliance = 'wushi';
+assert.strictEqual(Sim.canSlayUndead(soloPeak), true,
+  'joining Wushi is the only route that opens the kill');
+const soloWeak = Sim.createGame(0, []);
+soloWeak.undeadCult = 3000000;
+soloWeak.cult = 1000000;
+assert.strictEqual(Sim.undeadRepelChance(soloWeak), 0,
+  'a clearly weaker emperor cannot hold the line at all');
 
 assert.strictEqual(typeof Sim.strangeWorldSituationForRoll, 'function');
 assert.strictEqual(Sim.strangeWorldSituationForRoll(0.05), 'quiet');
@@ -574,8 +610,11 @@ try {
 } finally {
   Math.random = oldRandom;
 }
-assert.strictEqual(killHunt.defeatedUndead, true, 'a stronger escapee should be able to slay the hunter');
-assert.strictEqual(killHunt.undeadHunting, false);
+assert.strictEqual(killHunt.defeatedUndead, false,
+  'no solo emperor may slay the undead emperor, however strong');
+assert.strictEqual(killHunt.undeadRepelled, true,
+  'a stronger escapee should be able to hold the line and drive the hunter off');
+assert.strictEqual(killHunt.undeadHunting, false, 'being driven off must pause the hunt');
 assert.strictEqual(killHunt.dead, false);
 
 const escapeHunt = Sim.createGame(0, []);
@@ -735,10 +774,19 @@ sacredContested.lvl = 99;
 sacredContested.cult = 180000;
 sacredContested.worldEmperor = { name: '当世大帝' };
 Sim.completeSacredBody(sacredContested, []);
-assert.ok(sacredContested.cult >= DATA.OVERWHELM_DAO_CULT,
-  '大成 in an occupied heaven must still reach the 90万 line');
 assert.ok(sacredContested.cult < DATA.SACRED_JIDAO_CULT,
   'a living emperor still denies the sacred body uncontested supremacy');
+/* 大成圣体只能叫板无缺大帝，正面打必输：战力必须低于路人大帝的下限，
+ * 也必须够不着破灭万道的门槛——否则「叫板」就变成了「碾压」。 */
+assert.ok(sacredContested.cult < DATA.WORLD_EMPEROR_CULT_MIN,
+  'a completed sacred body may challenge a flawless emperor but must never out-muscle one');
+assert.ok(sacredEighth.cult < DATA.WORLD_EMPEROR_CULT_MIN,
+  'even uncontested, the completed sacred body stays below emperor power');
+assert.ok(sacredEighth.cult < DATA.OVERWHELM_DAO_CULT,
+  'completing the sacred body alone must not hand over the 破灭万道 threshold');
+/* 但它确实远超准帝九重天：顶级体质配顶级悟性的准帝九重约 30 万，大成圣体要在两倍上下。 */
+assert.ok(sacredEighth.cult >= 550000,
+  'a completed sacred body must tower over an ordinary ninth-heaven quasi-emperor');
 
 const sacredHeavenly = Sim.createGame(0, []);
 Sim.setPhysique(sacredHeavenly, DATA.physiqueById('sacred'));
@@ -796,6 +844,51 @@ try {
 }
 assert.strictEqual(sacredTianxin.becameEmperor, false,
   'Tianxin must not let a sacred body skip the once-in-an-era emperor gate');
+
+const sacredJustOverwhelm = Sim.createGame(0, []);
+Sim.setPhysique(sacredJustOverwhelm, DATA.physiqueById('sacred'));
+sacredJustOverwhelm.lvl = 99;
+sacredJustOverwhelm.cult = DATA.OVERWHELM_DAO_CULT;
+sacredJustOverwhelm.daoyun = Sim.effectiveDaoyunNeed(sacredJustOverwhelm, 99);
+sacredJustOverwhelm.worldEmperor = { name: '当世大帝', start: 0, end: 10000, cult: 950000 };
+assert.ok(DATA.SACRED_OVERWHELM_CULT > DATA.OVERWHELM_DAO_CULT,
+  '圣体破灭门槛必须高于凡体破灭万道');
+assert.strictEqual(Sim.imperialGateInfo(sacredJustOverwhelm).block, 'suppress',
+  '有帝+圣体是双重关，刚够凡体破灭门槛仍应被镇压');
+var sacredAtSacredBar = Sim.createGame(0, []);
+Sim.setPhysique(sacredAtSacredBar, DATA.physiqueById('sacred'));
+sacredAtSacredBar.lvl = 99;
+sacredAtSacredBar.cult = DATA.SACRED_OVERWHELM_CULT;
+sacredAtSacredBar.daoyun = Sim.effectiveDaoyunNeed(sacredAtSacredBar, 99);
+sacredAtSacredBar.worldEmperor = { name: '当世大帝', start: 0, end: 10000, cult: 950000 };
+assert.strictEqual(Sim.imperialGateInfo(sacredAtSacredBar).block, null,
+  '圣体刚过双重关门槛就应能走破灭万道');
+
+const sacredCrush = Sim.createGame(0, []);
+Sim.setPhysique(sacredCrush, DATA.physiqueById('sacred'));
+sacredCrush.lvl = 99;
+sacredCrush.cult = 1600000;
+sacredCrush.daoyun = Sim.effectiveDaoyunNeed(sacredCrush, 99);
+sacredCrush.worldEmperor = { name: '当世大帝', start: 0, end: 10000, cult: 950000 };
+var crushInfo = Sim.imperialGateInfo(sacredCrush);
+assert.strictEqual(crushInfo.block, null, '圣体 160 万已过圣体破灭门槛，不应再被镇压挡住');
+assert.ok(crushInfo.odds >= 0.85, '圣体压过双重关后应走破灭万道，不是万古难遇：' + crushInfo.odds);
+try {
+  Math.random = function () { return 0.4; };
+  Sim.tryZhengdao(sacredCrush, []);
+} finally {
+  Math.random = oldRandom;
+}
+assert.ok(sacredCrush.becameEmperor, '圣体战力压过双重关时，有帝之世应能直接成帝');
+
+const sacredCallout = Sim.createGame(0, []);
+Sim.setPhysique(sacredCallout, DATA.physiqueById('sacred'));
+sacredCallout.lvl = 99;
+sacredCallout.cult = 620000;
+sacredCallout.daoyun = Sim.effectiveDaoyunNeed(sacredCallout, 99);
+sacredCallout.worldEmperor = { name: '当世大帝', start: 0, end: 10000, cult: 950000 };
+assert.strictEqual(Sim.imperialGateInfo(sacredCallout).block, 'suppress',
+  '大成圣体 62 万只是叫板，有帝之世仍够不着破灭门槛');
 
 const suppressedGame = Sim.createGame(0, []);
 Sim.setPhysique(suppressedGame, DATA.physiqueById('mortal'));
@@ -883,7 +976,8 @@ try {
 }
 assert.strictEqual(entryGame.inStrangeWorld, true);
 assert.strictEqual(entryGame.strangeWorldSituation, 'standoff');
-assert.strictEqual(entryGame.undeadLives, 7);
+assert.strictEqual(entryGame.undeadLives, 5,
+  'a first-life emperor breaking the wall early meets a mid-stage undead emperor');
 assert.strictEqual(entryGame.undeadImmortal, false);
 assert.strictEqual(entryGame.dead, false);
 assert.strictEqual(entryGame.ascended, false);
@@ -1063,9 +1157,12 @@ assert.strictEqual(Sim.eventAvailable(eventBoundary, experienceEvents.xingkong_g
   'the ancient star road must not enter the pool before Saint');
 assert.strictEqual(experienceEvents.xingkong_gulu.cond(eventBoundary, Sim.U), false);
 eventBoundary.lvl = 71;
+assert.strictEqual(Sim.eventAvailable(eventBoundary, experienceEvents.xingkong_gulu), false,
+  '没踏上古路时，不应再抽一条只会加战力的假古路');
+eventBoundary.roadSegment = 1;
 assert.strictEqual(Sim.eventAvailable(eventBoundary, experienceEvents.xingkong_gulu), true);
 assert.strictEqual(experienceEvents.xingkong_gulu.cond(eventBoundary, Sim.U), true,
-  'the ancient star road should open from Saint onward');
+  '真正登路之后，古路风物才可以再写一笔');
 eventBoundary.lvl = 90;
 assert.strictEqual(experienceEvents.quasi_heavenly_tribulation.cond(eventBoundary, Sim.U), false);
 eventBoundary.lvl = 91;

@@ -94,18 +94,71 @@
   function pureDaoPath(g) {
     return !!(g && g.daoGift >= 9 && g.daoyun >= Math.max(120, effectiveDaoyunNeed(g, g.lvl)));
   }
-  function daoBreakFactor(g) {
-    var need = effectiveDaoyunNeed(g, g.lvl);
+  function daoBreakFactor(g, lvl) {
+    var at = lvl != null ? lvl : (g && g.lvl);
+    var need = effectiveDaoyunNeed(g, at);
     if (!need) return 1;
     var ratio = g.daoyunCap > 0 ? g.daoyun / need : 0;
     if (ratio < 1) return 0;
-    return clamp(0.35 + (ratio - 1) * 0.45, 0.35, 1.25);
+    var f = clamp(0.35 + (ratio - 1) * 0.45, 0.35, 1.25);
+    if ((at || 1) >= 91) {
+      var arts = Math.min(4, ((g.createdArts || []).length));
+      var gift = Math.max(0, (g.daoGift || 5) - 6);
+      f *= 1 + arts * 0.08 + gift * 0.05;
+      f = clamp(f, 0.35, 2.4);
+    }
+    return f;
+  }
+  function quasiDaoRelief(g) {
+    var arts = Math.min(4, ((g && g.createdArts) || []).length);
+    var gift = Math.max(0, ((g && g.daoGift) || 5) - 6);
+    var fill = g && g.daoyunCap > 0 ? clamp(g.daoyun / g.daoyunCap, 0, 1) : 0;
+    var raw = arts * 0.08 + gift * 0.045 + Math.max(0, fill - 0.35) * 0.18;
+    if (g && isPeakPhysique(g.physiqueId)) raw *= 0.35;
+    return clamp(raw, 0, 0.50);
+  }
+  function daoZhengdaoBonus(g) {
+    if (!g || isHuangguSacred(g)) return 0;
+    var zhx = ((g.tm && g.tm.zhx) || 0) + pval(g, 'zhx', 0);
+    var room = Math.max(0, 0.30 - zhx);
+    var arts = Math.min(5, (g.createdArts || []).length);
+    var abs = clamp((g.daoyun || 0) / D.DAO_ABSOLUTE_MAX, 0, 1);
+    var gift = Math.max(0, (g.daoGift || 5) - 6);
+    return Math.min(room, arts * 0.045 + abs * 0.14 + gift * 0.02);
+  }
+  function createdArtN(g) {
+    return ((g && g.createdArts) || []).length;
+  }
+  /* 凡体墙只挡「既没走上道路、也没把战力顶满」的人。
+   * 帝路金卡 / 帝路共鸣是这条路上的人；战力到大圣天花板附近说明梭哈已经把货币攒够了。 */
+  var MORTAL_POWER_GATE = 280000;
+  function hasImperialRoad(g) {
+    if (!g) return false;
+    if (g.resonance === 'imperial') return true;
+    var i, paths = g.traitPaths || [];
+    for (i = 0; i < paths.length; i++) if (paths[i] === 'imperial') return true;
+    var ids = g.traits || [];
+    for (i = 0; i < ids.length; i++) {
+      var t = D.traitById(ids[i]);
+      if (t && t.path === 'imperial') return true;
+    }
+    return false;
+  }
+  function mortalWallBypass(g) {
+    if (pureDaoPath(g)) return true;
+    if (hasImperialRoad(g)) return true;
+    if ((g.cult || 0) >= MORTAL_POWER_GATE) return true;
+    return false;
   }
   function canAdvance(g) {
     var need = effectiveDaoyunNeed(g, g.lvl);
     if (need && g.daoyun < need) return false;
-    if (g.innate <= 2 && !g.swallowingArt && g.lvl >= 90 && !pureDaoPath(g)) return false;
+    if (g.innate <= 2 && !g.swallowingArt && g.lvl >= 90 && !mortalWallBypass(g)) return false;
     return true;
+  }
+  function daoByCap(g, share, floor) {
+    var cap = Math.max(80, (g && g.daoyunCap) || 80);
+    return Math.max(floor || 1, Math.round(cap * share));
   }
   function gainDaoyun(g, amount, capAdd) {
     if (!g || amount <= 0) return 0;
@@ -132,6 +185,579 @@
     var dao = g.daoyun || 0;
     var cap = Math.max(1, g.daoyunCap || 1);
     return dao >= 800 || (dao >= 400 && dao / cap >= 0.75);
+  }
+
+  /* ============================================================
+   * 创法系统
+   * 道蕴决定“能不能想明白”，玩家决定“要不要走这条路”。
+   * 每门自创法门长期生效，但同类越多收益越低，防止靠反复创法滚雪球。
+   * ============================================================ */
+  var ART_TYPES = [
+    { id: 'scripture', name: '经文', minLvl: 31, diff: 1.00, deadly: false,
+      desc: '重写己身修行体系，长期加快实力与道蕴积累', fx: { cult: 0.055, dao: 0.05 } },
+    { id: 'guard', name: '护道法', minLvl: 21, diff: 0.90, deadly: false,
+      desc: '身法与护身法门，遇险时更容易全身而退', fx: { ward: 2.6 } },
+    { id: 'array', name: '阵法', minLvl: 41, diff: 1.00, deadly: false,
+      desc: '以阵纹布局攻守，兼有护身与压制之效', fx: { ward: 1.5, cult: 0.025 } },
+    { id: 'secret', name: '秘术', minLvl: 41, diff: 1.08, deadly: false,
+      desc: '凝练突破法门，破境更快', fx: { brk: 0.07 } },
+    { id: 'soul', name: '元神法', minLvl: 51, diff: 1.18, deadly: false,
+      desc: '温养元神，为帝者根基与逆活铺路', fx: { soul: 1, dao: 0.045 } },
+    { id: 'killing', name: '杀伐法', minLvl: 61, diff: 1.22, deadly: false,
+      desc: '一法定胜负，同境战力显著提升', fx: { cult: 0.095 } },
+    { id: 'longevity', name: '长生法雏形', minLvl: 71, diff: 1.40, deadly: false,
+      desc: '推演驻世之法，延寿并稳固晚年血气', fx: { life: 1, soul: 1 } },
+    { id: 'forbidden', name: '禁术', minLvl: 81, diff: 1.70, deadly: true,
+      desc: '踏在大道禁忌边缘，威力极强，推演失败可能当场道消', fx: { cult: 0.14, brk: 0.045 } }
+  ];
+  var ART_PREFIX = ['苦海', '命泉', '神桥', '彼岸', '道宫', '四极', '化龙', '仙台', '轮回',
+    '星海', '太初', '万道', '无量', '长生', '寂灭', '混元', '九天', '大荒', '太虚', '玄黄',
+    '紫微', '幽冥', '不朽', '天心', '遮天', '斩道', '归墟', '烛照'];
+  var ART_SUFFIX = {
+    scripture: ['经', '真经', '古卷', '真解', '道书', '篇'],
+    guard: ['护道诀', '不坏功', '身法', '避劫术', '守一诀'],
+    array: ['阵图', '大阵', '杀阵', '阵纹', '锁天阵'],
+    secret: ['秘术', '真诀', '妙法', '印', '玄术'],
+    soul: ['元神篇', '神念法', '魂经', '照神诀'],
+    killing: ['拳', '剑诀', '杀法', '指', '掌'],
+    longevity: ['长生诀', '驻世法', '涅槃篇', '续命术'],
+    forbidden: ['禁术', '魔功', '绝法', '逆天诀']
+  };
+  function artType(id) {
+    for (var i = 0; i < ART_TYPES.length; i++) if (ART_TYPES[i].id === id) return ART_TYPES[i];
+    return null;
+  }
+  function artTypeIds() {
+    var out = [], i;
+    for (i = 0; i < ART_TYPES.length; i++) out.push(ART_TYPES[i].id);
+    return out;
+  }
+  function createdArts(g) {
+    if (!g.createdArts) g.createdArts = [];
+    return g.createdArts;
+  }
+  function artCount(g, typeId) {
+    var arts = createdArts(g), n = 0, i;
+    for (i = 0; i < arts.length; i++) if (!typeId || arts[i].type === typeId) n++;
+    return n;
+  }
+  /* 可创法门：境界达标即出现在选项里，成功率另算 */
+  function availableArtTypes(g) {
+    var out = [], i;
+    /* 逆天档（长生法雏形、禁术）增益远大于常规法，所以门槛也远高：
+     * 除了境界，还要求创法共鸣达到 0.62，实际只有顶级档位偶尔摸得到。 */
+    var defiantOk = artDefiantResonance(g);
+    for (i = 0; i < ART_TYPES.length; i++) {
+      var t = ART_TYPES[i];
+      if ((g.lvl || 1) < t.minLvl) continue;
+      if (artCount(g, t.id) >= 4) continue;
+      if (isDefiantArt(t.id) && !defiantOk) continue;
+      out.push(t);
+    }
+    return out;
+  }
+  function createArtChance(g, typeId) {
+    var t = artType(typeId);
+    if (!t || !g) return 0;
+    var cap = Math.max(1, g.daoyunCap || 1);
+    var abs = clamp((g.daoyun || 0) / D.DAO_ABSOLUTE_MAX, 0, 1);
+    var fill = clamp((g.daoyun || 0) / cap, 0, 1);
+    var gift = clamp(((g.daoGift || 5) - 3) / 7, 0, 1);
+    var lvlBonus = clamp(((g.lvl || 1) - t.minLvl) / 60, 0, 1) * 0.12;
+    var p = 0.08 + abs * 0.44 + fill * 0.20 + gift * 0.14 + lvlBonus;
+    p /= t.diff;
+    p -= artCount(g, typeId) * 0.09;
+    p += Math.min(0.06, Math.max(0, ((g.tm && g.tm.daog) || 1) - 1) * 0.08);
+    return clamp(round(p * 1000) / 1000, 0.03, t.deadly ? 0.60 : 0.93);
+  }
+  /* 推演失败的致命概率：只有禁术这类明示高危法门才可能当场道消 */
+  function createArtDeathChance(g, typeId) {
+    var t = artType(typeId);
+    if (!t || !t.deadly) return 0;
+    var relief = Math.min(0.10, (((g.tm && g.tm.ward) || 0) + pval(g, 'ward', 0)) / 200);
+    return clamp(0.22 - clamp((g.daoyun || 0) / D.DAO_ABSOLUTE_MAX, 0, 1) * 0.10 - relief, 0.05, 0.22);
+  }
+  function artName(g, typeId) {
+    var suffix = ART_SUFFIX[typeId] || ART_SUFFIX.scripture;
+    var used = {}, arts = createdArts(g), i;
+    for (i = 0; i < arts.length; i++) used[arts[i].name] = true;
+    for (i = 0; i < 40; i++) {
+      var name = ART_PREFIX[irand(0, ART_PREFIX.length - 1)] + suffix[irand(0, suffix.length - 1)];
+      if (!used[name]) return name;
+    }
+    return ART_PREFIX[irand(0, ART_PREFIX.length - 1)] + suffix[irand(0, suffix.length - 1)] + '·其' + (arts.length + 1);
+  }
+  /* 成法：记录法门并立即结算一次性收益 */
+  function addCreatedArt(g, typeId, opts) {
+    var t = artType(typeId);
+    if (!t) return null;
+    opts = opts || {};
+    var power = opts.power != null ? opts.power : rand(0.75, 1.35);
+    /* 道蕴越深，法门品阶越高 */
+    power *= 0.75 + clamp((g.daoyun || 0) / D.DAO_ABSOLUTE_MAX, 0, 1) * 0.55;
+    var art = {
+      type: typeId, typeName: t.name,
+      name: opts.name || artName(g, typeId),
+      power: round(power * 100) / 100,
+      age: g.age, lvl: g.lvl
+    };
+    createdArts(g).push(art);
+    g.createdMethods = (g.createdMethods || 0) + 1;
+    if (t.fx.life) {
+      var lifeAdd = Math.round(t.fx.life * art.power * irand(120, 260));
+      g.lifeBonus += lifeAdd;
+      art.lifeAdd = lifeAdd;
+      syncLife(g);
+    }
+    if (t.fx.soul && g.redDustRoots) g.redDustRoots.soul += 1;
+    return art;
+  }
+  function softCap(x, max) {
+    if (x <= 0) return 0;
+    return max * (1 - Math.exp(-x / max));
+  }
+
+  /* ---------- 创法机缘共鸣 ----------
+   * 自创一门法不该是「活得够久就一定轮得到」的固定产出，而是道蕴、境界、机缘
+   * 三者同时到位才撞出来的一瞬。g.fortuneHeat 记录近期高阶机缘的余温，逐年衰减；
+   * 只有余温未散、且道蕴已经吃透当前这一层境界时，创法事件才进奖池。 */
+  var FORTUNE_HEAT_MAX = 12, ART_FILL_MIN = 0.30;
+  /* 逆天档（长生法雏形、禁术）要求更高的共鸣与境界，产出刻意压到接近零 */
+  var ART_RESONANCE_MIN = 0.30, ART_DEFIANT_RESONANCE = 0.62, ART_DEFIANT_LVL = 71;
+  function addFortuneHeat(g, tier) {
+    if (!g || tier < 3) return;
+    g.fortuneHeat = Math.min(FORTUNE_HEAT_MAX, (g.fortuneHeat || 0) + (tier >= 4 ? 5 : 2.5));
+  }
+  /* 降温按「抽中一次事件」计，不按年计。事件间隔在不同档位上差两个数量级
+   * （凡体/悟性5 约 91 年一次，混沌体/悟性10 约 16368 年一次），
+   * 任何按年衰减的写法都会在强档位上把余温清零，创法窗口永远打不开。 */
+  var FORTUNE_HEAT_DECAY = 1.2;
+  function decayFortuneHeat(g) {
+    if (!g || !g.fortuneHeat) return;
+    g.fortuneHeat = Math.max(0, g.fortuneHeat - FORTUNE_HEAT_DECAY);
+  }
+  /* 道蕴填满度：这一层境界你悟透了几成 */
+  function daoFill(g) {
+    if (!g) return 0;
+    return clamp((g.daoyun || 0) / Math.max(1, g.daoyunCap || 1), 0, 1);
+  }
+  /* 0~1 的共鸣强度，判定与界面展示共用 */
+  function artResonanceLevel(g) {
+    if (!g || g.becameEmperor) return 0;
+    if ((g.lvl || 1) < 21) return 0;
+    var fill = daoFill(g);
+    /* 阈值 0.30 是按实测标定的：悟性越高 daoyunCap 涨得越快，填充度实际上很难越过 0.5
+     * （凡体/悟性10 均值 0.421，混沌体/悟性10 均值 0.369），
+     * 写 0.55 会让创法永远触发不了。0.30 恰好挡住凡体/悟性5（0.220）和荒古圣体/悟性8（0.213）。 */
+    if (fill < ART_FILL_MIN) return 0;              /* 道蕴没吃透这一层，谈不上立法 */
+    var heat = clamp((g.fortuneHeat || 0) / 6, 0, 1);
+    if (heat <= 0) return 0;                        /* 近期没撞过高阶机缘，没有由头 */
+    var depth = clamp(((g.lvl || 1) - 20) / 70, 0, 1);
+    var fillNorm = clamp((fill - ART_FILL_MIN) / 0.25, 0, 1);
+    return clamp(fillNorm * 0.5 + heat * 0.34 + depth * 0.16, 0, 1);
+  }
+  function artResonance(g) { return artResonanceLevel(g) >= ART_RESONANCE_MIN; }
+  /* 逆天法：增益大就必须稀有 */
+  function artDefiantResonance(g) {
+    return (g && (g.lvl || 1) >= ART_DEFIANT_LVL) && artResonanceLevel(g) >= ART_DEFIANT_RESONANCE;
+  }
+  function isDefiantArt(typeId) { return typeId === 'forbidden' || typeId === 'longevity'; }
+  function artFxSum(g, key) {
+    var arts = (g && g.createdArts) || [], sum = 0, i;
+    for (i = 0; i < arts.length; i++) {
+      var t = artType(arts[i].type);
+      if (t && t.fx[key]) sum += t.fx[key] * (arts[i].power || 1);
+    }
+    return sum;
+  }
+  function artCultMult(g) { return 1 + softCap(artFxSum(g, 'cult'), 0.45); }
+  function artBreakMult(g) { return 1 + softCap(artFxSum(g, 'brk'), 0.28); }
+  function artDaoMult(g) {
+    return 1 + softCap(artFxSum(g, 'dao') + Math.min(5, createdArtN(g)) * 0.03, 0.30);
+  }
+  function artWard(g) { return softCap(artFxSum(g, 'ward'), 12); }
+  function artSummary(g) {
+    var arts = (g && g.createdArts) || [], out = [], i;
+    for (i = 0; i < arts.length; i++) out.push('《' + arts[i].name + '》');
+    return out.join('、');
+  }
+  function latestArt(g) {
+    var arts = (g && g.createdArts) || [];
+    return arts.length ? arts[arts.length - 1] : null;
+  }
+
+  /* ---------- 突破旁白：高道蕴者每次破境都是悟道，但说法不能千篇一律 ---------- */
+  var INSIGHT_LINES = [
+    '你静坐观心，万道脉络自行铺开，就此悟道，',
+    '旧日疑窦一念尽解，你于无声处悟道，',
+    '你推翻前人经义另起炉灶，悟道之后，',
+    '天地元气随心念归位，你借此悟道，',
+    '大道在耳畔低语，你听懂了半句便已悟道，',
+    '生死边缘回望来路，你豁然悟道，',
+    '苦海之上异象垂落，你迎着异象悟道，',
+    '你把所学尽数忘去，只留自己的道，悟道之后，',
+    '彻夜论道之后道心通明，你顺势悟道，',
+    '你在旧伤处看见新的法理，因伤悟道，',
+    '一片落叶入水，涟漪之中你悟道，',
+    '你重走幼时旧路，在故地悟道，'
+  ];
+  function insightPrefix(g) {
+    if (!isHighDaoyun(g)) return '';
+    var last = g.lastInsight || '';
+    var art = latestArt(g);
+    if (art && g.insightArtTold !== art.name) {
+      var artLine = '你以自创《' + art.name + '》悟道，推演己身，';
+      g.insightArtTold = art.name;
+      g.lastInsight = artLine;
+      return artLine;
+    }
+    var used = g.insightUsed || (g.insightUsed = {});
+    var i, line, bag = [];
+    for (i = 0; i < INSIGHT_LINES.length; i++) {
+      if (INSIGHT_LINES[i] !== last && !used[INSIGHT_LINES[i]]) bag.push(INSIGHT_LINES[i]);
+    }
+    if (!bag.length) {
+      g.insightUsed = {};
+      used = g.insightUsed;
+      for (i = 0; i < INSIGHT_LINES.length; i++) {
+        if (INSIGHT_LINES[i] !== last) bag.push(INSIGHT_LINES[i]);
+      }
+    }
+    line = bag.length ? bag[irand(0, bag.length - 1)] : INSIGHT_LINES[0];
+    used[line] = 1;
+    g.lastInsight = line;
+    return line;
+  }
+
+  /* ============================================================
+   * 通用选择框架
+   * 事件把选项写进 g.pendingChoice，UI 读取后调用 resolveChoice；
+   * 快速模式与批量模拟按 safe 选项自动决策，不弹窗。
+   * ============================================================ */
+  var _autoChoice = false;
+  function setAutoChoice(v) { _autoChoice = !!v; }
+  function isAutoChoice() { return _autoChoice; }
+  var CHOICE_HANDLERS = {};
+  function registerChoiceHandler(id, fn) { CHOICE_HANDLERS[id] = fn; }
+  function defaultChoiceOption(choice) {
+    if (!choice || !choice.options || !choice.options.length) return null;
+    var i;
+    for (i = 0; i < choice.options.length; i++) if (choice.options[i].auto) return choice.options[i].id;
+    for (i = 0; i < choice.options.length; i++) if (choice.options[i].safe) return choice.options[i].id;
+    return choice.options[0].id;
+  }
+  /* 不弹窗的路边事：能赌且不是致命，就替玩家走一遭，别全缩成「没听见」。 */
+  function quietChoiceOption(choice) {
+    if (!choice || !choice.options || !choice.options.length) return null;
+    var i, o, mid = null;
+    for (i = 0; i < choice.options.length; i++) {
+      o = choice.options[i];
+      if (!o || o.safe || o.risk === 'deadly') continue;
+      if (o.chance != null && o.chance < 0.5) continue;
+      if (!mid || (o.chance || 1) > (mid.chance || 1)) mid = o;
+    }
+    return mid ? mid.id : defaultChoiceOption(choice);
+  }
+  function openChoice(g, log, choice) {
+    if (!g || !choice || !choice.options || !choice.options.length) return false;
+    if (_fast || _autoChoice) {
+      applyChoice(g, choice, defaultChoiceOption(choice), log);
+      return false;
+    }
+    g.pendingChoice = choice;
+    if (choice.prompt) push(log, { cls: choice.cls || 'rainbow', text: choice.prompt });
+    return true;
+  }
+  function applyChoice(g, choice, optionId, log) {
+    var chosen = null, i;
+    for (i = 0; i < choice.options.length; i++) if (choice.options[i].id === optionId) chosen = choice.options[i];
+    if (!chosen) chosen = choice.options[0];
+    if (choice.source === 'event') {
+      var ev = null;
+      for (i = 0; i < E.length; i++) if (E[i].id === choice.evId) ev = E[i];
+      if (!ev || !ev.resolve) return false;
+      var prevCur = _curEv;
+      _curEv = { ev: ev, g: g, log: log, printed: false };
+      ev.resolve(g, choice.stakes ? choiceStakeU(g, chosen) : U, chosen.id, log);
+      _curEv = prevCur;
+      grantEventDaoyun(g, ev, log);
+      return true;
+    }
+    var handler = CHOICE_HANDLERS[choice.id];
+    if (!handler) return false;
+    handler(g, chosen.id, log);
+    return true;
+  }
+  function resolveChoice(g, optionId, log) {
+    if (!g || !g.pendingChoice) return false;
+    var choice = g.pendingChoice;
+    var picked = optionOf(choice, optionId);
+    var verdict = judgePlanPick(g, choice, picked);
+    g.pendingChoice = null;
+    var ok = applyChoice(g, choice, optionId, log);
+    if (ok && !g.dead) applyPlanDividend(g, verdict, log);
+    return ok;
+  }
+  function optionOf(choice, optionOrId) {
+    if (!choice || !choice.options || !choice.options.length) return null;
+    if (optionOrId && typeof optionOrId === 'object') return optionOrId;
+    var i;
+    for (i = 0; i < choice.options.length; i++) {
+      if (choice.options[i].id === optionOrId) return choice.options[i];
+    }
+    return choice.options[0];
+  }
+  function bestPlanOption(list, scoreFn) {
+    var best = null, i, s, top = -Infinity;
+    for (i = 0; i < list.length; i++) {
+      s = scoreFn(list[i]);
+      if (s > top) { top = s; best = list[i]; }
+    }
+    return best;
+  }
+  /* 谋划看的是弹窗上的数，不是事后掷骰。会规划的人：把握够了就立法/梭哈，
+   * 轮海里低把握高致死就退避，帝关两成且余寿还长就再压。选对了兑战力和证道，
+   * 不另开一局运气。 */
+  function judgePlanPick(g, choice, optionOrId) {
+    if (!g || !choice || !choice.options || !choice.options.length) return 'neutral';
+    var picked = optionOf(choice, optionOrId);
+    if (!picked) return 'neutral';
+    var opts = choice.options, i, arts = [], deadly = [], mids = [];
+    for (i = 0; i < opts.length; i++) {
+      if (opts[i].id && String(opts[i].id).indexOf('art_') === 0) arts.push(opts[i]);
+      else if (opts[i].risk === 'deadly') deadly.push(opts[i]);
+      else if (!opts[i].safe) mids.push(opts[i]);
+    }
+    var bestArt = bestPlanOption(arts, function (o) { return o.chance || 0; });
+    var bestDeadly = bestPlanOption(deadly, function (o) {
+      return (o.chance || 0) - (o.deathChance || 0) * 0.7;
+    });
+    var bestMid = bestPlanOption(mids, function (o) { return o.chance || 0; });
+    var lvl = g.lvl || 1;
+
+    if (choice.id === 'imperial_gate') {
+      var strike = null;
+      for (i = 0; i < opts.length; i++) if (opts[i].id === 'strike') strike = opts[i];
+      var odds = strike ? (strike.chance || 0) : 0;
+      var room = (g.lifespan || 0) - (g.age || 0);
+      if (odds >= 0.55 && picked.id === 'strike') return 'good';
+      if (odds < 0.32 && room > 800 && picked.id === 'wait') return 'good';
+      if (odds >= 0.55 && picked.id === 'wait') return 'bad';
+      if (odds < 0.28 && room > 1500 && picked.id === 'strike') return 'bad';
+      return 'neutral';
+    }
+
+    if (bestArt && (bestArt.chance || 0) >= 0.36) {
+      if (picked.id === bestArt.id) return 'good';
+      if (picked.safe && (bestArt.chance || 0) >= 0.55) return 'bad';
+    }
+    if (lvl < 21 && bestDeadly && (bestDeadly.deathChance || 0) >= 0.28) {
+      if (picked.safe) return 'good';
+      if (picked.risk === 'deadly') return 'bad';
+    }
+    if (bestDeadly && (bestDeadly.chance || 0) >= 0.40) {
+      var death = bestDeadly.deathChance || 0;
+      var ev = (bestDeadly.chance || 0) - death * 0.7;
+      if (ev >= 0.22 && death <= 0.20 && lvl >= 41 && picked.id === bestDeadly.id) return 'good';
+    }
+    if (bestDeadly && ((bestDeadly.chance || 0) < 0.26 || (bestDeadly.deathChance || 0) >= 0.42)) {
+      if (picked.safe) return 'good';
+      if (picked.risk === 'deadly') return 'bad';
+    }
+    if (bestMid && (bestMid.chance || 0) >= 0.48 &&
+        (!bestDeadly || (bestDeadly.chance || 0) < 0.30) &&
+        picked.id === bestMid.id) {
+      return 'good';
+    }
+    return 'neutral';
+  }
+  function applyPlanDividend(g, verdict, log) {
+    if (!g || verdict !== 'good') return;
+    g.planScore = (g.planScore || 0) + 1;
+    g.planEdge = Math.min(0.18, (g.planEdge || 0) + 0.015);
+    if (g.planScore % 3 !== 0) return;
+    var add = Math.max(220, Math.round((g.cult || 0) * 0.05));
+    g.cult = (g.cult || 0) + add;
+    settleOverflowCult(g, log);
+    push(log, { cls: 'rare', text: '第' + (g.age || 0) + '岁，此前几次取舍都踩在该踩的点上，布局兑现。' +
+      '不是天赐机缘，是你自己把路走顺了，实力+' + add });
+  }
+  function pendingChoice(g) { return (g && g.pendingChoice) || null; }
+  /* 供 UI 使用：把概率写成百分比文本 */
+  function pctText(p) { return Math.round(clamp(p, 0, 1) * 1000) / 10 + '%'; }
+
+  /* ---------- 梭哈的三档结局 ----------
+   * 早期梭哈是「成功 or 陨落」，失败即死，八成的死亡率让它在任何局面下都不值得点，
+   * 主动权形同虚设。现在失败再分两档：多数是重伤生还（掉寿元/境界），少数才真的陨落。
+   * deathShare 就是「失败里有多大比例是致命的」，由事件按危险程度自己定。
+   * 展示与判定都走这两个函数，保证弹窗上写的数字就是实际掷骰的数字。 */
+  var DEFAULT_DEATH_SHARE = 0.34;
+  function allInDeathOdds(successChance, deathShare) {
+    var s = deathShare != null ? deathShare : DEFAULT_DEATH_SHARE;
+    return clamp((1 - allInFloor(successChance)) * clamp(s, 0, 1), 0, 1);
+  }
+  function allInOutcome(successChance, deathShare) {
+    var win = allInFloor(successChance);
+    var die = allInDeathOdds(win, deathShare);
+    var r = Math.random();
+    if (r < win) return 'win';
+    if (r < win + die) return 'dead';
+    return 'hurt';
+  }
+
+  /* ---------- 梭哈的凸收益 ----------
+   * 赌命要赌得值：收益不能只是跟着风险线性长，得长得比风险更快，
+   * 这样低成功率的那一把一旦成了，回报是压倒性的，而不是「勉强回本」。
+   * 以五成把握为基准 1 倍，指数 1.15 使期望收益随风险单调上升：
+   * 推导见 docs/superpowers/specs/2026-09-10-thrill-economy-design.md。
+   *
+   * 成功率夹在 [0.22, 0.90]。
+   *
+   * 地板 0.22 是硬算出来的：死亡的代价是整局剩余期望归零，成功率低于 0.22 时，
+   * 「胜率 × 收益增量 ≥ 死亡率 × 成帝率」要求收益增量大于 1，而它是个概率——
+   * 也就是说赢了直接保送成帝都还是亏的。那样的梭哈是纯陷阱。
+   *
+   * 上限给到 0.90 而不是 0.55：战力必须能换来安全感，否则「梭哈变强 → 梭哈更安全」
+   * 的正反馈滚不起来，玩家感受不到自己在成长。强者该有强者的待遇。
+   *
+   * 倍率以 0.55 为枢轴，成功率高于它就不再加成（低风险本来就该低回报）：
+   *   90% → 1.00 倍      55% → 1.00 倍
+   *   40% → 1.54 倍      30% → 2.27 倍      22% → 3.45 倍 */
+  var ALLIN_PIVOT = 0.55, ALLIN_EXP = 1.35, ALLIN_MAX = 4;
+  var ALLIN_MIN_CHANCE = 0.22, ALLIN_MAX_CHANCE = 0.90;
+  function allInFloor(successChance, g, powerRef) {
+    var c = clamp(successChance, ALLIN_MIN_CHANCE, ALLIN_MAX_CHANCE);
+    if (g && powerRef > 0) {
+      var ratio = currentCombatPower(g) / powerRef;
+      if (ratio >= 3) return ALLIN_MAX_CHANCE;
+      if (ratio >= 2) return Math.max(c, 0.85);
+    }
+    return c;
+  }
+
+  /* ---------- 梭哈赢下来的战力暴涨 ----------
+   * cultPct 是「按当前战力的百分比追加」，给到 100% 也只能翻倍，
+   * 而实测要改变结局需要 ×10 以上的量级（Δ成帝率(pp) ≈ 0.95 × 战力倍数）。
+   * 所以赢下梭哈必须直接乘战力，而不是加一个百分比。
+   *   倍率 1.00（稳赢局面）→ 战力 ×3
+   *   倍率 3.45（赌命局面）→ 战力 ×18
+   * 这就是「梭哈成功很爽」的物质基础，也是正反馈的燃料。 */
+  function allInPowerSurge(payoffMult) {
+    return clamp(3 + 6 * (clamp(payoffMult, 1, ALLIN_MAX) - 1), 3, 24);
+  }
+  /* 有些档位（典型是荒古圣体）百分百能站到帝关前，卡的是证道那一掷，
+   * 战力根本不进那个公式。对他们来说战力暴涨是废货币，必须另给一份
+   * 直接作用于证道成功率的收益，否则梭哈对这类体质永远负期望。 */
+  function grantZhengdaoEdge(g, payoffMult) {
+    if (!g || !g.tm) return 0;
+    var add = clamp(0.012 * clamp(payoffMult, 1, ALLIN_MAX), 0, 0.05);
+    g.tm.zhx += add;
+    return add;
+  }
+  function powerSurge(g, mult, log) {
+    if (!g || !(mult > 1)) return 0;
+    var before = g.cult || 0;
+    g.cult = round(before * mult);
+    settleOverflowCult(g, log);
+    return g.cult - before;
+  }
+
+  /* 本境战力天花板。梭哈只乘战力不推境界时，大圣可以比天帝还高——
+   * 玩家会觉得自己无敌，然后死在淬体上。超过天花板先把境界撑上去，
+   * 还是装不下就裁到上限。大圣最高 45 万，远低于天帝 150 万。 */
+  var REALM_CULT_CAP = [0, 800, 4000, 15000, 40000, 80000, 140000, 220000, 320000, 450000, 900000];
+  function realmCultCap(lvl) {
+    var r = D.realmIdx(lvl);
+    return REALM_CULT_CAP[r] || 900000;
+  }
+  function markRealmEnter(g) {
+    if (!g) return;
+    var band = D.realmIdx(g.lvl);
+    if (!g.realmEnterAge) g.realmEnterAge = {};
+    if (g.realmEnterAge[band] == null) g.realmEnterAge[band] = g.age || 0;
+  }
+  function settleOverflowCult(g, log) {
+    if (!g || g.becameEmperor) return 0;
+    var start = g.lvl || 1, pushed = 0;
+    var cap = realmCultCap(g.lvl);
+    while (g.cult > cap && g.lvl < 99 && canAdvance(g) && pushed < 30) {
+      g.lvl++;
+      pushed++;
+      markRealmEnter(g);
+      if (g.lvl % 10 === 1) realmLifeRefill(g);
+      if (isHuangguSacred(g) && g.lvl >= 99) completeSacredBody(g, log);
+      cap = realmCultCap(g.lvl);
+    }
+    if (g.cult > cap) g.cult = Math.round(Math.min(g.cult, cap * 1.12));
+    if (pushed && log) {
+      push(log, { cls: 'rainbow', text: '第' + (g.age || 0) + '岁，这一身战力已经装不下原先的境界，硬生生把你从' +
+        D.titleOf(start) + '撑到了' + D.titleOf(g.lvl) });
+    }
+    return pushed;
+  }
+
+  /* 梭哈赢下来之后的叙述。不要写成「战力翻了 X 倍」这种结算单，
+   * 要和回顾一生的行文一个调子，所以按涨幅分档各给一组说法，随机取用。 */
+  var SURGE_LINES_BIG = [
+    '那一瞬你像是被谁从头到脚重铸了一遍。旧日的自己隔着岁月看过来，竟已认不出如今这具身躯里翻涌的东西',
+    '血从耳中流下来，你却笑出了声。这一搏赌的是命，赢回来的是一整条路',
+    '道则在你体内炸开又重聚。再睁眼时，昨日那些让你绕道走的存在，如今不过是路边的石头',
+    '你听见自己骨骼里有什么东西彻底碎了，又有什么东西从碎处长了出来，比原先粗壮了不知多少'
+  ];
+  var SURGE_LINES_MID = [
+    '气血翻涌了整整三日才平息。等你重新站起来时，已经不是走进来的那个人了',
+    '这一注押得值。道基被生生撑开一圈，往后许多年都不必再为境界发愁',
+    '你把那份机缘一点点炼进骨血里，像是往干涸多年的河床里放了一场洪水'
+  ];
+  var SURGE_LINES_SMALL = [
+    '收获谈不上惊天动地，但确实比出发时厚实了一截',
+    '你稳稳地把它收进袖中。没有惊险，也没有意外，这大概就是实力带来的从容'
+  ];
+  function surgeLine(surge, edge) {
+    var pool = surge >= 12 ? SURGE_LINES_BIG : (surge >= 6 ? SURGE_LINES_MID : SURGE_LINES_SMALL);
+    var s = pool[Math.floor(Math.random() * pool.length)];
+    if (edge > 0) {
+      s += '。更要紧的是，这份机缘已烙进道基，他日叩帝关时会替你多争一分';
+    }
+    return s;
+  }
+
+  /* 致死比例同样随战力下降：强者失手更容易全身而退。
+   * 战力比 2.0 时只剩四成，配合高成功率，陨落率可以低到 2% 出头。 */
+  function allInDeathShare(g, base, powerRef) {
+    var s = base != null ? base : DEFAULT_DEATH_SHARE;
+    if (!g || !powerRef) return s;
+    var ratio = currentCombatPower(g) / powerRef;
+    if (ratio >= 2) return 0;   /* 强出一个档，不能再被这档机缘抹掉 */
+    return clamp(s * (1 - 0.60 * clamp(ratio - 1, 0, 1)), 0, 1);
+  }
+  function allInPayoff(successChance) {
+    var c = allInFloor(successChance);
+    if (c >= ALLIN_PIVOT) return 1;
+    return clamp(Math.pow(ALLIN_PIVOT / c, ALLIN_EXP), 1, ALLIN_MAX);
+  }
+
+  /* 把 U 包一层，让事件原有的奖励写法自动吃到梭哈倍率，
+   * 免得每个梭哈事件都要手写一遍「成功时额外乘多少」。 */
+  function boostedU(mult) {
+    if (!(mult > 1)) return U;
+    var B = {}, k;
+    for (k in U) B[k] = U[k];
+    B.cultPct = function (g, lo, hi, floor) {
+      return U.cultPct(g, lo * mult, hi * mult, round((floor || 0) * mult));
+    };
+    B.gainDao = function (g, amount, capAdd) {
+      /* 道蕴上限是长期资源，涨幅收敛一些，避免一把梭哈就顶到天花板 */
+      return U.gainDao(g, round(amount * mult), capAdd ? round(capAdd * Math.min(mult, 2.2)) : capAdd);
+    };
+    B.gainLife = function (g, lo, hi) {
+      return U.gainLife(g, round(lo * mult), round(hi * mult));
+    };
+    B.up = function (g, n, log) {
+      return U.up(g, Math.max(n, Math.round(n * Math.min(mult, 3))), log);
+    };
+    B.payoffMult = mult;
+    return B;
   }
   /* 帝者晚年：道行不会消失，但帝躯、血气和当前战力会随寿元衰败。
    * 记录的 g.cult 仍是历史道行，真正出手时使用 currentCombatPower。 */
@@ -247,6 +873,16 @@
     return base;
   }
 
+  function swallowSiegeRealmScale(g) {
+    var band = D.realmIdx((g && g.lvl) || 1);
+    if ((g && g.lvl) >= 91) return 0.02;
+    if (band >= 9) return 0.08;
+    if (band >= 8) return 0.28;
+    if (band >= 7) return 0.50;
+    if (band >= 6) return 0.68;
+    if (band >= 5) return 0.82;
+    return 1;
+  }
   function swallowSiegeDeathChance(g) {
     if (!g || !g.swallowingArt) return 0;
     var n = swallowProgress(g).have || 0;
@@ -254,10 +890,15 @@
     var chance = 0.06 + (n - 2) * 0.018;
     if (g.physiqueId === 'chaos' || g.swallowReady) chance += 0.08;
     chance -= Math.min(0.08, ((g.tm && g.tm.ward) || 0) / 200 + pval(g, 'ward', 0) / 200);
-    return clamp(chance, 0.05, 0.48);
+    chance = clamp(chance, 0.05, 0.48) * swallowSiegeRealmScale(g);
+    if ((g.lvl || 1) >= 91) return clamp(chance, 0, 0.012);
+    if ((g.lvl || 1) >= 81) return clamp(chance, 0, 0.035);
+    return chance;
   }
   function swallowSiegeSurviveChance(g) {
-    return clamp(1 - swallowSiegeDeathChance(g) * 1.6, 0.18, 0.78);
+    var dead = swallowSiegeDeathChance(g);
+    var cap = (g && g.lvl >= 91) ? 0.98 : ((g && g.lvl >= 81) ? 0.94 : 0.78);
+    return clamp(1 - dead * 1.6, 0.18, cap);
   }
   function resolveSwallowSiege(g, log, died) {
     if (!g) return false;
@@ -348,7 +989,7 @@
       name: '当世第' + g.worldEmperorSeq + '位大帝',
       start: startYear,
       end: startYear + duration,
-      cult: irand(1300000, 2200000)
+      cult: irand(D.WORLD_EMPEROR_CULT_MIN, D.WORLD_EMPEROR_CULT_MAX)
     };
     g.daoTraceUntil = null;
     recordWorldEvent(g, startYear, g.worldEmperor.name + '证道，天心有主');
@@ -469,12 +1110,13 @@
   function quasiLayerMultiplier(g, lvl) {
     if (lvl < 91 || lvl > 98) return 1;
     var table = g && isPeakPhysique(g.physiqueId) ? D.QUASI_CHAOS_MULT : D.QUASI_LAYER_MULT;
-    return table[lvl - 91] || 1;
+    var m = table[lvl - 91] || 1;
+    return Math.max(1, m * (1 - quasiDaoRelief(g)));
   }
   function attemptBreak(g) {
     if (g.lvl >= 100) return 0;
     if (!canAdvance(g)) return 0;
-    var coef = breakAgeCoef(g);
+    var coef = breakAgeCoef(g) * artBreakMult(g);
     var base = breakChance(breakAptitude(g, g.lvl), g.lvl) * coef * pval(g, 'brk', 1) *
       daoBreakFactor(g) / quasiLayerMultiplier(g, g.lvl);
     if (base <= 0.25 + 1e-9) {
@@ -485,8 +1127,7 @@
       var lvl = g.lvl + gained;
       if (lvl >= 100) break;
       var b = breakChance(breakAptitude(g, lvl), lvl) * coef * pval(g, 'brk', 1) *
-        daoBreakFactor({ daoyun: g.daoyun, daoyunCap: g.daoyunCap, lvl: lvl,
-          physiqueId: g.physiqueId, innate: g.innate }) / quasiLayerMultiplier(g, lvl);
+        daoBreakFactor(g, lvl) / quasiLayerMultiplier(g, lvl);
       if (b <= 0.25 + 1e-9) break;
       var p = b * Math.pow(0.6, step);
       if (p <= 0.25 + 1e-9) break;
@@ -496,11 +1137,31 @@
     return gained;
   }
 
-  /* ---------- 突破实力收益（境界越高、体质越高加得越多，每层 ±40% 波动） ---------- */
+  /* ---------- 突破实力收益 ----------
+   * 旧式两个乘子量级完全不对等：体质跨度 ×22（CULT_COEF 1→22），悟性跨度只有 ×1.17，
+   * 体质的影响力是悟性的 18.8 倍，而且这个比例从轮海到准帝恒定不变。
+   * 后果是实测出来的悟性越高战力反而越低——高悟性破境快、活得短、撞的机缘少，
+   * 而 cultGain 按次结算，速度优势直接变成了战力劣势，悟道流成了全游戏最弱。
+   *
+   * 改成两条随境界此消彼长的曲线：
+   *   体质——前期就是一切，后期只剩底子（衰减到两成二）。血脉再强也压不住万古道理。
+   *   悟性——前期几乎无感，后期指数放大（指数 0.3 爬到 3.0）。悟道者靠的是把道吃透。
+   * 交叉点大约在准帝前后，正好是「体质越到后期越薄弱」该发生的地方。 */
+  var PHYS_FADE_END = 0.18;   /* 准帝九重时体质系数还剩多少 */
+  var DAO_EXP_MIN = 0.3, DAO_EXP_MAX = 3.4;
+  function physFactor(aptitude, lvl) {
+    var t = clamp(((lvl || 1) - 1) / 98, 0, 1);
+    var fade = 1 - (1 - PHYS_FADE_END) * t;
+    return 1 + ((D.CULT_COEF[aptitude] || 1) - 1) * fade;
+  }
+  function daoFactor(gift, lvl) {
+    var t = clamp(((lvl || 1) - 1) / 98, 0, 1);
+    return Math.pow((gift || 5) / 5, DAO_EXP_MIN + (DAO_EXP_MAX - DAO_EXP_MIN) * t);
+  }
   function cultGain(aptitude, newLvl, g) {
-    var c = D.CULT_COEF[aptitude] || 1;
     var gift = g && g.daoGift ? g.daoGift : 5;
-    c *= 0.86 + gift * 0.035;
+    var c = physFactor(aptitude, newLvl) * daoFactor(gift, newLvl);
+    c *= artCultMult(g);
     if (newLvl >= 100) return round(c * (newLvl * 1.2 + rand(-200, 200) + 200));
     if (newLvl >= 91 && newLvl <= 99) return round(c * (newLvl * 0.6 + rand(-newLvl * 0.4, newLvl * 0.4) + 20));
     return round(c * (newLvl * 0.6 + rand(-newLvl * 0.4, newLvl * 0.4) + 6));
@@ -545,23 +1206,40 @@
   /* ---------- 升级：升 1 层；跨大境界补足寿元上限；准帝巅峰后参悟己身大道，实力+10000×成长倍率 ---------- */
   function levelUp(g, log) {
     if (g.lvl >= 100) {
-      var a2 = round(10000 * pval(g, 'cgt', 1));
+      var a2 = round(10000 * pval(g, 'cgt', 1) * artCultMult(g));
       g.cult += a2;
       if (log) log.push({ cls: 'brk', text: '准帝巅峰圆满，' +
-        (isHighDaoyun(g) ? '万道在心中交织，你悟道并续写己法，' : '参悟己身大道，') + '实力+' + a2 });
+        (isHighDaoyun(g) ? insightPrefix(g) : '参悟己身大道，') + '实力+' + a2 });
       return;
     }
     var nl = g.lvl + 1;
     var cg = round(cultGain(g.aptitude, nl, g) * pval(g, 'cgt', 1));
     g.lvl = nl; g.cult += cg;
-    var daoLine = isHighDaoyun(g) ? '你于悟道中推演己法，' : '';
+    markRealmEnter(g);
+    var title = D.titleOf(nl);
+    var lifeTail = '';
     if (nl > 1 && nl % 10 === 1) {
       var newLife = realmLifeRefill(g);
-      if (log) log.push({ cls: 'brk', text: daoLine + '突破至' + D.titleOf(nl) +
-        '！实力+' + cg + '，寿元焕发，命限延展至' + newLife + '岁' });
-      return;
+      lifeTail = '，寿元焕发，命限延展至' + newLife + '岁';
     }
-    if (log) log.push({ cls: 'brk', text: daoLine + '突破至' + D.titleOf(nl) + '！实力+' + cg });
+    if (log && log.length) {
+      var last = log[log.length - 1];
+      if (last && last.cls === 'brk' && last.brkTitle === title) {
+        last.brkCult = (last.brkCult || 0) + cg;
+        last.brkLvls = (last.brkLvls || 1) + 1;
+        if (lifeTail) last.brkLife = lifeTail;
+        last.text = '连破数关，突破至' + title + '！实力+' + last.brkCult + (last.brkLife || '');
+        if (isHuangguSacred(g) && nl >= 99) completeSacredBody(g, log);
+        return;
+      }
+    }
+    var daoLine = insightPrefix(g);
+    if (log) {
+      log.push({
+        cls: 'brk', brkTitle: title, brkCult: cg, brkLvls: 1, brkLife: lifeTail,
+        text: daoLine + '突破至' + title + '！实力+' + cg + lifeTail
+      });
+    }
     if (isHuangguSacred(g) && nl >= 99) completeSacredBody(g, log);
   }
   /* 事件连升 n 层（逐层一行） */
@@ -572,6 +1250,91 @@
       levelUp(g, log); up++;
     }
     return up;
+  }
+
+  function remainingLife(g) {
+    return Math.max(1, ((g && g.lifespan) || 0) - ((g && g.age) || 0));
+  }
+  /* 伤势看事件轻重。路边轻伤跟事件写的岁数走，传说/致命才按余寿切。 */
+  var DAO_PAY_TAGS = {
+    dao: 1, create: 1, insight: 1, daomark: 1, daoheart: 1, mortal_dao: 1, scripture: 1
+  };
+  function eventPaysDao(ev) {
+    if (!ev) return false;
+    if (ev.dao === false) return false;
+    if (ev.dao === true) return true;
+    if (typeof ev.dao === 'number' && ev.dao > 0) return true;
+    if (DAO_PAY_TAGS[ev.tag]) return true;
+    if (ev.id && String(ev.id).indexOf('dao_') === 0) return true;
+    return false;
+  }
+  function clampEventDao(ev, amount, capAdd) {
+    var tier = (ev && ev.tier) || 1;
+    var amt = Math.max(0, Math.round(amount || 0));
+    var cap = Math.max(0, Math.round(capAdd || 0));
+    if (ev && typeof ev.dao === 'number' && ev.dao > 0) amt = Math.min(amt, ev.dao);
+    if (tier <= 1) return { amount: 0, capAdd: 0 };
+    if (tier === 2) return { amount: Math.min(amt, 6), capAdd: 0 };
+    if (tier === 3) return { amount: Math.min(amt, 40), capAdd: 0 };
+    return { amount: Math.min(amt, 70), capAdd: Math.min(cap, 32) };
+  }
+  function grantCreateDao(g, tier) {
+    var amt, cap;
+    if (tier >= 4) { amt = irand(48, 80); cap = irand(16, 28); }
+    else if (tier === 3) { amt = irand(32, 56); cap = irand(8, 16); }
+    else { amt = irand(18, 36); cap = 0; }
+    return gainDaoyun(g, amt, cap);
+  }
+  function payEventDao(g, amount, capAdd) {
+    var ev = _curEv && _curEv.ev;
+    if (!ev) return gainDaoyun(g, amount, capAdd);
+    if (!eventPaysDao(ev)) return 0;
+    var c = clampEventDao(ev, amount, capAdd);
+    if (!(c.amount > 0)) return 0;
+    return gainDaoyun(g, c.amount, c.capAdd);
+  }
+  function eventHurtSeverity(ev, chosen) {
+    if (chosen && chosen.risk === 'deadly') return 'grave';
+    if (ev && ev.hurt) return ev.hurt;
+    var tier = (ev && ev.tier) || 1;
+    if (tier >= 4) return 'heavy';
+    if (tier >= 3) return 'medium';
+    return 'light';
+  }
+  function lifeHurtShare(g, severity) {
+    var band = D.realmIdx((g && g.lvl) || 1);
+    if (band < 1) band = 1;
+    if (band > 10) band = 10;
+    /* 按剩余命限切。准帝轻伤约 6.5%，中等约 10%，传说约 14%，致命约 18%。 */
+    if (severity === 'grave') return 0.055 + band * 0.013;
+    if (severity === 'heavy') return 0.040 + band * 0.010;
+    if (severity === 'medium') return 0.028 + band * 0.007;
+    return 0.018 + band * 0.0045;
+  }
+  function applyLifeHurt(g, lo, hi, opt) {
+    opt = opt || {};
+    var ward = rand(0.10, 0.30) + (g.tm.ward + pval(g, 'ward', 0) + artWard(g)) / 100;
+    if (opt.noExempt) ward = 0.06;
+    if (Math.random() < ward) return { exempt: true, loss: 0 };
+    var ev = (_curEv && _curEv.ev) || null;
+    var sev = opt.severity || eventHurtSeverity(ev, null);
+    var room = remainingLife(g);
+    var share = opt.share != null ? opt.share : lifeHurtShare(g, sev);
+    var byShare = Math.max(1, Math.round(room * share));
+    var band = D.realmIdx((g && g.lvl) || 1);
+    if (band < 1) band = 1;
+    var scale = 1 + Math.max(0, band - 2) * 0.12;
+    var loN = Math.max(0, lo || 0);
+    var hiN = Math.max(loN, hi || loN);
+    var writeLo = Math.max(1, Math.round((loN || 8) * scale));
+    var writeHi = Math.max(writeLo, Math.round((hiN || 24) * scale));
+    var floor = Math.round(byShare * (sev === 'light' ? 0.70 : 0.75));
+    var wanted = irand(Math.max(floor, writeLo), Math.max(byShare, writeHi));
+    wanted = Math.max(wanted, writeLo);
+    if (sev === 'light' || sev === 'medium') wanted = Math.min(wanted, Math.max(byShare, writeHi));
+    if (!g.swallowingArt) wanted = Math.min(wanted, Math.max(0, room - 1));
+    var loss = subLife(g, wanted);
+    return { exempt: false, loss: loss };
   }
 
   /* 事件工具对象（注入给 events.js） */
@@ -585,23 +1348,20 @@
       g.aptitude += inc; return inc;
     },
     gainLife: function (g, lo, hi) { return gainLife(g, lo, hi); },
-    gainDao: function (g, amount, capAdd) { return gainDaoyun(g, amount, capAdd); },
+    gainDao: function (g, amount, capAdd) { return payEventDao(g, amount, capAdd); },
+    grantCreateDao: grantCreateDao,
+    daoByCap: daoByCap,
+    eventPaysDao: eventPaysDao,
     isHighDaoyun: isHighDaoyun,
     hurt: function (g, lo, hi) {
-      var p = rand(0.10, 0.30) + (g.tm.ward + pval(g, 'ward', 0)) / 100;
-      if (Math.random() < p) return { exempt: true, loss: 0 };
-      var wanted = irand(lo, hi);
-      /* 普通伤势不因凡体寿元短而额外致死；吞天路线仍承担反噬致命风险。 */
-      if (!g.swallowingArt) wanted = Math.min(wanted, Math.max(0, g.lifespan - g.age - 1));
-      var loss = subLife(g, wanted);
-      return { exempt: false, loss: loss };
+      return applyLifeHurt(g, lo, hi, null);
     },
     kill: function (g, text) { g.dead = true; g.deadCause = 'event'; if (text) printlog(text); },
     up: function (g, n, log) { return gainLevels(g, n, log); },
     cultPct: function (g, minPct, maxPct, floor) {
       var v = g.cult * rand(minPct, maxPct);
       if (v < (floor || 0)) v = floor || 0;
-      v = round(v * pval(g, 'cgt', 1));
+      v = round(v * pval(g, 'cgt', 1) * artCultMult(g));
       g.cult += v;
       return v;
     },
@@ -609,6 +1369,46 @@
     sacredEmperorChance: sacredEmperorChance,
     completeSacredBody: completeSacredBody,
     printlog: printlog,
+    /* 创法 */
+    artTypes: function () { return ART_TYPES; },
+    artType: artType,
+    availableArtTypes: availableArtTypes,
+    createArtChance: createArtChance,
+    createArtDeathChance: createArtDeathChance,
+    addCreatedArt: addCreatedArt,
+    artCount: artCount,
+    artSummary: artSummary,
+    latestArt: latestArt,
+    artName: artName,
+    /* 梭哈三档与凸收益 */
+    deathOdds: allInDeathOdds,
+    allIn: allInOutcome,
+    payoff: allInPayoff,
+    allInFloor: allInFloor,
+    deathShare: allInDeathShare,
+    powerSurge: function (g, mult, log) { return powerSurge(g, mult, log); },
+    realmCultCap: realmCultCap,
+    surgeOf: allInPowerSurge,
+    surgeLine: surgeLine,
+    zhengdaoEdge: function (g, mult) { return grantZhengdaoEdge(g, mult); },
+    /* 重伤档只准扣寿元：寿元对结局几乎没有影响（实测 +3000 无效），
+     * 用它当代价既有痛感又不毁局；而重伤占 40%~60% 的概率权重，
+     * 一旦让它吃掉战力或道蕴，整个梭哈的期望会被这一档拖到水下。 */
+    woundOnly: function (g, lo, hi) { return U.hurt(g, lo, hi); },
+    boost: boostedU,
+    /* 创法共鸣 */
+    artResonance: artResonance,
+    artResonanceLevel: artResonanceLevel,
+    daoFill: daoFill,
+    artDefiantResonance: artDefiantResonance,
+    isDefiantArt: isDefiantArt,
+    /* 停屏高光 */
+    spotlight: spotlight,
+    highlight: function (g, log, opt) { return highlightLast(g, log, opt); },
+    /* 选择与展示 */
+    pct: pctText,
+    currentCombatPower: function (g) { return currentCombatPower(g); },
+    push: function (log, obj) { push(log, obj); },
     trySwallowPhysique: trySwallowPhysique,
     nextSwallowTarget: nextSwallowTarget,
     swallowProgress: swallowProgress,
@@ -630,8 +1430,53 @@
   var _curEv = null;
   function printlog(text) {
     if (!_curEv || !_curEv.log) return;
+    var prefix = '第' + _curEv.g.age + '岁，遇到' + _curEv.ev.name + '，';
+    var log = _curEv.log;
+    if (_curEv.printed && log.length) {
+      var last = log[log.length - 1];
+      if (last && last.text && last.text.indexOf(prefix) === 0) {
+        last.text += '；' + text;
+        return;
+      }
+    }
     _curEv.printed = true;
-    _curEv.log.push({ cls: 'ev' + _curEv.ev.tier, text: '第' + _curEv.g.age + '岁，遇到' + _curEv.ev.name + '，' + text });
+    log.push({ cls: 'ev' + _curEv.ev.tier, text: prefix + text });
+  }
+
+  /* ---------- 高光时刻 ----------
+   * 大机缘刷过去就没了，玩家根本来不及看清自己爽在哪。带 spotlight 的日志
+   * 会让界面停下来单独弹一张卡，必须由玩家点掉才继续往下走年份。
+   * 只给真正的转折用：梭哈成功、传说机缘、自创法、证道成帝这一类。 */
+  function spotlight(text, opt) {
+    if (!_curEv || !_curEv.log) return;
+    opt = opt || {};
+    printlog(text);
+    highlightLast(_curEv.g, _curEv.log, opt);
+  }
+
+  /* 把日志里最后一条升格为停屏高光。预算按事件数的比例算而不是绝对次数：
+   * 混沌体一局只有约 10 次事件，给绝对次数会被弹窗淹没；
+   * 凡体/悟性5 一局近 39 次事件，给绝对次数又太吝啬。 */
+  var SPOTLIGHT_RATE = 0.12, SPOTLIGHT_MIN = 2;
+  function spotlightBudget(g) {
+    return Math.max(SPOTLIGHT_MIN, Math.ceil((g.eventDraws || 0) * SPOTLIGHT_RATE));
+  }
+  function canSpotlight(g) {
+    if (!g || _fast || _autoChoice) return false;   /* 快速模式与批量模拟一律不停屏 */
+    return (g.spotlightCount || 0) < spotlightBudget(g);
+  }
+  function highlightLast(g, log, opt) {
+    if (!log || !log.length) return false;
+    var last = log[log.length - 1];
+    last.cls = opt.cls || 'rainbow';
+    if (!canSpotlight(g)) return false;             /* 超预算就只保留高亮，不再打断 */
+    g.spotlightCount = (g.spotlightCount || 0) + 1;
+    last.spotlight = {
+      title: opt.title || (_curEv && _curEv.ev && _curEv.ev.name) || '机缘',
+      kind: opt.kind || 'fortune',
+      note: opt.note || null
+    };
+    return true;
   }
 
   /* ---------- 词条聚合：createGame 时把选中的词条效果合并到 g.tm ---------- */
@@ -698,6 +1543,19 @@
     g.daoyunCap = Math.min(D.DAO_ABSOLUTE_MAX, g.daoyunCap + daoCapAdd);
     g.daoyun += daoAdd;
     g.daoyun = Math.min(g.daoyun, g.daoyunCap);
+    /* 悟性卡必须真的抬悟性档，不能只堆道蕴数字。金+3 / 紫+2 / 蓝+1，白卡只铺垫不改档。 */
+    var giftAdd = 0;
+    for (i = 0; i < g.traits.length; i++) {
+      t = D.traitById(g.traits[i]);
+      if (!t || t.path !== 'dao') continue;
+      if (t.color === 'o') giftAdd += 3;
+      else if (t.color === 'p') giftAdd += 2;
+      else if (t.color === 'b') giftAdd += 1;
+    }
+    if (giftAdd) {
+      g.daoGift = clamp((g.daoGift || 5) + giftAdd, 1, 10);
+      g.daoGiftName = daoGiftName(g.daoGift);
+    }
     if (g.swallowingArt) initSwallowState(g);
     syncLife(g);
   }
@@ -772,73 +1630,537 @@
     return (g.tm.xinPity || 0) + Math.max(0, (g.tm.xin || 1) - 1) * 0.00002;
   }
 
+  function physiqueFamily(g) {
+    var id = g && g.physiqueId;
+    if (id === 'chaos' || id === 'innate_sacred_dao') return 'peak';
+    if (id === 'sacred' || id === 'origin_sacred') return 'sacred';
+    if (id === 'overlord') return 'overlord';
+    if (id === 'solar' || id === 'lunar' || id === 'jiuyou') return 'celestial';
+    if (id === 'mortal') return 'mortal';
+    if (g && (g.innate || 1) <= 5) return 'common';
+    return 'rare';
+  }
+  function eventFits(g, ev) {
+    if (!g || !ev) return true;
+    if (ev.needPhys) {
+      var list = ev.needPhys;
+      if (typeof list === 'string') list = [list];
+      var hit = false, i;
+      for (i = 0; i < list.length; i++) if (list[i] === g.physiqueId) hit = true;
+      if (!hit) return false;
+    }
+    if (ev.needFamily && physiqueFamily(g) !== ev.needFamily) return false;
+    var dao = g.daoGift != null ? g.daoGift : 5;
+    var inn = g.innate != null ? g.innate : 1;
+    if (ev.daoMin != null && dao < ev.daoMin) return false;
+    if (ev.daoMax != null && dao > ev.daoMax) return false;
+    if (ev.innateMin != null && inn < ev.innateMin) return false;
+    if (ev.innateMax != null && inn > ev.innateMax) return false;
+    return true;
+  }
+  function eventExclusive(ev) {
+    return !!(ev && (ev.needPhys || ev.needFamily || ev.daoMin != null ||
+      ev.daoMax != null || ev.innateMin != null || ev.innateMax != null));
+  }
   function eventAvailable(g, ev) {
-    return !ev || !ev.available || !!ev.available(g, U);
+    if (!ev) return true;
+    if (ev.available && !ev.available(g, U)) return false;
+    return eventFits(g, ev);
+  }
+
+  /* ---------- 去重复：最近出现过的事件与同标签事件临时降权 ---------- */
+  var RECENT_KEEP = 12;
+  function eventRecent(g) {
+    if (!g.recentEvents) g.recentEvents = [];
+    return g.recentEvents;
+  }
+  function markEventSeen(g, ev) {
+    var recent = eventRecent(g);
+    recent.push({ id: ev.id, tag: ev.tag || null });
+    while (recent.length > RECENT_KEEP) recent.shift();
+    markRealmSeen(g, ev);
+  }
+  function syncRealmSeen(g) {
+    if (!g) return;
+    var band = D.realmIdx(g.lvl);
+    if (g.realmSeenBand !== band) {
+      g.realmSeenBand = band;
+      g.realmSeenIds = {};
+      g.realmSeenTags = {};
+    }
+    if (!g.realmSeenIds) g.realmSeenIds = {};
+    if (!g.realmSeenTags) g.realmSeenTags = {};
+  }
+  function markRealmSeen(g, ev) {
+    if (!g || !ev) return;
+    syncRealmSeen(g);
+    g.realmSeenIds[ev.id] = 1;
+    if (ev.tag) g.realmSeenTags[ev.tag] = 1;
+  }
+  function eventFreshness(g, ev) {
+    var recent = eventRecent(g), i, f = 1;
+    for (i = 0; i < recent.length; i++) {
+      var age = recent.length - i;           /* 1 = 最近一次 */
+      if (recent[i].id === ev.id) f *= clamp(0.12 + age * 0.075, 0.12, 1);
+      else if (ev.tag && recent[i].tag === ev.tag) f *= clamp(0.45 + age * 0.05, 0.45, 1);
+    }
+    return f;
+  }
+
+  /* 近 6 次同一故事族最多 1 次。软降权挡不住低阶秘境和招婿把开局吃满。 */
+  var TAG_HARD_WINDOW = 6;
+  function eventTagBlocked(g, ev) {
+    if (!g || !ev) return false;
+    var recent = eventRecent(g);
+    var start = Math.max(0, recent.length - TAG_HARD_WINDOW);
+    var i;
+    for (i = start; i < recent.length; i++) {
+      if (ev.tag && recent[i].tag === ev.tag) return true;
+      if (!ev.tag && recent[i].id === ev.id) return true;
+    }
+    return false;
+  }
+
+  /* 抉择事件不再整体抬权：人生包几乎全是选择题，再乘 3 会把一辈子变成点作业。
+   * 路边琐事自行落幕，只有值得停的才弹窗。 */
+  var CHOICE_EVENT_WEIGHT = 1.15;
+  var T1_AFTER_DAOGONG = 0.15;
+
+  function eventDrawWeight(g, ev) {
+    var w = (ev.weight != null ? ev.weight : 1);
+    if (ev.tier >= 3) w *= g.tm.evt * pval(g, 'evt', 1) * ((g.era && g.era.evt) || 1);
+    if (ev.choice) w *= CHOICE_EVENT_WEIGHT;
+    w *= eventFreshness(g, ev);
+    /* 道宫之后采药/切磋/静坐不再当主菜，把位置让给真正的故事族 */
+    if (ev.tier <= 1 && (g.lvl || 1) >= 21) w *= T1_AFTER_DAOGONG;
+    /* 四极前把猎杀/静坐压下去，把位置让给人生包，否则前期抽中的全是同一套修炼琐事 */
+    if ((g.lvl || 1) < 21 && ev.tier <= 1 && !ev.choice) w *= 0.28;
+    if ((g.lvl || 1) < 41 && ev.id && String(ev.id).indexOf('lf_') === 0) {
+      w *= ev.tier >= 3 ? 1.15 : 0.55;
+    }
+    if (isSmallEvent(ev)) w *= smallEventPhysiqueScale(g);
+    if (isThrillEvent(ev)) w *= 1.55;
+    w *= eventAttrWeight(g, ev);
+    /* 对得上体质/悟性的专属事件抬权，让两局人生岔开，而不是所有人抽同一套 */
+    if (eventExclusive(ev)) w *= 2.4;
+    return w;
   }
 
   /* ---------- 抽 1 个随机事件执行 ---------- */
-  function rollEvent(g, log) {
-    var pool = [], i, mc = g.maxCount || (g.maxCount = {});
+  function collectAvailableEvents(g, choiceOnly) {
+    var raw = [], i, mc = g.maxCount || (g.maxCount = {});
+    syncRealmSeen(g);
     for (i = 0; i < E.length; i++) {
       var evi = E[i];
+      if (choiceOnly && !evi.choice) continue;
       var maxN = evi.maxCount != null ? evi.maxCount : 100;
       var left = mc[evi.id] != null ? mc[evi.id] : maxN;
       if (left <= 0) continue;
       if (!eventAvailable(g, evi)) continue;
       var minA = evi.minAge != null ? evi.minAge : 0;
       var maxA = evi.maxAge != null ? evi.maxAge : 10000;
-      if (g.age >= minA && g.age <= maxA) pool.push(evi);
+      if (g.age >= minA && g.age <= maxA) raw.push(evi);
     }
-    if (!pool.length) return;
-    var total = 0;
-    for (i = 0; i < pool.length; i++) {
-      var w = (pool[i].weight != null ? pool[i].weight : 1);
-      if (pool[i].tier >= 3) w *= g.tm.evt * pval(g, 'evt', 1) * ((g.era && g.era.evt) || 1);   /* 高阶机缘：命格、体质、时代共同作用 */
-      total += w;
+    var fresh = [];
+    for (i = 0; i < raw.length; i++) {
+      if (g.realmSeenIds && g.realmSeenIds[raw[i].id]) continue;
+      fresh.push(raw[i]);
     }
-    var r = Math.random() * total, acc = 0, ev = pool[0];
-    for (i = 0; i < pool.length; i++) {
-      var w2 = (pool[i].weight != null ? pool[i].weight : 1);
-      if (pool[i].tier >= 3) w2 *= g.tm.evt * pval(g, 'evt', 1) * ((g.era && g.era.evt) || 1);
-      acc += w2; if (r < acc) { ev = pool[i]; break; }
+    var use = fresh.length ? fresh : raw;
+    var tagged = [];
+    for (i = 0; i < use.length; i++) {
+      if (eventTagBlocked(g, use[i])) continue;
+      if (fresh.length && use[i].tag && g.realmSeenTags && g.realmSeenTags[use[i].tag]) continue;
+      tagged.push(use[i]);
     }
+    if (tagged.length) return tagged;
+    var soft = [];
+    for (i = 0; i < use.length; i++) {
+      if (eventTagBlocked(g, use[i])) continue;
+      soft.push(use[i]);
+    }
+    return soft.length ? soft : use;
+  }
+  function choiceHasFork(spec) {
+    if (!spec || !spec.options || spec.options.length < 2) return false;
+    var i, o;
+    for (i = 0; i < spec.options.length; i++) {
+      o = spec.options[i];
+      if (o && !o.safe) return true;
+    }
+    return spec.options.length >= 2;
+  }
+  function isUniqueLifeBeat(ev) {
+    if (!ev) return false;
+    if (ev.ask === false) return false;
+    if (ev.maxCount === 1) return true;
+    if (ev.id && String(ev.id).indexOf('lf_') === 0) return true;
+    return false;
+  }
+  function isSmallEvent(ev) {
+    if (!ev || isThrillEvent(ev)) return false;
+    return (ev.tier || 1) <= 2;
+  }
+  function smallEventPhysiqueScale(g) {
+    var t = physiqueTierOf(g);
+    if (t >= 9) return 0.78;
+    if (t >= 7) return 0.88;
+    if (t >= 4) return 0.96;
+    return 1.12;
+  }
+  function isThrillEvent(ev, spec) {
+    if (!ev || ev.ask === false) return false;
+    if (ev.ask === true) return true;
+    if (ev.tier >= 4) return true;
+    var tag = ev.tag || '';
+    if (tag === 'allin' || tag === 'create' || tag === 'duel' || tag === 'starroad') return true;
+    var id = ev.id || '';
+    if (id.indexOf('rd_road') === 0 || id.indexOf('dibing') >= 0 || id === 'xingkong_gulu') return true;
+    if (id === 'wld_sect_marriage' || id.indexOf('wld_marriage_') === 0) return true;
+    if (spec && spec.options) {
+      var i, o;
+      for (i = 0; i < spec.options.length; i++) {
+        o = spec.options[i];
+        if (!o) continue;
+        if (o.risk === 'deadly') return true;
+        if (o.id && String(o.id).indexOf('art_') === 0) return true;
+      }
+    }
+    return false;
+  }
+  function choiceThrillRank(ev) {
+    if (!ev) return 0;
+    if (ev.tier >= 4 || ev.tag === 'allin' || ev.tag === 'starroad') return 3;
+    if (isThrillEvent(ev)) return 2;
+    if (ev.tier >= 3) return 1;
+    if (ev.tag === 'sect' && ev.choice && (ev.tier || 1) >= 2) return 1;
+    return 0;
+  }
+  function needsAttrWeight(ev) {
+    if (!ev) return false;
+    if (ev.tier >= 4) return true;
+    var tag = ev.tag || '';
+    if (tag === 'allin' || tag === 'starroad' || tag === 'forbidden') return true;
+    var id = ev.id || '';
+    return id === 'xingkong_gulu' || id === 'dilu_zhengfeng' ||
+      id.indexOf('rd_road') === 0 || id.indexOf('dibing') >= 0;
+  }
+  function eventAttrWeight(g, ev) {
+    if (!needsAttrWeight(ev)) return 1;
+    var gift = g && g.daoGift != null ? g.daoGift : 5;
+    var body = physiqueTierOf(g);
+    var cult = currentCombatPower(g) || 1;
+    var expect = Math.max(1, realmCultCap((g && g.lvl) || 1) * 0.35);
+    var ratio = cult / expect;
+    var w = 0.55;
+    w += clamp((gift - 5) * 0.10, -0.30, 0.50);
+    w += clamp((body - 5) * 0.05, -0.20, 0.25);
+    w += clamp((ratio - 1) * 0.40, -0.28, 0.70);
+    if (g && (g.resonance === 'imperial' || g.resonance === 'dao')) w += 0.22;
+    if (hasImperialRoad(g)) w += 0.18;
+    return clamp(w, 0.15, 2.8);
+  }
+  function choiceWorthAsking(ev, spec) {
+    if (!ev || !spec || !spec.options || !spec.options.length) return false;
+    if (ev.ask === false) return false;
+    if (isThrillEvent(ev, spec)) return true;
+    /* 小事件进池子写人生，不打断。T3 以上才是值得停的岔路。 */
+    if (ev.tier >= 3 && choiceHasFork(spec)) return true;
+    return false;
+  }
+  /* 奖惩跟眼前这份战力走，不跟事件里写死的小数走。
+   * 轮海约 8%，准帝约 22%。后期差一点机缘也要能动当前格局。 */
+  function choiceStakeShare(g) {
+    var band = D.realmIdx((g && g.lvl) || 1);
+    if (band < 1) band = 1;
+    if (band > 10) band = 10;
+    return 0.06 + band * 0.016;
+  }
+  function choiceStakeU(g, chosen) {
+    if (!chosen || chosen.safe || chosen.risk === 'deadly') return U;
+    var share = choiceStakeShare(g);
+    var B = {}, k;
+    for (k in U) B[k] = U[k];
+    B.cultPct = function (gg, lo, hi, floor) {
+      var lo2 = Math.max(lo || 0, share * 0.75);
+      var hi2 = Math.max(hi || 0, share);
+      var floor2 = Math.max(floor || 0, Math.round((gg.cult || 0) * share * 0.55));
+      return U.cultPct(gg, lo2, hi2, floor2);
+    };
+    B.gainDao = function (gg, amount, capAdd) {
+      return U.gainDao(gg, amount, capAdd);
+    };
+    B.hurt = function (gg, lo, hi) {
+      var ev = _curEv && _curEv.ev;
+      return applyLifeHurt(gg, lo, hi, {
+        noExempt: !!(chosen && chosen.risk === 'deadly'),
+        severity: eventHurtSeverity(ev, chosen)
+      });
+    };
+    return B;
+  }
+  function fireEvent(g, log, ev, opt) {
+    if (!g || !ev) return;
+    opt = opt || {};
+    if ((g.lvl || 1) < 21 && (g.eventDraws || 0) >= earlyEventBudget(g)) return;
+    if ((g.lvl || 1) < 21 && !opt.forceAsk && physiqueTierOf(g) >= 7) {
+      /* 顶级体质四极前也从池子里沾一件小事，只是额度更紧，不再整段吞掉 */
+      if (!ev.choice && ev.tier < 3) return;
+    }
+    var mc = g.maxCount || (g.maxCount = {});
     var maxN2 = ev.maxCount != null ? ev.maxCount : 100;
     mc[ev.id] = (mc[ev.id] != null ? mc[ev.id] : maxN2) - 1;
+    markEventSeen(g, ev);
+    if (ev.choice) {
+      g.choiceTags = g.choiceTags || {};
+      g.choiceTags[ev.tag || ev.id] = 1;
+    }
+    g.eventDraws = (g.eventDraws || 0) + 1;
+    decayFortuneHeat(g);
     var prevCur = _curEv;
     _curEv = { ev: ev, g: g, log: log, printed: false };
+    if (ev.choice) {
+      var spec = ev.choice(g, U);
+      if (spec && spec.options && spec.options.length) {
+        spec.source = 'event';
+        spec.evId = ev.id;
+        spec.id = spec.id || ev.id;
+        spec.title = spec.title || ev.name;
+        spec.prompt = spec.prompt || ('第' + g.age + '岁，' + (spec.lead || ev.desc || ev.name));
+        spec.cls = spec.cls || ('ev' + ev.tier);
+        var ask = opt.forceAsk || choiceWorthAsking(ev, spec);
+        if (ask) {
+          spec.stakes = true;
+          var band = D.realmIdx(g.lvl);
+          if (band >= 2) {
+            g.choiceByRealm = g.choiceByRealm || {};
+            g.choiceByRealm[band] = 1;
+          }
+          _curEv = prevCur;
+          openChoice(g, log, spec);
+          return;
+        }
+        _curEv = prevCur;
+        applyChoice(g, spec, quietChoiceOption(spec), log);
+        return;
+      }
+    }
     if (!ev.cond || ev.cond(g, U)) {
       if (ev.ok) ev.ok(g, U, log);
-      var rewardTier = eventDaoyunTier(g, ev.tier);
-      var daoGain = [0, 1, 2, 6, 15][rewardTier] || 1;
-      /* 普通高阶机缘只能积累道蕴；唯有传说级机缘才可能抬高天赋上限。 */
-      gainDaoyun(g, daoGain, ev.tier === 4 ? 16 : 0);
-      if (rewardTier > ev.tier) {
-        push(log, { cls: 'rare', text: g.resonance === 'fortune' ?
-          '命格共鸣「否极泰来」，此番机缘额外沉淀了更多道蕴' :
-          '命格牵引福缘，此番机缘额外沉淀了更多道蕴' });
-      }
+      grantEventDaoyun(g, ev, log);
     } else {
       if (ev.fail) ev.fail(g, U, log);
     }
-    if (log && !_curEv.printed && _curEv.ev !== ev) {}
     _curEv = prevCur;
+  }
+  function rollEvent(g, log) {
+    var pool = collectAvailableEvents(g, false);
+    if (!pool.length) return;
+    var weights = [], total = 0, i;
+    for (i = 0; i < pool.length; i++) {
+      var w = eventDrawWeight(g, pool[i]);
+      weights.push(w); total += w;
+    }
+    if (!(total > 0)) return;
+    var r = Math.random() * total, acc = 0, ev = pool[pool.length - 1];
+    for (i = 0; i < pool.length; i++) {
+      acc += weights[i]; if (r < acc) { ev = pool[i]; break; }
+    }
+    fireEvent(g, log, ev);
+  }
+  var REALM_CHOICE_WAIT = 12;
+  var HOMEWORK_BAN = { phy_dixue_cuiti: 1, phy_hundunqi_cuiti: 1 };
+  function isHomeworkBanned(ev) {
+    if (!ev) return true;
+    if (HOMEWORK_BAN[ev.id]) return true;
+    if (ev.tier >= 4) return true;
+    if (ev.tag === 'allin') return true;
+    return false;
+  }
+  function pickWeighted(g, pool) {
+    var weights = [], total = 0, i;
+    for (i = 0; i < pool.length; i++) {
+      var w = eventDrawWeight(g, pool[i]);
+      weights.push(w); total += w;
+    }
+    if (!(total > 0)) return pool[Math.floor(Math.random() * pool.length)];
+    var r = Math.random() * total, acc = 0, ev = pool[pool.length - 1];
+    for (i = 0; i < pool.length; i++) {
+      acc += weights[i]; if (r < acc) { ev = pool[i]; break; }
+    }
+    return ev;
+  }
+  /* 道宫起每个大境界至少给一次抉择。必须在本境站稳再问，且作业里不夹致死金卡。 */
+  function ensureRealmChoice(g, log) {
+    if (!g || g.dead || g.becameEmperor || g.pendingChoice) return;
+    if ((g.lvl || 1) < 21 && (g.eventDraws || 0) >= earlyEventBudget(g)) return;
+    var band = D.realmIdx(g.lvl);
+    if (band < 1) return;
+    g.choiceByRealm = g.choiceByRealm || {};
+    if (g.choiceByRealm[band]) return;
+    if (!g.realmEnterAge) g.realmEnterAge = {};
+    if (g.realmEnterAge[band] == null) {
+      g.realmEnterAge[band] = g.age || 0;
+      return;
+    }
+    if ((g.age || 0) - g.realmEnterAge[band] < REALM_CHOICE_WAIT) return;
+    var pool = collectAvailableEvents(g, true);
+    if (!pool.length) return;
+    var used = g.choiceTags || {};
+    var groups = {}, fallback = {}, i, ev, tag, list, rank, best = 0;
+    for (i = 0; i < pool.length; i++) {
+      ev = pool[i];
+      if (isHomeworkBanned(ev)) continue;
+      if (band >= 4 && ev.tag === 'dungeon') continue;
+      rank = choiceThrillRank(ev);
+      if (rank > best) best = rank;
+    }
+    /* 轮海不保送村井。道宫起从本境池子轮转一题，T2 只在作业里出现一次。 */
+    if (band < 2 && best < 2) return;
+    var floor = band < 2 ? 2 : 0;
+    for (i = 0; i < pool.length; i++) {
+      ev = pool[i];
+      if (isHomeworkBanned(ev)) continue;
+      if (band >= 4 && ev.tag === 'dungeon') continue;
+      if (choiceThrillRank(ev) < floor) continue;
+      tag = ev.tag || ev.id;
+      fallback[tag] = fallback[tag] || [];
+      fallback[tag].push(ev);
+      if (used[tag]) continue;
+      groups[tag] = groups[tag] || [];
+      groups[tag].push(ev);
+    }
+    var bag = groups;
+    if (!Object.keys(bag).length) bag = fallback;
+    var tags = Object.keys(bag);
+    if (!tags.length) return;
+    tag = tags[Math.floor(Math.random() * tags.length)];
+    list = bag[tag];
+    fireEvent(g, log, list.length === 1 ? list[0] : pickWeighted(g, list), { forceAsk: true });
+  }
+  /* 悟性卡 / 天生高悟：见过立法窗口后，本生至少弹一次创法抉择。
+   * 不走本境标签硬挡，否则 create 族被人生包占掉就永远落不了笔。 */
+  function daoArtGuarantee(g) {
+    if (!g) return false;
+    if ((g.daoGift || 5) >= 8) return true;
+    if (g.resonance === 'dao') return true;
+    var i, t;
+    for (i = 0; i < (g.traits || []).length; i++) {
+      t = D.traitById(g.traits[i]);
+      if (t && t.path === 'dao' && (t.color === 'p' || t.color === 'o')) return true;
+    }
+    return false;
+  }
+  function collectCreateChoices(g) {
+    var out = [], i, ev, mc = g.maxCount || {};
+    for (i = 0; i < E.length; i++) {
+      ev = E[i];
+      if (!ev.choice || ev.tag !== 'create') continue;
+      var maxN = ev.maxCount != null ? ev.maxCount : 100;
+      if ((mc[ev.id] != null ? mc[ev.id] : maxN) <= 0) continue;
+      if (!eventAvailable(g, ev)) continue;
+      if (g.age < (ev.minAge != null ? ev.minAge : 0)) continue;
+      if (g.age > (ev.maxAge != null ? ev.maxAge : 10000)) continue;
+      out.push(ev);
+    }
+    return out;
+  }
+  function ensureArtChoice(g, log) {
+    if (!g || g.dead || g.becameEmperor || g.pendingChoice) return;
+    if (g.artHomework) return;
+    if (!daoArtGuarantee(g)) return;
+    if ((g.lvl || 1) < 21) return;
+    if (!g.artGlimpse && daoFill(g) < 0.18) return;
+    var pool = collectCreateChoices(g);
+    if (!pool.length) return;
+    g.artHomework = true;
+    fireEvent(g, log, pickWeighted(g, pool), { forceAsk: true });
+  }
+  function physiqueTierOf(g) {
+    if (g && g.physiqueId && D.physiqueById) {
+      var p = D.physiqueById(g.physiqueId);
+      if (p && p.tier) return p.tier;
+    }
+    return (g && (g.aptitude || g.innate)) || 1;
+  }
+  /* 四极前小事件要少。凡体只比圣体混沌多一件。 */
+  function earlyEventBudget(g) {
+    var t = physiqueTierOf(g);
+    if (t <= 2) return 2;
+    return 1;
+  }
+  function typicalLifeRef(g) {
+    var band = D.realmIdx((g && g.lvl) || 1);
+    var row = D.REALM_LIFE && D.REALM_LIFE[band];
+    if (row) return Math.round((row[0] + row[1]) / 2);
+    return 120;
+  }
+  function eventWantedInSpan(g) {
+    var lvl = (g && g.lvl) || 1;
+    if (lvl < 21) return Math.max(0, earlyEventBudget(g) - ((g && g.eventDraws) || 0));
+    if (lvl < 41) return 2;
+    if (lvl < 71) return 3;
+    if (lvl < 91) return 3;
+    return 4;
+  }
+  function eventYearInterval(g) {
+    /* 按剩余寿元摊，不按绝对年。轮海几十年和准帝近万年不是同一把尺。 */
+    var wanted = eventWantedInSpan(g);
+    if (wanted <= 0) return 100000;
+    var span = Math.max(typicalLifeRef(g), (g && g.lifespan) || 0);
+    var room = Math.max(span - ((g && g.age) || 0), Math.round(span * 0.35));
+    return Math.max(24, Math.round(room / wanted));
+  }
+  function eventYearChance(g) {
+    return (1 / eventYearInterval(g)) * (g.tm.evf || 1) * pval(g, 'evf', 1) * ((g.era && g.era.evf) || 1);
+  }
+  function maybeArtGlimpse(g, log) {
+    if (!g || g.artGlimpse || g.becameEmperor || g.dead) return;
+    var fill = daoFill(g);
+    var saint = (g.lvl || 1) >= 71;
+    if (saint && fill >= 0.18) {
+      /* 圣人后普通号也该看见一次立法窗口，不必活一万年去赌填充 */
+    } else if ((g.lvl || 1) >= 21 && fill >= 0.20) {
+      /* 道宫起、填充够，仍给一次可见窗口 */
+    } else {
+      return;
+    }
+    g.artGlimpse = true;
+    addFortuneHeat(g, 3);
+    push(log, { cls: 'rare', text: '第' + g.age + '岁，你忽然觉得自己也能立下一法。' +
+      '差的不是念头，是再撞上一场真正够格的机缘——那时落笔，才叫创法' });
+  }
+
+  /* 事件只留机缘余温。道蕴必须事件自己够格（悟道/创法/显式 dao），不能见事就抽成。 */
+  function grantEventDaoyun(g, evOrTier, log) {
+    var tier = (evOrTier && evOrTier.tier) || evOrTier || 1;
+    addFortuneHeat(g, tier);
   }
 
   /* 事件日志推进（仅 log 存在时收集） */
   function push(log, obj) { if (log) log.push(obj); }
 
-  /* ---------- 以力证道成功率：兼顾自动玩法的可达性；战力越高越接近必成 ---------- */
+  /* ---------- 以力证道成功率 ----------
+   * 五成点定在 35 万，也就是顶级体质配顶级悟性能摸到的准帝九重上限——
+   * 走到帝关前的人，恰好是一半一半。陡度 3 钉住另外两个锚点：
+   * 大成荒古圣体的 70 万 ≈ 89%、无缺大帝级的 100 万 ≈ 97%。
+   * 旧式是阶梯：45 万一过就 100% 必成。那条线在整套刻度里偏低（比破灭万道门槛还低一半），
+   * 且过线之后战力的边际收益直接归零，梭哈攒出来的战力到后期会突然作废。
+   * 换成渐近曲线后战力永远还有收益，同时永不到 100%，帝关始终留一分不确定。 */
+  var ZHENGDAO_REF = 350000;
+  var ZHENGDAO_K = 3;
   function zhengdaoChance(cult) {
-    if (cult >= 450000) return 1.0;
-    if (cult >= 300000) return 0.25 + (cult - 300000) / 150000 * 0.75;
-    if (cult >= 100000) return 0.05 + (cult - 100000) / 200000 * 0.20;
-    return 0.02;
+    if (!(cult > 0)) return 0.02;
+    return clamp(1 / (1 + Math.pow(ZHENGDAO_REF / cult, ZHENGDAO_K)), 0.02, 0.99);
   }
 
-  /* 证道成帝后的实力 = (100w 证道之基 + 原实力) × 倍率 */
+  /* 证道成帝后的实力 = (证道之基 + 原实力) × 倍率。
+   * 基数 55 万配上准帝九重的三十来万，新晋大帝落在 85~95 万，
+   * 即「另类成道者接近无缺大帝（85~105 万）而不及」。 */
+  var ZHENGDAO_BASE_CULT = 550000;
   function xianCult(cult, rate) {
     if (rate == null) rate = 1;
-    return round((1000000 + cult) * rate);
+    return round((ZHENGDAO_BASE_CULT + cult) * rate);
   }
 
   function isSacredBody(g) {
@@ -851,37 +2173,44 @@
   }
 
   /* 大成之后叩帝关：荒古圣体成帝是万古难遇，原著仅叶凡做到。
-   * 光秃约 2%；合适金卡可抬到约 30%，仍远不到保送。 */
+   * 光秃约 2%；合适金卡加上大成战力可抬到约 45%，仍远不到保送。 */
+  var SACRED_POWER_WEIGHT = 0.14;
   function sacredEmperorChance(g) {
     if (!isHuangguSacred(g)) return 0;
     var body = (g.tm && g.tm.bodyChance) || 0;
-    var extra = ((g.tm && g.tm.zhx) || 0) + pval(g, 'zhx', 0);
+    var extra = ((g.tm && g.tm.zhx) || 0) + pval(g, 'zhx', 0) + (g.planEdge || 0);
     var dao = (g.daoyun || 0) / D.DAO_ABSOLUTE_MAX;
     var gift = Math.max(0, (g.daoGift || 5) - 8) * 0.012;
+    /* 战力必须进入这条公式。否则圣体 100% 都能站到帝关前、86% 死在那一掷，
+     * 而战力对它完全无效——一切战力奖励对圣体都成了废货币，玩家的积累毫无反馈。
+     * 从以力证道曲线的半数点之半起算，到大成圣体的 70 万吃满，
+     * 保证它是一条真正的梯度而不是又一个台阶。 */
+    var powFloor = ZHENGDAO_REF / 2;
+    var power = clamp((zhengdaoEff(g) - powFloor) / (D.SACRED_JIDAO_CULT - powFloor), 0, 1) * SACRED_POWER_WEIGHT;
     var chance = 0.018 + Math.min(0.18, body * 0.22) + Math.min(0.09, extra * 0.9) +
-      Math.min(0.02, dao * 0.02) + gift;
+      Math.min(0.08, dao * 0.08 + createdArtN(g) * 0.012) + gift + power;
     if (g.gotDiBing) chance += 0.012;
     if (g.deathless) chance += 0.008;
     if (g.worldEmperor) chance *= 0.40;
-    return clamp(chance, 0.012, 0.32);
+    /* 上限从 0.32 提到 0.45：保留「比谁都难」，但不再是锁死的天花板 */
+    return clamp(chance, 0.012, 0.45);
   }
 
   /* 准帝九重天的荒古圣体即为大成圣体，无需再走额外大成机缘。 */
   function completeSacredBody(g, log) {
     if (!g || !isHuangguSacred(g) || (g.lvl || 0) < 99 || g.sacredPeakAwakened) return g;
     g.sacredPeakAwakened = true;
-    var target;
-    if (g.worldEmperor) {
-      target = Math.max(D.OVERWHELM_DAO_CULT, irand(950000, 1300000));
-    } else {
-      target = Math.max(D.SACRED_JIDAO_CULT || 1600000, irand(1600000, 2000000));
-    }
+    /* 大成圣体远超准帝九重（约 2 倍），但只有无缺大帝的六七成：
+     * 能叫板，正面打必死。无帝之世略高一线，因为没有帝压着它。 */
+    var target = g.worldEmperor ? irand(560000, 640000) :
+      irand(D.SACRED_JIDAO_CULT, Math.round(D.SACRED_JIDAO_CULT * 1.09));
     g.cult = Math.max(g.cult || 0, target);
     if (log) {
       push(log, { cls: 'rainbow', text: '第' + (g.age || 0) + '岁，准帝九重天成，荒古圣体至此大成！' +
+        '一身血气里多了一丝皇道法则，战力' + Math.round(g.cult / 10000) + '万，' +
         (g.worldEmperor ?
-          '极道至尊之象显化，战力达可与大帝争锋的' + Math.round(g.cult / 10000) + '万' :
-          '此世无帝，大成圣体已是宇宙第一极道至尊，战力' + Math.round(g.cult / 10000) + '万') });
+          '足以叫板当世大帝，正面硬撼却仍是送死' :
+          '此世无帝，已是人间极道至尊，但仍在无缺大帝之下') });
     }
     return g;
   }
@@ -1004,7 +2333,23 @@
     nine_secret: { max: 3 },
     predecessor_trace: { max: 3 },
     sealed_world: { max: 2 },
-    reforge_weapon: { max: 2 }
+    reforge_weapon: { max: 2 },
+    dao_prosper: { oncePerLife: true },
+    heaven_gate: { max: 3 },
+    tomb_builder: { once: true, minLife: 1 },
+    emperor_seed: { max: 3 },
+    fallen_friend: { max: 2 },
+    ancient_pact: { max: 2 },
+    race_ancestor: { max: 3 },
+    chaos_source: { max: 2 },
+    immortal_trace: { max: 3 },
+    forbidden_dialogue: { max: 2 },
+    dao_purge: { oncePerLife: true },
+    epoch_turn: { minLife: 2, max: 3 },
+    star_herding: { max: 3 },
+    saint_pilgrimage: { max: 3 },
+    dao_war: { max: 3 },
+    quasi_challenger: { max: 4 }
   };
 
   function emperorBeatIds() {
@@ -1015,7 +2360,11 @@
       'predecessor_trace', 'faith_incense', 'imperial_god', 'disciple_rise', 'time_scar',
       'sealed_world', 'race_mediation', 'ancient_road', 'underworld_edge', 'emperor_tomb',
       'blood_pact', 'cosmos_bloom', 'nine_secret', 'void_rift', 'reincarnation_dream',
-      'self_method', 'reverse_deduction', 'lonely_throne'
+      'self_method', 'reverse_deduction', 'lonely_throne',
+      'dao_prosper', 'saint_pilgrimage', 'star_herding', 'race_ancestor', 'heaven_gate',
+      'ancient_pact', 'dao_war', 'fallen_friend', 'emperor_seed', 'tomb_builder',
+      'chaos_source', 'immortal_trace', 'forbidden_dialogue', 'dao_purge',
+      'quasi_challenger', 'epoch_turn'
     ];
   }
 
@@ -1388,6 +2737,149 @@
       beatLine(g, log, 'rainbow', '第' + g.lifeNo + '世帝尊独立万古，连禁区也不再轻易睁眼，元神与道果根基各+1');
       return true;
     }
+    /* ---------- 扩充片段：让九世帝命不至于反复听同几句话 ---------- */
+    if (id === 'dao_prosper') {
+      roots.dao++; gainDaoyun(g, irand(14, 26));
+      g.cult = round(g.cult * rand(1.02, 1.05));
+      beatLine(g, log, 'god', pickVariant(g, id, [
+        '你证道之后天心愈发偏向你的道，诸天修士争相研习你的法，修行者破境竟因此加快，道果根基+1',
+        '你所开创的道统在星空中蔓延，天心与之相合，后辈依你的法门修行事半功倍，道果根基+1',
+        '万道之中你的一脉声势最盛，连大道运转都隐隐随之倾斜，道果根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'saint_pilgrimage') {
+      roots.soul++; gainDaoyun(g, irand(8, 16));
+      beatLine(g, log, 'rainbow', pickVariant(g, id, [
+        '万族圣者跨越星海来朝，帝宫外跪伏成片；你只讲了一句话便让他们各自悟道，元神根基+1',
+        '诸圣地老祖联袂觐见，请你为其道统点评得失，元神根基+1',
+        '一群自禁区边缘逃出的老古董前来投效，你收下他们的效忠，元神根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'star_herding') {
+      roots.body++; g.cult = round(g.cult * rand(1.02, 1.04));
+      beatLine(g, log, 'ev4', pickVariant(g, id, [
+        '你以星辰为牧，驱赶古星群穿越幽暗星海，肉身在星力冲刷中更加圆融，肉身根基+1',
+        '你放牧星空万载，将一颗死寂古星重新点燃，肉身根基+1',
+        '你在星海边缘圈养凶兽古族，为后世留下一片牧场，肉身根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'race_ancestor') {
+      roots.dao++; gainDaoyun(g, irand(10, 20));
+      beatLine(g, log, 'rare', pickVariant(g, id, [
+        '你造访一处太古万族祖地，与沉睡的古老意志对谈；那些异种的道与人族全然不同，却同样通向极致，道果根基+1',
+        '你走进一片自封沉眠的古族禁地，读完了他们刻在骨壁上的全部传承，道果根基+1',
+        '你唤醒一位化道边缘的圣灵，听他讲完一段无人记载的纪元，道果根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'heaven_gate') {
+      roots.dao++; gainDaoyun(g, irand(16, 30), 12);
+      beatLine(g, log, 'god', pickVariant(g, id, [
+        '你抬头望向上苍，感受到某种远在仙域之上的目光；你什么也没问出来，道蕴却因此暴涨，道果根基+1',
+        '你以帝道之力叩问天穹，回应你的只有一段听不懂的古老音节，道果根基+1',
+        '你顺着一线天光上行万里，终被无形之力挡回，却也窥见了更高处的轮廓，道果根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'ancient_pact') {
+      roots.soul++; legacy.pacts = (legacy.pacts || 0) + 1;
+      beatLine(g, log, 'rare', pickVariant(g, id, [
+        '你与数支自封的古族立下盟约：他们不再插手人间，你亦不掘其祖地，元神根基+1',
+        '你为一族解开困扰其万载的血脉之劫，换来他们永世不背叛的承诺，元神根基+1',
+        '你与妖族天庭划定疆界，此后星域再无族战，元神根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'dao_war') {
+      if (Math.random() < 0.72) {
+        roots.dao++; g.cult = round(g.cult * rand(1.03, 1.06));
+        beatLine(g, log, 'god', '有人另立道统欲与你分庭抗礼；你一路镇压过去，把万道重新压回自己这一脉，道果根基+1');
+      } else {
+        var warLoss = irand(120, 380);
+        g.emperorLifeEnd -= warLoss; g.lifeBase -= warLoss; syncLife(g);
+        beatLine(g, log, 'dead', '你镇压异端道统时被数位准帝联手拖住，虽终获胜，帝命-' + warLoss + '年');
+      }
+      return true;
+    }
+    if (id === 'fallen_friend') {
+      roots.soul++; gainDaoyun(g, irand(10, 18));
+      beatLine(g, log, 'dead', pickVariant(g, id, [
+        '一位跟随你最久的旧部背弃了你的道，你没有杀他，只收回了赠他的法，元神根基+1',
+        '你亲手废去一名叛离道统的传人，回帝宫后独坐了整整一纪，元神根基+1',
+        '昔年并肩的故友投向禁区，你在星海尽头拦下他，只说了一句「好自为之」，元神根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'emperor_seed') {
+      roots.dao++; legacy.seeds = (legacy.seeds || 0) + 1;
+      beatLine(g, log, 'rainbow', pickVariant(g, id, [
+        '你把自身道种撒向诸天万界，不求他们成帝，只求这条路上还有后来人，道果根基+1',
+        '你在数十座古星留下道痕，等着有缘人来取，道果根基+1',
+        '你收了一名毫无根基的凡人为记名弟子，只因他的眼神像极了当年的自己，道果根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'tomb_builder') {
+      roots.body++; roots.dao++;
+      beatLine(g, log, 'ev4', '你开始为自己修筑帝陵，把最凶险的杀阵留给后来的盗墓者，肉身与道果根基各+1');
+      return true;
+    }
+    if (id === 'chaos_source') {
+      roots.body++; gainDaoyun(g, irand(14, 24), 10);
+      g.cult = round(g.cult * rand(1.02, 1.05));
+      beatLine(g, log, 'god', '你深入混沌本源之地，以帝躯承受万道未分时的原始气息，肉身根基+1，道蕴上限增长');
+      return true;
+    }
+    if (id === 'immortal_trace') {
+      roots.dao++; gainDaoyun(g, irand(12, 22));
+      if (!g.knowsStrangeWorld && Math.random() < 0.18) {
+        learnStrangeWorld(g, log, '帝历' + (g.age - g.emperorAge) + '年，你顺着这缕仙迹一路追索，竟真的摸到了界壁坐标');
+      } else {
+        beatLine(g, log, 'rare', '你在一处古战场找到疑似仙人留下的痕迹，只余半个脚印，却让你的道果根基+1');
+      }
+      return true;
+    }
+    if (id === 'forbidden_dialogue') {
+      g.forbiddenKarma = (g.forbiddenKarma || 0) + (Math.random() < 0.4 ? 1 : 0);
+      roots.dao++;
+      beatLine(g, log, 'ev4', pickVariant(g, id, [
+        '一位沉睡的禁区至尊隔着万古与你对话；他劝你也去自斩，你没有答应，道果根基+1',
+        '禁区深处传来一声叹息，那位至尊说他也曾像你这样想过，道果根基+1',
+        '你与至尊隔空论了一场道，谁也没能说服谁，道果根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'dao_purge') {
+      if (legacy.lateAmbushes > 0 || (g.forbiddenKarma || 0) > 0) {
+        g.forbiddenKarma = Math.max(0, (g.forbiddenKarma || 0) - 1);
+        roots.body++;
+        beatLine(g, log, 'god', '你按着旧账一路清算，把当年趁你衰弱时出手的人挨个找了出来，血债了结，肉身根基+1');
+      } else {
+        roots.soul++;
+        beatLine(g, log, 'rare', '你翻看自己这一世的因果簿，发现竟无仇可寻，索性把它烧了，元神根基+1');
+      }
+      return true;
+    }
+    if (id === 'quasi_challenger') {
+      var challengerWin = clamp(0.86 + Math.min(0.10, currentCombatPower(g) / 5000000), 0.80, 0.97);
+      if (Math.random() < challengerWin) {
+        roots.body++; gainDaoyun(g, irand(6, 14));
+        beatLine(g, log, 'rainbow', '一位准帝九重的狂徒杀上帝宫，声称要以力证道；你一指镇之，又把他放走了，肉身根基+1');
+      } else {
+        var hurtYears = irand(200, 600);
+        g.emperorLifeEnd -= hurtYears; g.lifeBase -= hurtYears; syncLife(g);
+        beatLine(g, log, 'dead', '挑战者手中竟有一件极道帝兵，你虽压下此战，却被兵锋伤到本源，帝命-' + hurtYears + '年');
+      }
+      return true;
+    }
+    if (id === 'epoch_turn') {
+      roots.dao++; gainDaoyun(g, irand(10, 20));
+      beatLine(g, log, 'rare', '一个纪元悄然翻篇：你熟悉的族群尽数变异，新生的种族喊你作古老传说中的名字，道果根基+1');
+      return true;
+    }
     return false;
   }
 
@@ -1436,6 +2928,7 @@
     var prepared = Math.pow(daoPeak, 3) * Math.pow(absoluteRatio, 2);
     var chance = 0.04 + prepared * 0.80 + Math.min(0.05, total * 0.003);
     if (g.gotDiBing) chance += 0.01;
+    chance += Math.min(0.10, createdArtN(g) * 0.022);
     return clamp(chance, 0.02, 0.94);
   }
 
@@ -1507,24 +3000,25 @@
     return clamp(chance, 0.70, 0.95);
   }
 
-  function undeadEmperorForRoll(r, worldYear) {
-    /* 2~8世按 μ=5、σ≈1.5 的离散正态权重；最右侧约1%为已成红尘仙。 */
-    if (!worldYear || worldYear <= 0) {
-      if (r < 0.036) return { lives: 2, cult: 1650000 };
-      if (r < 0.146) return { lives: 3, cult: 2100000 };
-      if (r < 0.361) return { lives: 4, cult: 2550000 };
-      if (r < 0.629) return { lives: 5, cult: 3000000 };
-      if (r < 0.844) return { lives: 6, cult: 3600000 };
-      if (r < 0.954) return { lives: 7, cult: 4300000 };
-      if (r < 0.990) return { lives: 8, cult: 5200000 };
-      return { lives: 9, cult: 8000000, immortal: true };
-    }
-    var immortalChance = 0.01 + Math.min(0.09, worldYear / 20000000 * 0.09);
+  /* 不死天皇的蜕变进度取决于玩家何时打进来：
+   * 第一、二世就轰开界壁的，遇到的多半是三至五世的天皇；
+   * 拖到后几世、拖过百万年才入界的，对手已经多活了几世。 */
+  function undeadEmperorMean(worldYear, lifeNo) {
+    var byLife = Math.min(1.6, Math.max(0, (lifeNo || 1) - 1) * 0.42);
+    var byYear = Math.min(1.8, Math.max(0, worldYear || 0) / 1500000 * 1.8);
+    return 3.8 + byLife + byYear;
+  }
+  function undeadEmperorForRoll(r, worldYear, ctx) {
+    ctx = ctx || {};
+    var lifeNo = ctx.lifeNo || 1;
+    /* 红尘仙级的天皇是真正的意外，早期入界几乎不可能撞上。 */
+    var immortalChance = clamp(0.002 + Math.max(0, worldYear || 0) / 20000000 * 0.06 +
+      Math.max(0, lifeNo - 1) * 0.004, 0, 0.08);
     if (r >= 1 - immortalChance) return { lives: 9, cult: 8000000, immortal: true };
-    var mean = 5 + Math.min(2, worldYear / 1000000);
+    var mean = undeadEmperorMean(worldYear, lifeNo);
     var weights = [], total = 0, i;
     for (i = 2; i <= 8; i++) {
-      var w = Math.exp(-Math.pow(i - mean, 2) / (2 * 1.5 * 1.5));
+      var w = Math.exp(-Math.pow(i - mean, 2) / (2 * 1.1 * 1.1));
       weights.push(w); total += w;
     }
     var scaled = r / (1 - immortalChance), cumulative = 0;
@@ -1534,6 +3028,18 @@
       if (scaled < cumulative) return { lives: i + 2, cult: cults[i] };
     }
     return { lives: 8, cult: 5200000 };
+  }
+
+  /* 单人永远杀不死不死天皇：极限配置最多相持或逼退，真正斩杀只能靠与无始联手。 */
+  function canSlayUndead(g) {
+    return !!(g && g.strangeWorldAlliance === 'wushi');
+  }
+  function undeadRepelChance(g) {
+    var ratio = strangeWorldPowerRatio(g);
+    if (ratio < 0.85) return 0;
+    var dao = clamp((g.daoyun || 0) / D.DAO_ABSOLUTE_MAX, 0, 1);
+    var peak = isPeakPhysique(g.physiqueId) ? 0.10 : 0;
+    return clamp((ratio - 0.85) * 0.55 + dao * 0.28 + peak, 0, 0.80);
   }
 
   function undeadStageText(g) {
@@ -1610,17 +3116,19 @@
       push(log, { cls: 'dead', text: '你未能拉开与五色天刀的距离，终被不死天皇截杀于奇异世界' });
       return false;
     }
-    if (ratio >= 0.85 && Math.random() < strangeWorldBattleChance(g, false)) {
-      g.defeatedUndead = true;
+    /* 极限配置可以正面相持并把天皇逼退，但杀不死他：不死之身要靠无始牵制才可能斩断。 */
+    var repel = undeadRepelChance(g);
+    if (repel > 0 && Math.random() < repel) {
+      g.undeadRepelled = true;
       g.undeadHunting = false;
-      g.cult = round(g.cult * rand(1.04, 1.10));
-      g.strangeWorldInsight = (g.strangeWorldInsight || 0) + 16;
-      push(log, { cls: 'god', text: '你不再只求逃脱，反身硬撼五色天刀，当场击溃不死天皇！实力升至' + g.cult });
+      g.cult = round(g.cult * rand(1.03, 1.08));
+      g.strangeWorldInsight = (g.strangeWorldInsight || 0) + 14;
+      push(log, { cls: 'god', text: '你反身硬撼五色天刀，以自身极道与之相持；不死天皇伤而不死，暂时退入此界深处，追杀就此中断' });
       return true;
     }
     if (ratio < 0.95) applyStrangeAmbushWound(g);
     else g.cult = round(g.cult * rand(0.94, 0.98));
-    push(log, { cls: 'dead', text: '你再次从五色天刀下逃脱，却未能击杀不死天皇；此后只能隐匿发育，或等待下一次反杀' });
+    push(log, { cls: 'dead', text: '你再次从五色天刀下逃脱，却奈何不了不死之身；此后只能隐匿发育，或设法找到能牵制他的人' });
     return true;
   }
 
@@ -1634,6 +3142,7 @@
     g.strangeWorldAlliance = null;
     g.strangeWorldThreatKnown = false;
     g.undeadHunting = false;
+    g.undeadRepelled = false;
     g.awaitingStrangeWorldChoice = false;
     g.strangeWorldImmortalAttempts = 0;
     if (g.playerEmperorActive) {
@@ -1643,7 +3152,7 @@
     var situationRoll = Math.random();
     g.strangeWorldSituation = strangeWorldSituationForRoll(situationRoll);
     if (g.strangeWorldSituation !== 'quiet') {
-      var enemy = undeadEmperorForRoll(Math.random(), g.worldYear || 0);
+      var enemy = undeadEmperorForRoll(Math.random(), g.worldYear || 0, { lifeNo: g.lifeNo || 1 });
       g.undeadLives = enemy.lives;
       g.undeadCult = enemy.cult;
       g.undeadImmortal = !!enemy.immortal;
@@ -1679,11 +3188,16 @@
         '隐藏的强敌循着成仙波动杀至，你独战五色天刀，最终仙躯崩灭' });
       return false;
     }
-    g.defeatedUndead = true;
+    /* 只有与无始联手才谈得上斩杀；独自获胜只是挡下这一刀、逼其退走。 */
+    if (withWushi && canSlayUndead(g)) {
+      g.defeatedUndead = true;
+      g.ascended = true;
+      push(log, { cls: 'god', text: '你已蜕变红尘仙，与无始大帝前后夹击，终于斩断那具不死之身，结束这场持续万古的对峙！' });
+      return true;
+    }
+    g.undeadRepelled = true;
     g.ascended = true;
-    push(log, { cls: 'god', text: withWushi ?
-      '你已蜕变红尘仙，与无始大帝合力击碎五色天刀，终结了这场持续万古的对峙！' :
-      '你以新成红尘仙之身正面击溃五色天刀，在奇异世界真正站稳了脚跟！' });
+    push(log, { cls: 'god', text: '你以新成红尘仙之身挡下五色天刀，将不死天皇逼退；你杀不死他，他一时也奈何不了你' });
     return true;
   }
 
@@ -1693,6 +3207,7 @@
     var chance = 0.10 + Math.min(0.16, daoPeak * 0.16) + Math.min(0.08, roots * 0.003) +
       Math.min(0.08, Math.max(0, g.strangeWorldInsight - 80) * 0.0016) + Math.min(0.06, g.innate * 0.006);
     if (g.strangeWorldAlliance === 'wushi') chance += 0.04;
+    chance += Math.min(0.10, createdArtN(g) * 0.025);
     return clamp(chance, 0.12, 0.72);
   }
 
@@ -1769,6 +3284,13 @@
         g.strangeWorldInsight += 12;
         push(log, { cls: 'god', text: '你以不弱于对方的帝道修为避开绝杀，却仍未将其击杀；五色天刀开始循着气机猎杀，你只能隐匿发育或等待反杀' });
       }
+      return;
+    }
+
+    /* 逼退只是暂时的：不死之身养好伤，迟早会再找上门。 */
+    if (g.undeadRepelled && !g.undeadHunting && !g.defeatedUndead && Math.random() < 0.22) {
+      g.undeadHunting = true;
+      push(log, { cls: 'ev4', text: '被逼退的不死天皇再度涅槃归来，五色天刀的气息又一次锁定了你' });
       return;
     }
 
@@ -1867,7 +3389,8 @@
     var chance = 0.010 + Math.min(0.045, (g && g.cult || 0) / 8000000 * 0.045) +
       Math.min(0.025, daoPeak * 0.025);
     if (g && isPeakPhysique(g.physiqueId)) chance += 0.008;
-    return clamp(chance, 0.008, 0.09);
+    chance += Math.min(0.025, createdArtN(g) * 0.006);
+    return clamp(chance, 0.008, 0.12);
   }
   function tryImmortalRoad(g, log) {
     if (!canOpenImmortalRoad(g)) return false;
@@ -2138,6 +3661,26 @@
     }
     return currentCombatPower(g) * m;
   }
+  /* 道蕴版重伤退回：没有命格词条的人，靠道基厚度硬扛下帝关反噬，一生仅一次。
+   * 代价比 spendImperialRetry 重得多——那是金卡效果，这是所有人的保底。
+   * 门槛按实测填充度标定：凡体/悟性10 均值 0.421 过得去，
+   * 凡体/悟性5（0.220）与荒古圣体/悟性8（0.213）过不去，圣体另有战力那条线兜底。 */
+  var DAO_RETREAT_FILL = 0.38;
+  function tryDaoRetreat(g, log) {
+    if (!g || g.daoRetreatUsed) return false;
+    if (daoFill(g) < DAO_RETREAT_FILL) return false;
+    g.daoRetreatUsed = true;
+    g.cult = round(g.cult * 0.55);
+    g.daoyun = Math.max(0, g.daoyun * 0.75);
+    g.lifeBase = Math.max(g.age + 200, g.lifeBase - irand(400, 900));
+    syncLife(g);
+    g.emperorAttemptAge = g.age + irand(400, 900);
+    push(log, { cls: 'rare', text: '第' + g.age + '岁，帝关反噬如天倾而下。你没有硬扛，' +
+      '而是在道基碎裂的最后一瞬收了势，任那股力道把自己轰出关外。' +
+      '一身修为去了近半，道蕴也散了一截，但人还活着——闭关至第' + g.emperorAttemptAge + '岁，再叩一次' });
+    return true;
+  }
+
   function spendImperialRetry(g, log) {
     if (!g.tm || g.tm.retry <= 0) return false;
     g.tm.retry--;
@@ -2153,15 +3696,247 @@
       '，闭关至第' + g.emperorAttemptAge + '岁再争帝路' });
     return true;
   }
+  /* ---------- 帝关：判定与展示共用同一套数 ----------
+   * 冲关时机交给玩家之后，弹窗上写的成功率必须就是掷骰用的那个数，
+   * 所以三条分支的概率各自抽成纯函数，tryZhengdao 与 imperialGateInfo 都从这里取。 */
+  /* 凡体破灭看 110 万；圣体再叠有帝，要过 135 万才谈得上压帝。 */
+  function overwhelmNeed(g) {
+    return isHuangguSacred(g) ? D.SACRED_OVERWHELM_CULT : D.OVERWHELM_DAO_CULT;
+  }
+  function overwhelmProb(g, eff, extra) {
+    return clamp(0.35 + (eff - D.OVERWHELM_DAO_CULT) / 600000 + extra +
+      (g.tm.ignoreSuppression || 0), 0.35, 1);
+  }
+  function zhengdaoLateScale(g) {
+    var latePenalty = g.age > D.EMPEROR_PATH_FADE_AGE ?
+      1 - 0.5 * (g.age - D.EMPEROR_PATH_FADE_AGE) / (D.EMPEROR_PATH_CLOSE_AGE - D.EMPEROR_PATH_FADE_AGE) : 1;
+    var daoPenalty = g.daoSuppressed && !isPeakPhysique(g.physiqueId) ? 0.15 : 1;
+    return Math.max(0.5, latePenalty) * daoPenalty;
+  }
+  /* 凡体绝世悟性可走「以道证帝」：不靠蛮力硬撼帝关，而以完整道果换取有限但真实的成功率。
+   * 仅对低体质生效，避免混沌体叠加后把证帝变成必然。 */
+  function pureDaoBonusOf(g) {
+    return (g.innate <= 2 && pureDaoPath(g)) ?
+      ((g.daoGift - 8) * 0.10 + Math.min(0.22, g.daoyun / D.DAO_ABSOLUTE_MAX * 0.22)) : 0;
+  }
+  function forceZhengdaoProb(g, eff, extra) {
+    var lateScale = zhengdaoLateScale(g);
+    return isHuangguSacred(g) ? sacredEmperorChance(g) * lateScale :
+      Math.min(1, (zhengdaoChance(eff) + extra + pureDaoBonusOf(g) + daoZhengdaoBonus(g)) * lateScale);
+  }
+  /* 天心融合线是每次现掷的 need，展示时按均匀分布算出「掷到能融的那一段」的概率。 */
+  function tianxinScale(g) {
+    var red = clamp(g.tm.dlm + pval(g, 'dlm', 0), 0, 90);
+    var fade = g.age > D.EMPEROR_PATH_FADE_AGE ?
+      1 + 0.3 * (g.age - D.EMPEROR_PATH_FADE_AGE) / (D.EMPEROR_PATH_CLOSE_AGE - D.EMPEROR_PATH_FADE_AGE) : 1;
+    var suppression = g.daoSuppressed && !isPeakPhysique(g.physiqueId) ?
+      1 + 0.5 * (1 - (g.tm.ignoreSuppression || 0)) : 1;
+    return (1 - red / 100) * fade * suppression;
+  }
+  function tianxinFuseProb(g, eff) {
+    var k = tianxinScale(g);
+    if (!(k > 0)) return 1;
+    return clamp((eff / k - D.XINTIAN_NEED_MIN) / (D.XINTIAN_NEED_MAX - D.XINTIAN_NEED_MIN), 0, 1);
+  }
+
+  /* 叩关前的全景：挡在门前的原因、走哪条路、总成功率。UI 与自动决策都用它。 */
+  function imperialGateInfo(g) {
+    var info = { block: null, mode: 'force', odds: 0, fatal: true, daoNeed: 0 };
+    if (!g) return info;
+    if (!g.worldEmperor && tracesStillActive(g)) { info.block = 'traces'; return info; }
+    var need = effectiveDaoyunNeed(g, 99);
+    if ((g.lvl || 1) >= 99 && need && g.daoyun < need) {
+      info.block = 'daoyun'; info.daoNeed = need; return info;
+    }
+    var extra = g.tm.zhx + pval(g, 'zhx', 0) + (g.planEdge || 0);
+    var eff = zhengdaoEff(g);
+    if (g.worldEmperor) {
+      info.mode = 'overwhelm';
+      if (currentCombatPower(g) < overwhelmNeed(g)) { info.block = 'suppress'; return info; }
+      info.odds = overwhelmProb(g, eff, extra);
+      return info;
+    }
+    /* 九重天持天心：先赌一次融合，融不了再退回以力证道，两段叠加才是真实把握 */
+    if (g.xintian && !isHuangguSacred(g) && (g.lvl || 1) >= 99) {
+      info.mode = 'tianxin';
+      var pFuse = tianxinFuseProb(g, eff);
+      info.odds = clamp(pFuse + (1 - pFuse) * forceZhengdaoProb(g, eff, extra), 0, 1);
+      return info;
+    }
+    info.odds = forceZhengdaoProb(g, eff, extra);
+    return info;
+  }
+
+  /* ---------- 叩关时机由玩家决定 ----------
+   * 旧式是到了准帝九重天就闭关 10~40 年自动去撞帝关，哪怕寿元还剩两三千年。
+   * 高悟性反而吃亏：他们破境快、到九重天时很年轻，却被立刻推去送死，
+   * 一身机缘都还没攒够——实测悟性10 的准帝九重战力比悟性8 还低，倒挂就是这么来的。
+   * 现在改成弹窗：如实给出当前把握，玩家自己决定是叩还是再压几百年。 */
+  var GATE_FORCE_LIFE = 60;      /* 寿元只剩这么点，没得选了 */
+  var GATE_AUTO_ODDS = 0.55;     /* 自动决策：把握过半就叩 */
+  var GATE_AUTO_RESERVE = 400;   /* 自动决策：寿元剩这么多以下就别等了 */
+  var GATE_ODDS_STEP = 0.08;     /* 成功率涨了这么多，才值得再问一次 */
+
+  /* 压关年数按「现在挡路的是什么」现算，禁止一律 80~220。
+   * 否则余寿两三千年的人会被弹十几次——那不是抉择，是骚扰。 */
+  function imperialGateWaitYears(g) {
+    var room = Math.max(0, g.lifespan - g.age - GATE_FORCE_LIFE);
+    if (room <= 0) return 0;
+    var info = imperialGateInfo(g);
+    var left = Math.max(0, g.lifespan - g.age);
+    var want;
+    if (info.block === 'traces' && g.daoTraceUntil != null) {
+      want = g.daoTraceUntil - (g.worldYear || 0) + irand(8, 30);
+    } else if (info.block === 'suppress' && g.worldEmperor) {
+      var untilEmp = g.worldEmperor.end - (g.worldYear || 0);
+      var power = currentCombatPower(g);
+      /* 已经摸到破灭线八成五：可能靠机缘补上，不必干等到大帝坐化 */
+      want = power >= overwhelmNeed(g) * 0.85 ?
+        Math.min(untilEmp, Math.max(240, room * 0.22)) :
+        untilEmp + irand(8, 30);
+    } else if (info.block === 'daoyun' && info.daoNeed) {
+      var gap = info.daoNeed - (g.daoyun || 0);
+      var rate = (g.daoyun || 0) / Math.max(80, g.age || 1);
+      want = rate > 0.02 ? gap / rate * 1.1 : room * 0.4;
+      want = Math.min(want, room * 0.55);
+    } else {
+      var odds = info.odds || 0;
+      if (odds < 0.12) want = room * 0.50;
+      else if (odds < 0.28) want = room * 0.36;
+      else if (odds < 0.45) want = room * 0.26;
+      else want = room * 0.16;
+      if ((g.imperialGateWaits || 0) >= 2) want = Math.max(want, room * 0.42);
+    }
+    /* 最短也要按余寿的一截来，杜绝「过两年又弹一次」 */
+    var minWait = Math.min(room, Math.max(160, Math.round(left * 0.10)));
+    if (!(want > 0)) want = minWait;
+    return clamp(Math.round(want), Math.min(minWait, room), room);
+  }
+  function imperialGateWaitReason(g) {
+    var info = imperialGateInfo(g);
+    if (info.block === 'traces') return '等前代帝痕散尽';
+    if (info.block === 'suppress') {
+      return isHuangguSacred(g) ?
+        '等当世大帝坐化，或把战力压过圣体破灭的' + Math.round(D.SACRED_OVERWHELM_CULT / 10000) + '万' :
+        '等当世大帝坐化，或攒到破灭万道的战力';
+    }
+    if (info.block === 'daoyun') return '等道蕴补齐';
+    if ((info.odds || 0) < 0.20) return '把握尚浅，先把道基养厚';
+    if ((info.odds || 0) < 0.40) return '再积一截战力与道蕴';
+    return '再磨一磨，等更有把握时再叩';
+  }
+
+  function imperialGateForced(g) {
+    return !g || (g.lifespan - g.age) <= GATE_FORCE_LIFE;
+  }
+  function imperialGateSnapshot(g) {
+    var info = imperialGateInfo(g);
+    return {
+      block: info.block || '',
+      mode: info.mode,
+      odds: Math.round((info.odds || 0) * 1000),
+      we: g.worldEmperor ? (g.worldEmperor.end || 1) : 0,
+      traces: tracesStillActive(g) ? 1 : 0,
+      cultBand: Math.round(currentCombatPower(g) / 80000),
+      daoBand: Math.round((g.daoyun || 0) / 120)
+    };
+  }
+  /* 局面没变就不要再弹：成功率没明显上涨、挡路的还是那块、当世大帝也没换。 */
+  function imperialGateChanged(g) {
+    var prev = g.imperialGateSeen;
+    if (!prev) return true;
+    if (imperialGateForced(g) || (g.lifespan - g.age) <= GATE_AUTO_RESERVE) return true;
+    var now = imperialGateSnapshot(g);
+    if (now.block !== prev.block || now.mode !== prev.mode) return true;
+    if (now.we !== prev.we || now.traces !== prev.traces) return true;
+    /* 成功率涨满一截才问。战力小涨会被事件年年触发，再按战力分档就会刷屏。 */
+    if (now.odds - prev.odds >= GATE_ODDS_STEP * 1000) return true;
+    return false;
+  }
+  /* 自动决策：把握够了、等不起了、或再等也抬不高（圣体上限到不了 55%）就叩。 */
+  function imperialGateAutoStrike(g) {
+    if (imperialGateForced(g)) return true;
+    if ((g.lifespan - g.age) <= GATE_AUTO_RESERVE) return true;
+    var info = imperialGateInfo(g);
+    if (info.block) return false;
+    if (info.odds >= GATE_AUTO_ODDS) return true;
+    if (isHuangguSacred(g) && info.odds >= 0.28 && (g.imperialGateWaits || 0) >= 1) return true;
+    return false;
+  }
+  function imperialGateWait(g, log) {
+    var reason = imperialGateWaitReason(g);
+    var years = imperialGateWaitYears(g);
+    if (!(years > 0)) years = 1;
+    g.emperorAttemptAge = g.age + years;
+    g.imperialGateWaits = (g.imperialGateWaits || 0) + 1;
+    g.imperialGateSeen = imperialGateSnapshot(g);
+    push(log, { cls: 'rare', text: '第' + g.age + '岁，你在帝关前站了很久，终究转身退了回去。' +
+      reason + '——闭关至第' + g.emperorAttemptAge + '岁再看' });
+  }
+  registerChoiceHandler('imperial_gate', function (g, optionId, log) {
+    if (optionId === 'wait' && !imperialGateForced(g)) { imperialGateWait(g, log); return; }
+    tryZhengdao(g, log);
+  });
+  /* 返回 true 表示本年的叩关决策已经交出去了（弹窗挂起，或自动决策已当场结算）。 */
+  function openImperialGateChoice(g, log) {
+    if (imperialGateForced(g)) return false;    /* 不给选了，直接叩 */
+    /* 到期了但局面没变：默默再压一截，不弹第二次一模一样的窗 */
+    if (g.imperialGateSeen && !imperialGateChanged(g)) {
+      var silent = imperialGateWaitYears(g);
+      if (silent > 0) {
+        g.emperorAttemptAge = g.age + silent;
+        return true;
+      }
+      return false;
+    }
+    var info = imperialGateInfo(g);
+    var left = Math.max(0, Math.round(g.lifespan - g.age));
+    var years = imperialGateWaitYears(g);
+    var desc;
+    if (info.block === 'traces') desc = '前代帝道烙印未消，万道仍被镇压，此刻叩关必然无功';
+    else if (info.block === 'daoyun') desc = '道蕴仅 ' + Math.round(g.daoyun) + '/' + info.daoNeed + '，还撑不开帝关';
+    else if (info.block === 'suppress') desc = isHuangguSacred(g) ?
+      '当世有帝，圣体诅咒未解，战力尚未及圣体破灭的' + Math.round(D.SACRED_OVERWHELM_CULT / 10000) + '万，此时硬闯是送死' :
+      '当世有帝镇压万道，你的战力尚未及破灭万道的门槛，此时硬闯是送死';
+    else if (info.mode === 'overwhelm') desc = isHuangguSacred(g) ?
+      '当世有帝，你已压过圣体诅咒，此去是要破灭万道、以帝压帝' :
+      '当世有帝，此去是要破灭万道、以帝压帝';
+    else if (info.mode === 'tianxin') desc = '你身怀天心，可先试融合，融不成再以力强撼';
+    else desc = '无帝之世，以力证道，成则万古一帝';
+    var strikeLabel = info.block ? '仍要叩关（几无生机）' : '即刻叩关';
+    g.imperialGateSeen = imperialGateSnapshot(g);
+    openChoice(g, log, {
+      id: 'imperial_gate',
+      title: '帝关',
+      prompt: '第' + g.age + '岁，你立于帝关之前。' + desc + '。',
+      info: '当前战力 ' + Math.round(currentCombatPower(g) / 10000) + '万 · 道蕴 ' +
+        Math.round(g.daoyun) + '/' + Math.round(g.daoyunCap) + ' · 余寿 ' + left + ' 年' +
+        (info.block ? '' : ' · 叩关把握 ' + pctText(info.odds)) +
+        ((g.planEdge || 0) > 0 ? ' · 谋划 +' + pctText(g.planEdge) : ''),
+      note: '叩关多半只有一次。再压一压会按你眼下的局面估年数，局面没变之前不会再来烦你。',
+      cls: 'rainbow',
+      options: [
+        { id: 'strike', label: strikeLabel, risk: 'deadly',
+          chance: info.block ? 0 : info.odds, auto: imperialGateAutoStrike(g) || undefined },
+        { id: 'wait', label: '再压一压：' + imperialGateWaitReason(g) +
+            '（约 ' + years + ' 年）',
+          safe: true, detail: '闭关期间照常积累，局面有变才会再问' }
+      ]
+    });
+    return true;
+  }
+
   function tryZhengdao(g, log) {
     function deferImperialAttempt(years) {
       g.emperorAttemptAge = g.age + irand(years || 300, (years || 300) * 2);
     }
-    var extra = g.tm.zhx + pval(g, 'zhx', 0);
+    var extra = g.tm.zhx + pval(g, 'zhx', 0) + (g.planEdge || 0);
     var eff = zhengdaoEff(g);     /* 判定用战力：含隐藏的帝兵/不死药加持 */
     if (!g.worldEmperor && tracesStillActive(g)) {
       push(log, { cls: 'rare', text: '第' + g.age + '岁，前代帝道烙印尚未消散，万道仍被镇压，此世无人能证道' });
-      deferImperialAttempt(300);
+      var traceWait = imperialGateWaitYears(g);
+      if (traceWait > 0) g.emperorAttemptAge = g.age + traceWait;
+      else deferImperialAttempt(300);
       return false;
     }
     if (isHuangguSacred(g) && g.lvl >= 99) completeSacredBody(g, log);
@@ -2169,20 +3944,24 @@
     if (g.lvl >= 99 && emperorDaoNeed && g.daoyun < emperorDaoNeed) {
       push(log, { cls: 'rare', text: '第' + g.age + '岁，准帝九重已至，然道蕴仅' + Math.round(g.daoyun) +
         '/' + emperorDaoNeed + '，尚不足以叩开帝关' });
-      deferImperialAttempt(250);
+      var daoWait = imperialGateWaitYears(g);
+      if (daoWait > 0) g.emperorAttemptAge = g.age + daoWait;
+      else deferImperialAttempt(250);
       return false;
     }
     if (g.worldEmperor) {
-      if (currentCombatPower(g) < D.OVERWHELM_DAO_CULT) {
+      if (currentCombatPower(g) < overwhelmNeed(g)) {
         if (spendImperialRetry(g, log)) return true;
-        push(log, { cls: 'dead', text: '第' + g.age + '岁，当世已有大帝镇压万道；你的实际战力' + Math.round(g.cult / 10000) +
-          '万尚未达到破灭万道的90万硬门槛，帝兵等外物无法代替自身道行，帝关在道压中崩碎' });
+        var needWan = Math.round(overwhelmNeed(g) / 10000);
+        push(log, { cls: 'dead', text: '第' + g.age + '岁，当世已有大帝镇压万道' +
+          (isHuangguSacred(g) ? '，圣体诅咒未解' : '') +
+          '；你的实际战力' + Math.round(currentCombatPower(g) / 10000) +
+          '万尚未达到' + (isHuangguSacred(g) ? '圣体破灭' : '破灭万道') + '的' + needWan +
+          '万硬门槛，帝兵等外物无法代替自身道行，帝关在道压中崩碎' });
         g.dead = true; g.deadCause = 'world_emperor_suppression';
         return true;
       }
-      var overwhelmChance = clamp(0.35 + (eff - D.OVERWHELM_DAO_CULT) / 600000 + extra +
-        (g.tm.ignoreSuppression || 0), 0.35, 1);
-      if (isHuangguSacred(g)) overwhelmChance = sacredEmperorChance(g);
+      var overwhelmChance = overwhelmProb(g, eff, extra);
       if (Math.random() < overwhelmChance) {
         var oldEmperorName = g.worldEmperor.name;
         becomeDi(g, log, 'overwhelm');
@@ -2198,11 +3977,7 @@
     }
     /* 天心也不能给荒古圣体开后门：天道不容圣体成帝，仍要过那道万古难关。 */
     if (g.xintian && !isHuangguSacred(g)) {
-      var red = clamp(g.tm.dlm + pval(g, 'dlm', 0), 0, 90);
-      var fade = g.age > D.EMPEROR_PATH_FADE_AGE ? 1 + 0.3 * (g.age - D.EMPEROR_PATH_FADE_AGE) / (D.EMPEROR_PATH_CLOSE_AGE - D.EMPEROR_PATH_FADE_AGE) : 1;
-      var suppression = g.daoSuppressed && !isPeakPhysique(g.physiqueId) ?
-        1 + 0.5 * (1 - (g.tm.ignoreSuppression || 0)) : 1;
-      var need = Math.max(1, Math.round(irand(D.XINTIAN_NEED_MIN, D.XINTIAN_NEED_MAX) * (1 - red / 100) * fade * suppression));
+      var need = Math.max(1, Math.round(irand(D.XINTIAN_NEED_MIN, D.XINTIAN_NEED_MAX) * tianxinScale(g)));
       /* 准帝九重天即已走到帝关前，战力达标后融合天心必成。 */
       if (g.lvl >= 99 && eff >= need) {
         becomeDi(g, log, 'tianxin');
@@ -2223,16 +3998,8 @@
       }
     }
     /* 无天心：以力证道（按判定战力查概率曲线） */
-    var latePenalty = g.age > D.EMPEROR_PATH_FADE_AGE ? 1 - 0.5 * (g.age - D.EMPEROR_PATH_FADE_AGE) / (D.EMPEROR_PATH_CLOSE_AGE - D.EMPEROR_PATH_FADE_AGE) : 1;
-    var daoPenalty = g.daoSuppressed && !isPeakPhysique(g.physiqueId) ? 0.15 : 1;
-    /* 凡体绝世悟性可走“以道证帝”：不靠蛮力硬撼九十万战力，而以完整道果换取有限但真实的帝关成功率。
-     * 仅对低体质生效，避免混沌体叠加后把证帝变成必然。 */
-    var pureDaoBonus = (g.innate <= 2 && pureDaoPath(g)) ?
-      ((g.daoGift - 8) * 0.10 + Math.min(0.22, g.daoyun / D.DAO_ABSOLUTE_MAX * 0.22)) : 0;
-    var lateScale = Math.max(0.5, latePenalty) * daoPenalty;
-    var prob = isHuangguSacred(g) ?
-      sacredEmperorChance(g) * lateScale :
-      Math.min(1, (zhengdaoChance(eff) + extra + pureDaoBonus) * lateScale);
+    var pureDaoBonus = pureDaoBonusOf(g);
+    var prob = forceZhengdaoProb(g, eff, extra);
     if (Math.random() < prob) {
       becomeDi(g, log, 'force');
       push(log, { cls: 'god', text: isHuangguSacred(g) ?
@@ -2243,6 +4010,7 @@
       return true;
     }
     if (spendImperialRetry(g, log)) return true;
+    if (tryDaoRetreat(g, log)) return true;
     push(log, { cls: 'dead', text: isHuangguSacred(g) ?
       '第' + g.age + '岁，天道不容圣体成帝，帝关反噬，身死道消' :
       '第' + g.age + '岁，冲击帝关失败，大道反噬，身死道消' });
@@ -2281,6 +4049,13 @@
       age: 6,
       year: 0,
       maxCount: {},
+      createdArts: [], createdMethods: 0, fortuneHeat: 0, artGlimpse: false, artHomework: false,
+      choiceByRealm: {},
+      realmEnterAge: { 1: 6 },
+      realmSeenBand: 1, realmSeenIds: {}, realmSeenTags: {},
+      eventDraws: 0, spotlightCount: 0, planScore: 0, planEdge: 0,
+      recentEvents: [], pendingChoice: null,
+      eventChains: {},
       dead: false, ascended: false, emperor: false, becameEmperor: false, redDustImmortal: false,
       emperorAge: 0, emperorAttemptAge: 0, emperorLifeStart: 0, emperorLifeEnd: 0, lifeNo: 0, redDustMarks: 0,
       redDustRoots: { body: 0, soul: 0, dao: 0 }, redDustRoutes: [], redDustPath: null, immortalMode: null,
@@ -2332,6 +4107,8 @@
   function rollYearFast(g) { stepYear(g, null); return null; }
 
   function stepYear(g, log) {
+    /* 有未决选择时一切暂停，等玩家给出决定 */
+    if (g.pendingChoice) return;
     g.year++; g.age++;
     advanceWorldCalendar(g, 1, log);
 
@@ -2345,7 +4122,7 @@
     /* 体质越强越易破境，但每次破境沉淀的道蕴反而更少；悟性天赋决定道蕴产量。 */
     var bodyDaoYield = 1.22 - Math.min(0.72, (g.innate || 1) * 0.072);
     var giftDaoYield = 0.55 + Math.min(1.65, (g.daoGift || 5) * 0.13);
-    var yearlyDao = 0.125 * (0.12 + giftDaoYield * bodyDaoYield);
+    var yearlyDao = 0.125 * (0.12 + giftDaoYield * bodyDaoYield) * artDaoMult(g);
     if (g.lvl >= 91 && !hasGoldDaoGrowth(g)) yearlyDao *= 0.35;
     gainDaoyun(g, yearlyDao);
     /* 吞天之路：按境界从低到高炼化诸般体质，集齐后才以旧日把握化混沌。 */
@@ -2401,26 +4178,19 @@
       }
     }
 
-    /* 修炼突破（连破逐层打印） */
+    /* 修炼突破：同一称号并成一条，不再夹「连破！」空句 */
     if (g.lvl < 100) {
       var gained = attemptBreak(g);
-      if (gained > 0) {
-        for (var k = 0; k < gained; k++) {
-          levelUp(g, log);
-          if (k + 1 < gained && g.lvl < 100) push(log, { cls: 'brk', text: '第' + g.age + '岁，修炼，连破！' });
-          if (g.lvl >= 100) break;
-        }
-      }
+      if (gained > 0) gainLevels(g, gained, log);
     }
 
     tryBodyEvolution(g, log);
 
-    /* 修行中水到渠成：实力缓慢沉淀 */
-    if (Math.random() < (D.STEADY_TARGET / g.lifespan * g.tm.evf * pval(g, 'evf', 1))) {
+    /* 修行中水到渠成：实力缓慢沉淀。默认不写进日志——否则回顾一生全是 +22。 */
+    if (Math.random() < (D.STEADY_TARGET / Math.max(400, g.lifespan) * (g.tm.evf || 1) * pval(g, 'evf', 1))) {
       var sInc = round(round(g.cult * rand(0.001, 0.0015)) * pval(g, 'cgt', 1));
       if (sInc < 5) sInc = 5;
       g.cult += sInc;
-      push(log, { cls: 'gain', text: '第' + g.age + '岁，水到渠成，实力有所精进，+' + sInc });
     }
 
     /* 准帝九重天后：每年默默精进 +1~5 战力（后台结算，不弹日志） */
@@ -2430,12 +4200,17 @@
     if (!g.dead && !g.ascended && g.lifespan - g.age <= 20) {
       if (tryDeathless(g, log)) return;
     }
-    /* 准帝九重天就是帝关门前：闭关10~40年便会争渡，不再额外等待一个隐藏层级。
-     * 持天心但尚未抵达九重天者，仍只会在寿元将尽时冒险强融。 */
-    if (g.lvl >= 99 && !g.emperorAttemptAge) g.emperorAttemptAge = g.age + irand(10, 40);
+    /* 准帝九重天就是帝关门前。何时叩关由玩家自己定：寿元还剩两三千年就急着去送死没有道理，
+     * 多压几百年攒战力攒道蕴是正经打法。只有寿元将尽时才由不得人。 */
+    if (g.lvl >= 99 && !g.emperorAttemptAge) {
+      /* 准帝九重天即圣体大成，先让它显化，叩关弹窗上的成功率才算得准 */
+      if (isHuangguSacred(g)) completeSacredBody(g, log);
+      g.emperorAttemptAge = g.age + irand(10, 40);
+    }
     var shouldAttempt = (g.lvl >= 99 && g.age >= g.emperorAttemptAge) ||
       (g.xintian && g.lvl >= 91 && g.lifespan - g.age <= 10);
     if (shouldAttempt && !g.ascended && !g.dead) {
+      if (openImperialGateChoice(g, log)) return;
       if (tryZhengdao(g, log)) return;
     }
 
@@ -2446,8 +4221,11 @@
       return;
     }
 
-    /* 普通随机事件（一生约 EVENT_TARGET 次） */
-    if (!g.ascended && !g.dead && Math.random() < (D.EVENT_TARGET / g.lifespan * g.tm.evf * pval(g, 'evf', 1) * ((g.era && g.era.evf) || 1))) rollEvent(g, log);
+    /* 普通随机事件：按年密度抽，寿元变长不再稀释 */
+    if (!g.ascended && !g.dead && Math.random() < eventYearChance(g)) rollEvent(g, log);
+    if (!g.ascended && !g.dead && !g.pendingChoice) ensureRealmChoice(g, log);
+    if (!g.ascended && !g.dead) maybeArtGlimpse(g, log);
+    if (!g.ascended && !g.dead && !g.pendingChoice) ensureArtChoice(g, log);
 
     /* 事件可能致寿元耗尽：意外暴毙（区别于寿终正寝） */
     if (g.age > g.lifespan && !g.dead) {
@@ -2520,12 +4298,86 @@
     becomeChaosFromSwallow: becomeChaosFromSwallow,
     eventDaoyunTier: eventDaoyunTier,
     eventAvailable: eventAvailable,
+    eventFits: eventFits,
+    physiqueFamily: physiqueFamily,
+    eventFreshness: eventFreshness,
+    eventTagBlocked: eventTagBlocked,
+    eventDrawWeight: eventDrawWeight,
+    eventAttrWeight: eventAttrWeight,
+    isThrillEvent: isThrillEvent,
+    choiceWorthAsking: choiceWorthAsking,
+    choiceStakeShare: choiceStakeShare,
+    eventYearInterval: eventYearInterval,
+    earlyEventBudget: earlyEventBudget,
+    daoByCap: daoByCap,
+    eventPaysDao: eventPaysDao,
+    grantCreateDao: grantCreateDao,
+    eventHurtSeverity: eventHurtSeverity,
+    lifeHurtShare: lifeHurtShare,
+    applyLifeHurt: applyLifeHurt,
+    fireEvent: fireEvent,
+    collectAvailableEvents: collectAvailableEvents,
+    markEventSeen: markEventSeen,
+    markRealmSeen: markRealmSeen,
+    syncRealmSeen: syncRealmSeen,
+    ensureRealmChoice: ensureRealmChoice,
+    ensureArtChoice: ensureArtChoice,
+    daoArtGuarantee: daoArtGuarantee,
+    maybeArtGlimpse: maybeArtGlimpse,
+    daoFill: daoFill,
+    hasImperialRoad: hasImperialRoad,
+    grantEventDaoyun: grantEventDaoyun,
+    /* 创法 */
+    ART_TYPES: ART_TYPES,
+    artType: artType,
+    artTypeIds: artTypeIds,
+    availableArtTypes: availableArtTypes,
+    createArtChance: createArtChance,
+    createArtDeathChance: createArtDeathChance,
+    addCreatedArt: addCreatedArt,
+    artCount: artCount,
+    artCultMult: artCultMult,
+    artBreakMult: artBreakMult,
+    artDaoMult: artDaoMult,
+    artWard: artWard,
+    artSummary: artSummary,
+    insightPrefix: insightPrefix,
+    /* 选择框架 */
+    pendingChoice: pendingChoice,
+    resolveChoice: resolveChoice,
+    judgePlanPick: judgePlanPick,
+    applyPlanDividend: applyPlanDividend,
+    openChoice: openChoice,
+    registerChoiceHandler: registerChoiceHandler,
+    defaultChoiceOption: defaultChoiceOption,
+    allInDeathOdds: allInDeathOdds,
+    allInOutcome: allInOutcome,
+    allInPayoff: allInPayoff,
+    allInFloor: allInFloor,
+    allInDeathShare: allInDeathShare,
+    allInPowerSurge: allInPowerSurge,
+    powerSurge: powerSurge,
+    realmCultCap: realmCultCap,
+    grantZhengdaoEdge: grantZhengdaoEdge,
+    artResonance: artResonance,
+    artResonanceLevel: artResonanceLevel,
+    artDefiantResonance: artDefiantResonance,
+    isDefiantArt: isDefiantArt,
+    addFortuneHeat: addFortuneHeat,
+    spotlightBudget: spotlightBudget,
+    setAutoChoice: setAutoChoice,
+    isAutoChoice: isAutoChoice,
+    pctText: pctText,
     tianxinChance: tianxinChance,
     tianxinPityGain: tianxinPityGain,
     createGame: createGame,
     rollYear: rollYear,
     setFast: setFast,
     tryZhengdao: tryZhengdao,
+    imperialGateInfo: imperialGateInfo,
+    imperialGateForced: imperialGateForced,
+    imperialGateWaitYears: imperialGateWaitYears,
+    openImperialGateChoice: openImperialGateChoice,
     sacredEmperorChance: sacredEmperorChance,
     completeSacredBody: completeSacredBody,
     spendImperialRetry: spendImperialRetry,
@@ -2560,6 +4412,9 @@
     resolveUndeadHunt: resolveUndeadHunt,
     resolveUndeadHide: resolveUndeadHide,
     undeadEmperorForRoll: undeadEmperorForRoll,
+    undeadEmperorMean: undeadEmperorMean,
+    undeadRepelChance: undeadRepelChance,
+    canSlayUndead: canSlayUndead,
     forbiddenSleepRange: forbiddenSleepRange,
     forbiddenPurgeChance: forbiddenPurgeChance,
     setPhysique: setPhysique,
