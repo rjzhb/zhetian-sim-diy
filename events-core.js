@@ -658,6 +658,7 @@
         U.printlog('遗迹中大有所获，得到一部前人手札，实力+' + c);
         var lf = U.gainLife(g, 15, 50);
         if (lf) U.printlog('手札蕴含一缕先贤生机，寿元+' + lf);
+        if (U.markStory) U.markStory(g, 'relic_note');
       },
       fail: function (g, U) {
         var h = U.hurt(g, 30, 90);

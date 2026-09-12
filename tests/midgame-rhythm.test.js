@@ -1578,6 +1578,37 @@ function mortalSage(opt) {
   assert.ok(auctionDoor.maxCount && auctionDoor.maxCount.th_echo_auction != null &&
     auctionDoor.maxCount.th_echo_auction < 1, '有拍场余波时，下一次抽事宜先出余波');
   assert.ok(!Sim.hasStory(auctionDoor, 'auction_scent'), '余波出过之后，钩子应摘掉');
+
+  var relicEcho = byId('th_echo_relic');
+  assert.ok(relicEcho, '应有手札余波');
+  assert.ok(!Sim.isStakeEvent(relicEcho), '手札余波不占梭哈');
+  assert.ok(!relicEcho.choice, '手札余波不是选择题');
+  g.lvl = 28;
+  g.age = 60;
+  Sim.clearStory(g, 'auction_scent');
+  assert.ok(!Sim.eventAvailable(g, relicEcho), '没进过遗迹，不该有人来问手札');
+  Sim.markStory(g, 'relic_note');
+  assert.ok(Sim.eventAvailable(g, relicEcho), '得过手札后，余波应能抽到');
+  var foundNote = Sim.createGame(0, []);
+  Sim.setPhysique(foundNote, D.physiqueById('mortal'));
+  foundNote.lvl = 28;
+  foundNote.age = 60;
+  byId('taigu').ok(foundNote, Sim.U);
+  assert.ok(Sim.hasStory(foundNote, 'relic_note'), '遗迹得手札应留下钩子');
+  var relicDoor = Sim.createGame(0, []);
+  Sim.setPhysique(relicDoor, D.physiqueById('mortal'));
+  relicDoor.innate = 1;
+  relicDoor.lvl = 28;
+  relicDoor.age = 60;
+  relicDoor.eventDrawsBySpan = { pre: 3 };
+  Sim.markStory(relicDoor, 'relic_note');
+  var relicRnd = Math.random;
+  Math.random = function () { return 0.1; };
+  Sim.rollEvent(relicDoor, []);
+  Math.random = relicRnd;
+  assert.ok(relicDoor.maxCount && relicDoor.maxCount.th_echo_relic != null &&
+    relicDoor.maxCount.th_echo_relic < 1, '有手札钩子时，下一次抽事宜先出余波');
+  assert.ok(!Sim.hasStory(relicDoor, 'relic_note'), '余波出过之后，钩子应摘掉');
 })();
 
 console.log('midgame-rhythm: ok');

@@ -922,6 +922,24 @@
         if (U.clearStory) U.clearStory(g, 'auction_scent');
         U.printlog('有人在城门口问：那一拍是谁拍走的。你没有应声，药香自己散了');
       }
+    },
+    {
+      id: 'th_echo_relic', name: '手札故人', tier: 2, tag: 'echo',
+      desc: '遗迹里那部手札还有后人', needStory: 'relic_note', weight: 8, maxCount: 1,
+      minAge: 15, maxAge: 100000,
+      available: function (g) { return !g.becameEmperor && (g.lvl || 1) >= 22; },
+      cond: function (g) { return Math.random() < 0.80; },
+      ok: function (g, U) {
+        if (U.clearStory) U.clearStory(g, 'relic_note');
+        var c = U.cultPct(g, 0.016, 0.028, 360);
+        var d = U.irand(3, 6);
+        U.gainDao(g, d);
+        U.printlog('手札后人找上门来。他看过你补的批注，没有夺书，只把缺的一页也留给你，实力+' + c + '，道蕴+' + d);
+      },
+      fail: function (g, U) {
+        if (U.clearStory) U.clearStory(g, 'relic_note');
+        U.printlog('有人在市集打听那部手札。你把书换了个匣，没有见他');
+      }
     }
   ];
 
