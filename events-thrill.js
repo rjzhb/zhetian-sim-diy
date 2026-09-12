@@ -242,6 +242,8 @@
         var lf = U.gainLife(g, 32, 60);
         var c = U.cultPct(g, 0.022, 0.040, 700);
         sitThrough(g, U);
+        if ((g.lvl || 1) < 60) sitThrough(g, U);
+        else if ((g.lvl || 1) >= 61 && (g.lvl || 1) < 70) sitThrough(g, U);
         if (sitQuiet(g, U)) {
           U.printlog('你又把息调了一夜' + (lf ? '，寿元+' + lf : '') + '，实力+' + c);
           return;
