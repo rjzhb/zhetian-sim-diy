@@ -848,6 +848,24 @@
         U.printlog(h.loss ? '追货的人比卖家还狠。你把东西沉进星海，寿元-' + h.loss :
           '有船跟了你一夜，天亮时看不见了');
       }
+    },
+    {
+      id: 'th_echo_insight', name: '心湖余波', tier: 2, tag: 'echo',
+      desc: '顿悟那一夜的波纹还在', needStory: 'insight_ripple', weight: 8, maxCount: 1,
+      minAge: 20, maxAge: 100000,
+      available: function (g) { return !g.becameEmperor && (g.lvl || 1) >= 11; },
+      cond: function (g) { return Math.random() < 0.80; },
+      ok: function (g, U) {
+        if (U.clearStory) U.clearStory(g, 'insight_ripple');
+        var c = U.cultPct(g, 0.016, 0.028, 360);
+        var d = U.irand(3, 6);
+        U.gainDao(g, d);
+        U.printlog('同辈循着那一夜的波纹找来。他没有夺悟，只把心湖又拍亮了一寸，实力+' + c + '，道蕴+' + d);
+      },
+      fail: function (g, U) {
+        if (U.clearStory) U.clearStory(g, 'insight_ripple');
+        U.printlog('有人在山下问：那一夜心湖是谁开的。你没有应声，波纹自己散了');
+      }
     }
   ];
 

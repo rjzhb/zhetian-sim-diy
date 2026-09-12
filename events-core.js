@@ -605,6 +605,7 @@
         var lf = U.gainLife(g, 40, 120);
         U.printlog('心湖澄澈，一朝顿悟！实力+' + c + (lf ? '，寿元+' + lf : ''));
         U.up(g, 1, log);
+        if (U.markStory) U.markStory(g, 'insight_ripple');
       },
       fail: null
     },

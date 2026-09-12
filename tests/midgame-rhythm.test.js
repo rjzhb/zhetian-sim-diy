@@ -1436,6 +1436,37 @@ function mortalSage(opt) {
   buy.age = 200;
   byId('star_sea_auction').ok(buy, Sim.U);
   assert.ok(Sim.hasStory(buy, 'dark_buy'), '暗市得手应留下髓香');
+
+  var insight = byId('th_echo_insight');
+  assert.ok(insight, '应有心湖余波');
+  assert.ok(!Sim.isStakeEvent(insight), '顿悟余波不占梭哈');
+  assert.ok(!insight.choice, '顿悟余波不是选择题');
+  g.lvl = 25;
+  g.age = 80;
+  Sim.clearStory(g, 'dark_buy');
+  assert.ok(!Sim.eventAvailable(g, insight), '没顿悟过，不该有人来问那一夜');
+  Sim.markStory(g, 'insight_ripple');
+  assert.ok(Sim.eventAvailable(g, insight), '顿悟后，心湖余波应能抽到');
+  var woke = Sim.createGame(0, []);
+  Sim.setPhysique(woke, D.physiqueById('mortal'));
+  woke.lvl = 25;
+  woke.age = 80;
+  byId('dunwu3').ok(woke, Sim.U, []);
+  assert.ok(Sim.hasStory(woke, 'insight_ripple'), '顿悟应留下心湖余波');
+  var wakeDoor = Sim.createGame(0, []);
+  Sim.setPhysique(wakeDoor, D.physiqueById('mortal'));
+  wakeDoor.innate = 1;
+  wakeDoor.lvl = 25;
+  wakeDoor.age = 80;
+  wakeDoor.eventDrawsBySpan = { pre: 3 };
+  Sim.markStory(wakeDoor, 'insight_ripple');
+  var wakeRnd = Math.random;
+  Math.random = function () { return 0.1; };
+  Sim.rollEvent(wakeDoor, []);
+  Math.random = wakeRnd;
+  assert.ok(wakeDoor.maxCount && wakeDoor.maxCount.th_echo_insight != null &&
+    wakeDoor.maxCount.th_echo_insight < 1, '有心湖余波时，下一次抽事宜先出余波');
+  assert.ok(!Sim.hasStory(wakeDoor, 'insight_ripple'), '余波出过之后，钩子应摘掉');
 })();
 
 console.log('midgame-rhythm: ok');
