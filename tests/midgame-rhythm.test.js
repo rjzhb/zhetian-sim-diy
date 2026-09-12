@@ -1789,6 +1789,23 @@ function mortalSage(opt) {
   assert.ok(sitDoor.maxCount && sitDoor.maxCount.th_echo_sit != null &&
     sitDoor.maxCount.th_echo_sit < 1, '有夜坐钩子时，下一次抽事宜先出下文');
   assert.ok(!Sim.hasStory(sitDoor, 'sit_wake'), '下文出过之后，钩子应摘掉');
+
+  var quietSit = Sim.createGame(0, []);
+  Sim.setPhysique(quietSit, D.physiqueById('mortal'));
+  quietSit.innate = 1;
+  quietSit.lvl = 25;
+  quietSit.age = 80;
+  quietSit.daoyun = 200;
+  quietSit.daoyunCap = 400;
+  quietSit.maxCount = { th_echo_sit: 0 };
+  var quietLog = [];
+  var quietRnd = Math.random;
+  Math.random = function () { return 0.1; };
+  Sim.fireEvent(quietSit, quietLog, byId('th_stuck_fourpole'));
+  Math.random = quietRnd;
+  var quietText = quietLog.map(function (x) { return x.text || ''; }).join(' ');
+  assert.ok(/又坐/.test(quietText), '下文出过之后，夜坐应收成短句：' + quietText);
+  assert.ok(quietText.indexOf('忽然通了') < 0, '下文出过之后，不应再写一整段通关旁白');
 })();
 
 console.log('midgame-rhythm: ok');

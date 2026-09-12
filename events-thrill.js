@@ -46,6 +46,10 @@
     U.markStory(g, 'sit_wake');
     g.sitWakeFrom = fromId || '';
   }
+  function sitQuiet(g, U) {
+    if (U.hasStory && U.hasStory(g, 'sit_wake')) return true;
+    return !!(g && g.maxCount && g.maxCount.th_echo_sit != null && g.maxCount.th_echo_sit <= 0);
+  }
   function sitThrough(g, U) {
     var need = U.effectiveDaoyunNeed ? U.effectiveDaoyunNeed(g, g.lvl) : 0;
     if (need && (g.daoyun || 0) < need) g.daoyun = need;
@@ -162,6 +166,10 @@
         var lf = U.gainLife(g, 22, 45);
         var c = U.cultPct(g, 0.016, 0.030, 80);
         sitThrough(g, U);
+        if (sitQuiet(g, U)) {
+          U.printlog('你又坐了一夜。苦海还是苦海' + (lf ? '，寿元+' + lf : '') + '，实力+' + c);
+          return;
+        }
         U.printlog('苦海里那口气今夜自己匀开了。你把命续上，再往前挪一步' +
           (lf ? '，寿元+' + lf : '') + '，实力+' + c);
         markSitWake(g, U, 'th_stuck_sea');
@@ -183,6 +191,11 @@
         var c = U.cultPct(g, 0.018, 0.035, 220);
         sitThrough(g, U);
         if ((g.lvl || 1) < 41) sitThrough(g, U);
+        if (sitQuiet(g, U)) {
+          U.printlog('你又坐了一夜。第四极还在，只是比昨夜薄一寸' +
+            (lf ? '，寿元+' + lf : '') + '，实力+' + c);
+          return;
+        }
         U.printlog('第四极那口气在夜里忽然通了。你没求任何人，只是自己坐到了天亮' +
           (lf ? '，寿元+' + lf : '') + '，实力+' + c);
         markSitWake(g, U, 'th_stuck_fourpole');
@@ -204,6 +217,10 @@
         var c = U.cultPct(g, 0.020, 0.038, 400);
         sitThrough(g, U);
         if ((g.lvl || 1) < 56) sitThrough(g, U);
+        if (sitQuiet(g, U)) {
+          U.printlog('你又坐了一夜。窗户纸还在' + (lf ? '，寿元+' + lf : '') + '，实力+' + c);
+          return;
+        }
         U.printlog('仙台这一层的窗户纸被你坐薄了。不是顿悟，是坐到它自己破' +
           (lf ? '，寿元+' + lf : '') + '，实力+' + c);
         markSitWake(g, U, 'th_stuck_xian');
@@ -225,6 +242,10 @@
         var lf = U.gainLife(g, 32, 60);
         var c = U.cultPct(g, 0.022, 0.040, 700);
         sitThrough(g, U);
+        if (sitQuiet(g, U)) {
+          U.printlog('你又把息调了一夜' + (lf ? '，寿元+' + lf : '') + '，实力+' + c);
+          return;
+        }
         U.printlog('同境的人靠血脉一步跨过去。你把息调匀，自己走过去' +
           (lf ? '，寿元+' + lf : '') + '，实力+' + c);
         markSitWake(g, U, 'th_stuck_neng');
@@ -245,6 +266,10 @@
         var lf = U.gainLife(g, 28, 52);
         var c = U.cultPct(g, 0.024, 0.044, 900);
         var reverse = U.isReverseCutPath && U.isReverseCutPath(g);
+        if (sitQuiet(g, U)) {
+          U.printlog('你又坐了一夜。刀还在膝上' + (lf ? '，寿元+' + lf : '') + '，实力+' + c);
+          return;
+        }
         U.printlog(reverse ?
           '少年大帝的气机在远方压过来。你今夜不斩，只把刀压在膝上，把战力再沉一分' +
             (lf ? '，寿元+' + lf : '') + '，实力+' + c :
@@ -310,6 +335,10 @@
         var atQuasi = (g.lvl || 1) >= 90;
         var atSaintDoor = (g.lvl || 1) === 70;
         sitThrough(g, U);
+        if (sitQuiet(g, U)) {
+          U.printlog('你又坐了一夜。蒲团还是热的' + (lf ? '，寿元+' + lf : '') + '，实力+' + c);
+          return;
+        }
         U.printlog(atQuasi ?
           '蒲团坐穿了，门还在前面。进准帝要的不是再坐一夜，是一场真正够格的机缘' :
           atSaintDoor ?
