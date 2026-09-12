@@ -684,6 +684,8 @@ function mortalSage(opt) {
   Math.random = afterSitRnd;
   var afterLast = (afterSit.recentEvents || [])[(afterSit.recentEvents || []).length - 1];
   assert.ok(afterLast && afterLast.id !== 'th_stuck_xian', '刚夜坐过，下一次应让出路给故事');
+  assert.strictEqual((afterSit.eventDrawsBySpan && afterSit.eventDrawsBySpan.pre) || 0, 0,
+    '让出的这一年应走路边故事，不该再吃梭哈');
   var sheng = byId('th_stuck_sheng');
   assert.ok(sheng && !Sim.isStakeEvent(sheng), '圣位枯坐应走路边池，不占梭哈');
   var shengG = Sim.createGame(0, []);

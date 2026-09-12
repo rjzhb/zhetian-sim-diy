@@ -2321,6 +2321,11 @@
           return;
         }
       }
+      /* 刚夜坐过把年让出来时，走会留钩子的路边事，别再抽一张梭哈。 */
+      if (justSatDoor(g) && flavor.length) {
+        fireEvent(g, log, pickStuckBreak(g, flavor) || pickWeighted(g, flavor));
+        return;
+      }
       fireEvent(g, log, pickWeighted(g, stake));
       return;
     }
