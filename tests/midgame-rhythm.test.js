@@ -870,6 +870,7 @@ function mortalSage(opt) {
   assert.ok(byId('th_stuck_sheng').available(yibianDoor), '凡体异变到 7 品入圣前仍该能枯坐');
   var afterCut = byId('th_after_cut');
   assert.ok(afterCut && !Sim.isStakeEvent(afterCut), '斩道余生应走路边池');
+  assert.strictEqual(afterCut.maxCount, 8, '斩败后余生应能多坐几次，再回潮');
   var restDoor = Sim.createGame(0, []);
   Sim.setPhysique(restDoor, D.physiqueById('human_king'));
   restDoor.lvl = 60;
@@ -901,7 +902,7 @@ function mortalSage(opt) {
   Sim.rollEvent(afterFail, []);
   Math.random = restRnd;
   assert.ok(afterFail.maxCount && afterFail.maxCount.th_after_cut != null &&
-    afterFail.maxCount.th_after_cut < 2, '斩道失败后门口应先看见余生');
+    afterFail.maxCount.th_after_cut < 8, '斩道失败后门口应先看见余生');
   assert.ok(!afterFail.maxCount.th_stuck_cut || afterFail.maxCount.th_stuck_cut === 2,
     '失败后不该再抽前夜');
   var near = Sim.createGame(0, []);
@@ -950,14 +951,22 @@ function mortalSage(opt) {
   Math.random = function () { return 0.1; };
   Sim.rollEvent(nearDoor, []);
   assert.ok(nearDoor.maxCount && nearDoor.maxCount.th_after_cut != null &&
-    nearDoor.maxCount.th_after_cut < 2, '只差一线后应先坐一夜余生，再回潮');
+    nearDoor.maxCount.th_after_cut < 8, '只差一线后应先坐余生，再回潮');
   assert.ok(!nearDoor.maxCount.th_cut_rekindle || nearDoor.maxCount.th_cut_rekindle === 1,
-    '余生还没坐，不该先回潮');
+    '余生还没坐完，不该先回潮');
   assert.ok(nearDoor.cult > cultBeforeSit, '余生应把战力再沉一分，回潮才有翻盘');
+  var sitGuard = 0;
+  while ((nearDoor.maxCount.th_after_cut == null || nearDoor.maxCount.th_after_cut > 0) && sitGuard < 12) {
+    sitGuard++;
+    Sim.rollEvent(nearDoor, []);
+  }
+  assert.ok(nearDoor.maxCount.th_after_cut <= 0, '余生坐完才轮到回潮');
+  assert.ok(!nearDoor.maxCount.th_cut_rekindle || nearDoor.maxCount.th_cut_rekindle === 1,
+    '余生坐完前不该先回潮');
   Sim.rollEvent(nearDoor, []);
   Math.random = rkRnd;
   assert.ok(nearDoor.maxCount && nearDoor.maxCount.th_cut_rekindle != null &&
-    nearDoor.maxCount.th_cut_rekindle < 1, '坐过余生后门口应抽刀意回潮');
+    nearDoor.maxCount.th_cut_rekindle < 1, '余生坐完后门口应抽刀意回潮');
   var cutBefore = kingDoor.lvl;
   cutEve.ok(kingDoor, Sim.U);
   assert.strictEqual(kingDoor.lvl, cutBefore, '斩道前夜不能把人送进王者');

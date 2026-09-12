@@ -266,7 +266,7 @@
     },
     {
       id: 'th_after_cut', name: '斩道余生', tier: 2, tag: 'insight',
-      desc: '那一刀已经落过了，门还在', weight: 16, maxCount: 2,
+      desc: '那一刀已经落过了，门还在', weight: 16, maxCount: 8,
       minAge: 200, maxAge: 100000,
       available: function (g) {
         return !g.becameEmperor && g.lvl === 60 && g.cutDaoTried && !g.cutDaoPassed;

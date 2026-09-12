@@ -2406,7 +2406,7 @@
     if (lvl === 60) {
       var cutId = 'th_stuck_cut';
       var afterLeft = ((g && g.maxCount) || {}).th_after_cut;
-      var satAfter = afterLeft != null && afterLeft < 2;
+      var satAfter = afterLeft != null && afterLeft <= 0;
       if (g && g.cutNearMiss && !g.cutDaoPassed && !g.cutDaoRekindled && satAfter) {
         cutId = 'th_cut_rekindle';
       } else if (g && g.cutDaoTried && !g.cutDaoPassed) {
