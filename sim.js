@@ -2728,6 +2728,12 @@
       emperorDaoyunLifePace(g.lifeNo);
     return perLifeBudget / span;
   }
+  /* 成帝以后长力跟道海填充走，不再吃体质成长。海空几乎不长，坐满才慢慢沉。 */
+  function emperorCultGainPerYear(g) {
+    if (!g || !(g.emperor || g.becameEmperor) || g.redDustImmortal) return 0;
+    var fill = g.daoyunCap > 0 ? clamp((g.daoyun || 0) / g.daoyunCap, 0, 1) : 0;
+    return Math.max(0, (g.cult || 0) * (0.00002 + fill * 0.00008));
+  }
 
   function resetEmperorLife(g) {
     var range = emperorLifeSpanRange(g.lifeNo, g);
@@ -3693,7 +3699,7 @@
     var daoPeak = g.daoyunCap > 0 ? g.daoyun / g.daoyunCap : 0;
     var roots = g.redDustRoots.body + g.redDustRoots.soul + g.redDustRoots.dao;
     var chance = 0.10 + Math.min(0.16, daoPeak * 0.16) + Math.min(0.08, roots * 0.003) +
-      Math.min(0.08, Math.max(0, g.strangeWorldInsight - 80) * 0.0016) + Math.min(0.06, g.innate * 0.006);
+      Math.min(0.08, Math.max(0, g.strangeWorldInsight - 80) * 0.0016);
     if (g.strangeWorldAlliance === 'wushi') chance += 0.04;
     chance += Math.min(0.10, createdArtN(g) * 0.025);
     return clamp(chance, 0.12, 0.72);
@@ -3876,7 +3882,6 @@
     var daoPeak = g && g.daoyunCap > 0 ? g.daoyun / g.daoyunCap : 0;
     var chance = 0.010 + Math.min(0.045, (g && g.cult || 0) / 8000000 * 0.045) +
       Math.min(0.025, daoPeak * 0.025);
-    if (g && isPeakPhysique(g.physiqueId)) chance += 0.008;
     chance += Math.min(0.025, createdArtN(g) * 0.006);
     return clamp(chance, 0.008, 0.12);
   }
@@ -4135,6 +4140,7 @@
     g.age += tick - 1;
     advanceWorldCalendar(g, tick - 1, log);
     gainDaoyun(g, emperorDaoyunGainPerYear(g) * tick);
+    g.cult = round((g.cult || 0) + emperorCultGainPerYear(g) * tick);
     var span = Math.max(1, g.emperorLifeEnd - g.emperorLifeStart);
     if (Math.random() < D.EMPEROR_EVENT_TARGET * tick / span) emperorEvent(g, log);
     if (g.age >= g.emperorLifeEnd) finishEmperorLife(g, log);
@@ -4191,9 +4197,15 @@
   function overwhelmNeed(g) {
     return isHuangguSacred(g) ? D.SACRED_OVERWHELM_CULT : D.OVERWHELM_DAO_CULT;
   }
+  /* 混沌成帝是大概率，不是保送。战力曲线本身可到 99%，体质 zhx 再一加就顶满。 */
+  var CHAOS_ZHENGDAO_CAP = 0.84;
+  function chaosZhengdaoCap(g, p) {
+    if (g && g.physiqueId === 'chaos') return Math.min(p, CHAOS_ZHENGDAO_CAP);
+    return p;
+  }
   function overwhelmProb(g, eff, extra) {
-    return clamp(0.35 + (eff - D.OVERWHELM_DAO_CULT) / 600000 + extra +
-      (g.tm.ignoreSuppression || 0), 0.35, 1);
+    return chaosZhengdaoCap(g, clamp(0.35 + (eff - D.OVERWHELM_DAO_CULT) / 600000 + extra +
+      (g.tm.ignoreSuppression || 0), 0.35, 1));
   }
   function zhengdaoLateScale(g) {
     var latePenalty = g.age > D.EMPEROR_PATH_FADE_AGE ?
@@ -4209,8 +4221,9 @@
   }
   function forceZhengdaoProb(g, eff, extra) {
     var lateScale = zhengdaoLateScale(g);
-    return isHuangguSacred(g) ? sacredEmperorChance(g) * lateScale :
+    var raw = isHuangguSacred(g) ? sacredEmperorChance(g) * lateScale :
       Math.min(1, (zhengdaoChance(eff) + extra + pureDaoBonusOf(g) + daoZhengdaoBonus(g)) * lateScale);
+    return chaosZhengdaoCap(g, raw);
   }
   /* 天心融合线是每次现掷的 need，展示时按均匀分布算出「掷到能融的那一段」的概率。 */
   function tianxinScale(g) {
@@ -4244,9 +4257,14 @@
       info.odds = overwhelmProb(g, eff, extra);
       return info;
     }
-    /* 九重天持天心：先赌一次融合，融不了再退回以力证道，两段叠加才是真实把握 */
+    /* 九重天持天心：先赌一次融合，融不了再退回以力证道，两段叠加才是真实把握。
+     * 混沌体除外——天心融合线对它等于保送，改走盖过帽的以力证道。 */
     if (g.xintian && !isHuangguSacred(g) && (g.lvl || 1) >= 99) {
       info.mode = 'tianxin';
+      if (g.physiqueId === 'chaos') {
+        info.odds = forceZhengdaoProb(g, eff, extra);
+        return info;
+      }
       var pFuse = tianxinFuseProb(g, eff);
       info.odds = clamp(pFuse + (1 - pFuse) * forceZhengdaoProb(g, eff, extra), 0, 1);
       return info;
@@ -4490,8 +4508,9 @@
     /* 天心也不能给荒古圣体开后门：天道不容圣体成帝，仍要过那道万古难关。 */
     if (g.xintian && !isHuangguSacred(g)) {
       var need = Math.max(1, Math.round(irand(D.XINTIAN_NEED_MIN, D.XINTIAN_NEED_MAX) * tianxinScale(g)));
-      /* 准帝九重天即已走到帝关前，战力达标后融合天心必成。 */
-      if (g.lvl >= 99 && eff >= need) {
+      /* 准帝九重天即已走到帝关前，战力达标后融合天心必成。
+       * 混沌体不走这条保送，仍按盖过帽的以力证道掷。 */
+      if (g.lvl >= 99 && eff >= need && g.physiqueId !== 'chaos') {
         becomeDi(g, log, 'tianxin');
         push(log, { cls: 'god', text: '第' + g.age + '岁，天心合一，我道即天道，证道成帝！' });
         return true;
@@ -4808,6 +4827,7 @@
     xianCult: xianCult,
     emperorLifeSpanRange: emperorLifeSpanRange,
     emperorDaoyunGainPerYear: emperorDaoyunGainPerYear,
+    emperorCultGainPerYear: emperorCultGainPerYear,
     runEmperorExperience: runEmperorExperience,
     emperorBeatIds: emperorBeatIds,
     pickEmperorBeat: pickEmperorBeat,

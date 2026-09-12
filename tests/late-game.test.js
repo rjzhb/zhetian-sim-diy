@@ -975,7 +975,8 @@ limitedAttempts.daoyun = 900;
 limitedAttempts.daoyunCap = 1500;
 limitedAttempts.innate = 10;
 const calibratedImmortalChance = Sim.strangeWorldImmortalityChance(limitedAttempts);
-assert.ok(calibratedImmortalChance >= 0.28 && calibratedImmortalChance <= 0.30);
+assert.ok(calibratedImmortalChance >= 0.22 && calibratedImmortalChance <= 0.24,
+  '成仙不再吃体质档，道蕴六成时约两成把握：' + calibratedImmortalChance);
 try {
   Math.random = function () { return 0.999; };
   Sim.tryStrangeWorldImmortality(limitedAttempts, []);
@@ -1436,6 +1437,92 @@ assert.ok(sawBeat(perLifeMethod, 'self_method', 500),
   ask.pendingChoice = null;
   assert.ok(ask.imperialGateAsks >= 2, '换帝应允许第二窗');
   assert.strictEqual(Sim.imperialGateMayAsk(ask), false, '两窗之后门还封着不该再弹');
+})();
+
+/* 混沌成帝是大概率，不是保送；成帝后战力跟道蕴走，不跟体质走。 */
+(function () {
+  function chaosGate(opt) {
+    var g = Sim.createGame(0, []);
+    Sim.setPhysique(g, DATA.physiqueById('chaos'));
+    g.lvl = 99;
+    g.age = 2200;
+    g.cult = opt.cult != null ? opt.cult : 1200000;
+    g.daoyun = 400;
+    g.daoyunCap = 2000;
+    g.xintian = !!opt.xintian;
+    g.worldEmperor = opt.worldEmperor || null;
+    g.daoTraceUntil = null;
+    return g;
+  }
+  var bare = chaosGate({});
+  var bareOdds = Sim.imperialGateInfo(bare).odds;
+  assert.ok(bareOdds >= 0.70 && bareOdds < 0.90,
+    '混沌高战力成帝应是大概率，不是保送：' + bareOdds);
+  var xin = chaosGate({ xintian: true, cult: 2000000 });
+  var xinOdds = Sim.imperialGateInfo(xin).odds;
+  assert.ok(xinOdds < 0.90, '混沌有天心、战力够融，也不该写成必成：' + xinOdds);
+  var crush = chaosGate({
+    cult: 2200000,
+    worldEmperor: { name: '测试大帝', start: 0, end: 90000, cult: 1500000 }
+  });
+  var crushOdds = Sim.imperialGateInfo(crush).odds;
+  assert.ok(crushOdds > 0 && crushOdds < 0.90, '混沌破灭万道也不是必成：' + crushOdds);
+  var sacredOdds = Sim.sacredEmperorChance((function () {
+    var s = Sim.createGame(0, []);
+    Sim.setPhysique(s, DATA.physiqueById('sacred'));
+    s.lvl = 99;
+    s.cult = 700000;
+    return s;
+  })());
+  assert.ok(sacredOdds <= 0.45, '圣体证道公式不能被这块改动抬高');
+
+  var xinRoll = chaosGate({ xintian: true, cult: 2000000 });
+  var oldRnd = Math.random;
+  try {
+    Math.random = function () { return 0.99; };
+    Sim.tryZhengdao(xinRoll, []);
+  } finally {
+    Math.random = oldRnd;
+  }
+  assert.strictEqual(xinRoll.becameEmperor, false, '混沌天心融合不再保送');
+  assert.strictEqual(xinRoll.deadCause, 'zhengdao');
+
+  assert.strictEqual(typeof Sim.emperorCultGainPerYear, 'function', '成帝后应有按年长力');
+  function empAt(physId, dao, cap) {
+    var g = Sim.createGame(0, []);
+    Sim.setPhysique(g, DATA.physiqueById(physId));
+    Sim.becomeDi(g, [], 'force');
+    g.cult = 1000000;
+    g.daoyun = dao;
+    g.daoyunCap = cap;
+    return g;
+  }
+  var chaosThin = empAt('chaos', 200, 2000);
+  var mortalThin = empAt('mortal', 200, 2000);
+  assert.ok(Math.abs(Sim.emperorCultGainPerYear(chaosThin) - Sim.emperorCultGainPerYear(mortalThin)) < 1e-6,
+    '成帝后长力不应再吃体质');
+  var chaosThick = empAt('chaos', 1800, 2000);
+  assert.ok(Sim.emperorCultGainPerYear(chaosThick) > Sim.emperorCultGainPerYear(chaosThin) * 2,
+    '成帝后道蕴厚的人长力应明显快过道蕴薄的人');
+
+  var immortalMortal = empAt('mortal', 400, 2000);
+  immortalMortal.inStrangeWorld = true;
+  immortalMortal.strangeWorldInsight = 100;
+  immortalMortal.redDustRoots = { body: 0, soul: 0, dao: 0 };
+  var immortalChaos = empAt('chaos', 400, 2000);
+  immortalChaos.inStrangeWorld = true;
+  immortalChaos.strangeWorldInsight = 100;
+  immortalChaos.redDustRoots = { body: 0, soul: 0, dao: 0 };
+  assert.ok(Math.abs(Sim.strangeWorldImmortalityChance(immortalChaos) -
+    Sim.strangeWorldImmortalityChance(immortalMortal)) < 1e-9,
+    '成仙把握不应再加体质档');
+  var immortalRich = empAt('chaos', 1800, 2000);
+  immortalRich.inStrangeWorld = true;
+  immortalRich.strangeWorldInsight = 100;
+  immortalRich.redDustRoots = { body: 0, soul: 0, dao: 0 };
+  assert.ok(Sim.strangeWorldImmortalityChance(immortalRich) >
+    Sim.strangeWorldImmortalityChance(immortalChaos),
+    '成仙应跟道蕴走：海更满才更高');
 })();
 
 console.log('late-game: ok');
