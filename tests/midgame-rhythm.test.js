@@ -1005,9 +1005,10 @@ function mortalSage(opt) {
   saintNear.age = 1200;
   saintNear.daoyun = Math.max(saintNear.daoyun || 0, 800);
   saintNear.cult = 36000;
+  saintNear.maxCount = { th_stuck_sheng: 0 };
+  saintNear.saintEveOffered = true;
   var saintFailRnd = Math.random;
   Math.random = function () { return 0.99; };
-  Sim.ensureEnterSaint(saintNear, []);
   Sim.ensureEnterSaint(saintNear, []);
   Math.random = saintFailRnd;
   assert.ok(saintNear.saintTried && !saintNear.saintPassed, '高战力仍可能入圣失败');
@@ -1407,13 +1408,20 @@ function mortalSage(opt) {
   var king = mortalAt(70, { daoyun: 200, cult: 8000 });
   assert.strictEqual(Sim.canAdvance(king), false, '没过入圣不能进圣人');
   assert.ok(Sim.enterSaintChance(king) < 0.22, '凡体弱战力入圣应很低，实际 ' + Sim.enterSaintChance(king));
+  var kingReady = mortalAt(70, { daoyun: 200, cult: 28000 });
   var kingLog = [];
-  Sim.ensureEnterSaint(king, kingLog);
-  assert.ok(king.saintEveOffered, '凡人入圣前该先看见圣位枯坐');
-  assert.ok(!king.saintTried, '枯坐那年不应判入圣');
-  Sim.ensureEnterSaint(king, kingLog);
-  assert.ok(king.saintTried, '枯坐过后，道蕴够了就判入圣');
-  assert.ok(!king.pendingChoice, '入圣不是选择题');
+  Sim.ensureEnterSaint(kingReady, kingLog);
+  assert.ok(kingReady.saintEveOffered, '凡人入圣前该先看见圣位枯坐');
+  assert.ok(!kingReady.saintTried, '枯坐那年不应判入圣');
+  Sim.ensureEnterSaint(kingReady, kingLog);
+  assert.ok(!kingReady.saintTried, '枯坐没坐完，不该判入圣');
+  var saintEveGuard = 0;
+  while (!kingReady.saintTried && saintEveGuard < 24) {
+    saintEveGuard++;
+    Sim.ensureEnterSaint(kingReady, kingLog);
+  }
+  assert.ok(kingReady.saintTried, '枯坐坐完、道蕴够了才判入圣');
+  assert.ok(!kingReady.pendingChoice, '入圣不是选择题');
 
   var passed = 0, n;
   for (n = 0; n < 80; n++) {

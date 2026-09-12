@@ -453,7 +453,7 @@
       return;
     }
     if (!thresholdDaoReady(g)) return;
-    if ((g.innate || 1) < 8 && !g.saintEveOffered && offerDoorStory(g, log, 'th_stuck_sheng')) {
+    if ((g.innate || 1) < 8 && offerDoorStory(g, log, 'th_stuck_sheng')) {
       g.saintEveOffered = true;
       return;
     }
