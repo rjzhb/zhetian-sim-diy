@@ -1510,6 +1510,43 @@ function mortalSage(opt) {
   assert.ok(arrayDoor.maxCount && arrayDoor.maxCount.th_echo_array != null &&
     arrayDoor.maxCount.th_echo_array < 1, '有阵纹钩子时，下一次抽事宜先出余波');
   assert.ok(!Sim.hasStory(arrayDoor, 'array_wake'), '余波出过之后，钩子应摘掉');
+
+  var lectureEcho = byId('th_echo_lecture');
+  assert.ok(lectureEcho, '应有讲席余音');
+  assert.ok(!Sim.isStakeEvent(lectureEcho), '讲席余音不占梭哈');
+  assert.ok(!lectureEcho.choice, '讲席余音不是选择题');
+  g.lvl = 50;
+  g.age = 160;
+  Sim.clearStory(g, 'array_wake');
+  assert.ok(!Sim.eventAvailable(g, lectureEcho), '没听过讲道，不该有人来问那一席');
+  Sim.markStory(g, 'lecture_echo');
+  assert.ok(Sim.eventAvailable(g, lectureEcho), '听过讲道后，余音应能抽到');
+  var heard = Sim.createGame(0, []);
+  Sim.setPhysique(heard, D.physiqueById('mortal'));
+  heard.lvl = 50;
+  heard.age = 160;
+  byId('jiangdao').ok(heard, Sim.U, []);
+  assert.ok(Sim.hasStory(heard, 'lecture_echo'), '听懂讲道应留下讲席余音');
+  var scraps = Sim.createGame(0, []);
+  Sim.setPhysique(scraps, D.physiqueById('mortal'));
+  scraps.lvl = 50;
+  scraps.age = 160;
+  byId('jiangdao').fail(scraps, Sim.U);
+  assert.ok(Sim.hasStory(scraps, 'lecture_echo'), '记下讲道残篇也应留下讲席余音');
+  var lectureDoor = Sim.createGame(0, []);
+  Sim.setPhysique(lectureDoor, D.physiqueById('mortal'));
+  lectureDoor.innate = 1;
+  lectureDoor.lvl = 50;
+  lectureDoor.age = 160;
+  lectureDoor.eventDrawsBySpan = { pre: 3 };
+  Sim.markStory(lectureDoor, 'lecture_echo');
+  var lectureRnd = Math.random;
+  Math.random = function () { return 0.1; };
+  Sim.rollEvent(lectureDoor, []);
+  Math.random = lectureRnd;
+  assert.ok(lectureDoor.maxCount && lectureDoor.maxCount.th_echo_lecture != null &&
+    lectureDoor.maxCount.th_echo_lecture < 1, '有讲席余音时，下一次抽事宜先出余波');
+  assert.ok(!Sim.hasStory(lectureDoor, 'lecture_echo'), '余波出过之后，钩子应摘掉');
 })();
 
 console.log('midgame-rhythm: ok');

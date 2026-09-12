@@ -886,6 +886,24 @@
         if (U.clearStory) U.clearStory(g, 'array_wake');
         U.printlog('有人在崖下问：那座阵是谁停的。你没有上去，纹路自己散了');
       }
+    },
+    {
+      id: 'th_echo_lecture', name: '讲席余音', tier: 2, tag: 'echo',
+      desc: '圣贤那一席话还没散尽', needStory: 'lecture_echo', weight: 8, maxCount: 1,
+      minAge: 40, maxAge: 100000,
+      available: function (g) { return !g.becameEmperor && (g.lvl || 1) >= 45; },
+      cond: function (g) { return Math.random() < 0.80; },
+      ok: function (g, U) {
+        if (U.clearStory) U.clearStory(g, 'lecture_echo');
+        var c = U.cultPct(g, 0.016, 0.028, 360);
+        var d = U.irand(3, 6);
+        U.gainDao(g, d);
+        U.printlog('同辈循着讲席余音找来。他没有夺悟，只把那一席没听清的半句补上，实力+' + c + '，道蕴+' + d);
+      },
+      fail: function (g, U) {
+        if (U.clearStory) U.clearStory(g, 'lecture_echo');
+        U.printlog('有人在山下问：圣贤那一席是谁听完的。你没有应声，余音自己散了');
+      }
     }
   ];
 

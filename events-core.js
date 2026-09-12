@@ -581,6 +581,7 @@
           /* 高境界遇低阶讲道：不再是听圣人说法，而是与道友论道印证 */
           var c2 = U.cultPct(g, 0.01, 0.03, 200);
           U.printlog('你已至' + U.DATA.realmOf(g.lvl) + '，与道友论道印证，举一反三，实力+' + c2);
+          if (U.markStory) U.markStory(g, 'lecture_echo');
           return;
         }
         var c = U.cultPct(g, 0.04, 0.09, 700);
@@ -588,11 +589,13 @@
         var lf = U.gainLife(g, 50, 150);
         if (lf) U.printlog('道韵洗礼心神，寿元+' + lf);
         U.up(g, 1, log);
+        if (U.markStory) U.markStory(g, 'lecture_echo');
       },
       fail: function (g, U) {
         U.printlog('圣贤道音如天宪，你只觉玄奥难明，唯记下些许残篇');
         var c = U.cultPct(g, 0.01, 0.02, 100);
         U.printlog('静坐参悟数月，实力+' + c);
+        if (U.markStory) U.markStory(g, 'lecture_echo');
       }
     },
     {
