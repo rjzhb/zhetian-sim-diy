@@ -2329,6 +2329,7 @@
     var lvl = (g && g.lvl) || 1;
     if (!g || (g.innate || 1) > 4) return false;
     if (lvl >= 21 && lvl <= 59) return true;
+    if (lvl >= 61 && lvl <= 69) return true;
     if (lvl === 60 && !g.cutDaoTried) return true;
     if (lvl === 70 && !g.saintTried) return true;
     return false;

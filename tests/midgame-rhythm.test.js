@@ -770,6 +770,22 @@ function mortalSage(opt) {
   Math.random = nengRnd;
   assert.ok(nengStake.maxCount && nengStake.maxCount.th_stuck_neng != null &&
     nengStake.maxCount.th_stuck_neng < (neng.maxCount || 8), '大能内层卡住时，骰子再大也应先夜坐');
+  var kingSit = Sim.createGame(0, []);
+  Sim.setPhysique(kingSit, D.physiqueById('mortal'));
+  kingSit.innate = 1;
+  kingSit.aptitude = 1;
+  kingSit.lvl = 64;
+  kingSit.age = 800;
+  kingSit.cutDaoTried = true;
+  kingSit.cutDaoPassed = true;
+  kingSit.eventDrawsBySpan = { pre: 0 };
+  var kingSitRnd = Math.random;
+  Math.random = function () { return 0.9; };
+  Sim.rollEvent(kingSit, []);
+  Math.random = kingSitRnd;
+  assert.ok(kingSit.maxCount && kingSit.maxCount.th_stuck_neng != null &&
+    kingSit.maxCount.th_stuck_neng < (neng.maxCount || 8), '过了斩道卡在王者内层时，骰子再大也应先调息');
+  assert.ok(kingSit.lvl >= 64 && kingSit.lvl < 70, '王者内层调息不能坐进圣位');
   var doorStake = Sim.createGame(0, []);
   Sim.setPhysique(doorStake, D.physiqueById('mortal'));
   doorStake.innate = 1;
