@@ -1166,6 +1166,7 @@
         var c = U.cultPct(g, 0.025, 0.048, 240);
         U.gainDao(g, d);
         U.printlog('你补的那二十行，比残篇原来的还顺。管理员后头来问是谁动过笔，实力+' + c + '，道蕴+' + d);
+        if (U.markStory) U.markStory(g, 'remnant_owner');
       }
     }),
     ev({

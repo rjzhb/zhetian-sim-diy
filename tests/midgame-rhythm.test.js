@@ -1421,6 +1421,20 @@ function mortalSage(opt) {
   taught.daoGift = 8;
   byId('dao_mortal_untaught').ok(taught, Sim.U);
   assert.ok(Sim.hasStory(taught, 'remnant_owner'), '补出残篇应留下故人钩子');
+  var glance = Sim.createGame(0, []);
+  Sim.setPhysique(glance, D.physiqueById('mortal'));
+  glance.lvl = 20;
+  glance.age = 40;
+  glance.daoGift = 8;
+  byId('lf_dao_high_glance').resolve(glance, Sim.U, 'fill');
+  assert.ok(Sim.hasStory(glance, 'remnant_owner'), '一眼完卷补残篇应留下故人钩子');
+  var shut = Sim.createGame(0, []);
+  Sim.setPhysique(shut, D.physiqueById('mortal'));
+  shut.lvl = 20;
+  shut.age = 40;
+  shut.daoGift = 8;
+  byId('lf_dao_high_glance').resolve(shut, Sim.U, 'shut');
+  assert.ok(!Sim.hasStory(shut, 'remnant_owner'), '合上放回不应留下故人钩子');
 
   var market = byId('th_echo_market');
   assert.ok(market, '应有髓香追来');
