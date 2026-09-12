@@ -986,6 +986,7 @@ function mortalSage(opt) {
   assert.strictEqual(saintStake.lvl, 70, '门口坐下不能坐进圣人');
   var afterSaint = byId('th_after_saint');
   assert.ok(afterSaint && !Sim.isStakeEvent(afterSaint), '圣位余生应走路边池');
+  assert.strictEqual(afterSaint.maxCount, 8, '入圣失败后余生应能多坐几次，再回潮');
   var saintRest = Sim.createGame(0, []);
   Sim.setPhysique(saintRest, D.physiqueById('mortal'));
   saintRest.lvl = 70;
@@ -994,6 +995,68 @@ function mortalSage(opt) {
   saintRest.saintPassed = false;
   assert.ok(afterSaint.available(saintRest), '入圣失败后应能看见余生');
   assert.ok(!byId('th_stuck_sheng').available(saintRest), '失败后圣位枯坐必须关掉');
+  var saintNear = Sim.createGame(0, []);
+  Sim.setPhysique(saintNear, D.physiqueById('mortal'));
+  saintNear.innate = 1;
+  saintNear.aptitude = 1;
+  saintNear.lvl = 70;
+  saintNear.age = 1200;
+  saintNear.daoyun = Math.max(saintNear.daoyun || 0, 800);
+  saintNear.cult = 36000;
+  var saintFailRnd = Math.random;
+  Math.random = function () { return 0.99; };
+  Sim.ensureEnterSaint(saintNear, []);
+  Sim.ensureEnterSaint(saintNear, []);
+  Math.random = saintFailRnd;
+  assert.ok(saintNear.saintTried && !saintNear.saintPassed, '高战力仍可能入圣失败');
+  assert.ok(saintNear.saintNearMiss, '差一点时应记下圣位未散');
+  var saintRekindle = byId('th_saint_rekindle');
+  assert.ok(saintRekindle && !Sim.isStakeEvent(saintRekindle), '圣位回潮应走路边池');
+  assert.ok(!saintRekindle.choice, '圣位回潮不是选择题');
+  assert.ok(saintRekindle.available(saintNear), '只差一线后应能回潮');
+  var sacredSaintNear = Sim.createGame(0, []);
+  Sim.setPhysique(sacredSaintNear, D.physiqueById('sacred'));
+  sacredSaintNear.lvl = 70;
+  sacredSaintNear.saintNearMiss = true;
+  sacredSaintNear.saintTried = true;
+  assert.ok(!saintRekindle.available(sacredSaintNear), '圣体不吃圣位回潮，避免抬证道');
+  var saintRelog = [];
+  var saintOkRnd = Math.random;
+  Math.random = function () { return 0.01; };
+  assert.ok(Sim.rekindleEnterSaint(saintNear, saintRelog), '回潮应能再入一次圣');
+  Math.random = saintOkRnd;
+  assert.ok(saintNear.saintPassed && saintNear.lvl >= 71, '回潮成功应进圣人');
+  var saintNearDoor = Sim.createGame(0, []);
+  Sim.setPhysique(saintNearDoor, D.physiqueById('mortal'));
+  saintNearDoor.innate = 1;
+  saintNearDoor.aptitude = 1;
+  saintNearDoor.lvl = 70;
+  saintNearDoor.age = 1200;
+  saintNearDoor.cult = 12000;
+  saintNearDoor.saintTried = true;
+  saintNearDoor.saintPassed = false;
+  saintNearDoor.saintNearMiss = true;
+  saintNearDoor.eventDrawsBySpan = { pre: 0 };
+  var saintCultBefore = saintNearDoor.cult;
+  var saintRkRnd = Math.random;
+  Math.random = function () { return 0.1; };
+  Sim.rollEvent(saintNearDoor, []);
+  assert.ok(saintNearDoor.maxCount && saintNearDoor.maxCount.th_after_saint != null &&
+    saintNearDoor.maxCount.th_after_saint < 8, '只差一线后应先坐圣位余生，再回潮');
+  assert.ok(!saintNearDoor.maxCount.th_saint_rekindle || saintNearDoor.maxCount.th_saint_rekindle === 1,
+    '余生还没坐完，不该先回潮');
+  assert.ok(saintNearDoor.cult > saintCultBefore, '余生应把战力再沉一分，回潮才有翻盘');
+  var saintSitGuard = 0;
+  while ((saintNearDoor.maxCount.th_after_saint == null || saintNearDoor.maxCount.th_after_saint > 0) &&
+    saintSitGuard < 12) {
+    saintSitGuard++;
+    Sim.rollEvent(saintNearDoor, []);
+  }
+  assert.ok(saintNearDoor.maxCount.th_after_saint <= 0, '圣位余生坐完才轮到回潮');
+  Sim.rollEvent(saintNearDoor, []);
+  Math.random = saintRkRnd;
+  assert.ok(saintNearDoor.maxCount && saintNearDoor.maxCount.th_saint_rekindle != null &&
+    saintNearDoor.maxCount.th_saint_rekindle < 1, '余生坐完后门口应抽圣位回潮');
   var fs = require('fs');
   var gameSrc = fs.readFileSync(require('path').join(__dirname, '../game.js'), 'utf8');
   assert.ok(gameSrc.indexOf('斩道止步') >= 0 && gameSrc.indexOf('止步圣位') >= 0,

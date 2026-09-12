@@ -146,7 +146,7 @@ function makeProbe(p) {
   }
   if (p.refusedMarriage) g.sectMarriage = 'refused';
   if (p.cutFailed) { g.cutDaoTried = true; g.cutDaoPassed = false; g.cutNearMiss = true; }
-  if (p.saintFailed) { g.saintTried = true; g.saintPassed = false; }
+  if (p.saintFailed) { g.saintTried = true; g.saintPassed = false; g.saintNearMiss = true; }
   return g;
 }
 

@@ -359,26 +359,56 @@
     g.cutDaoRekindled = true;
     return resolveCutDao(g, log, { rekindle: true });
   }
-  function resolveEnterSaint(g, log) {
-    g.saintTried = true;
+  function resolveEnterSaint(g, log, opt) {
+    opt = opt || {};
+    var rekindle = !!opt.rekindle;
+    if (!rekindle) g.saintTried = true;
+    var fit = thresholdFit(g, ENTER_SAINT_DAO_REF, ENTER_SAINT_POWER_REF);
+    var chance = enterSaintChance(g);
     var free = noRealmBottleneck(g);
-    var ok = free || Math.random() < enterSaintChance(g);
+    var ok = free || Math.random() < chance;
     var text;
     if (ok) {
       g.saintPassed = true;
-      text = free
-        ? ((g.physiqueId === 'innate_sacred_dao')
+      g.saintNearMiss = false;
+      if (rekindle) {
+        text = '你以为圣位那一坎止住了。多年后那口气自己回来，把圣人境从门口撕开';
+      } else if (free) {
+        text = (g.physiqueId === 'innate_sacred_dao')
           ? '圣体道胎踏进圣位。寿元、气血、神识换了一重，门上没有坎'
-          : '此身无瓶颈，圣位自己开了。从此不是同一种生命')
-        : '王者巅峰，你踏进圣位。从此寿元、气血、神识都不再是同一种生命';
+          : '此身无瓶颈，圣位自己开了。从此不是同一种生命';
+      } else {
+        text = '王者巅峰，你踏进圣位。从此寿元、气血、神识都不再是同一种生命';
+      }
       push(log, { cls: 'rainbow', text: '第' + g.age + '岁，' + text });
-      highlightLast(g, log, { title: '踏入圣位', kind: 'threshold', note: '生命都不一样了' });
+      highlightLast(g, log, {
+        title: rekindle ? '圣位回潮' : '踏入圣位',
+        kind: 'threshold',
+        note: rekindle ? '翻盘进了圣人' : '生命都不一样了'
+      });
       passRealmGate(g, log);
       return true;
     }
-    text = '王者巅峰，圣位那一坎你没过去。过了斩道的人，也大多止步于此';
+    if (rekindle) {
+      text = '那口气回了一回，还是差那一线。这一世真的止步圣位';
+    } else if (cutWasClose(g, fit, chance)) {
+      g.saintNearMiss = true;
+      text = '王者巅峰，圣位那一坎只差一线。那口气还在胸口，没散干净';
+    } else {
+      text = '王者巅峰，圣位那一坎你没过去。过了斩道的人，也大多止步于此';
+    }
+    if (!rekindle && !g.saintNearMiss && cutWasClose(g, fit, chance)) g.saintNearMiss = true;
     push(log, { cls: 'ev3', text: '第' + g.age + '岁，' + text });
+    if (g.saintNearMiss && !rekindle) {
+      highlightLast(g, log, { title: '入圣只差一线', kind: 'threshold', note: '圣位未散' });
+    }
     return false;
+  }
+  function rekindleEnterSaint(g, log) {
+    if (!g || g.saintPassed || g.saintRekindled || !g.saintNearMiss) return false;
+    if ((g.innate || 1) >= 8) return false;
+    g.saintRekindled = true;
+    return resolveEnterSaint(g, log, { rekindle: true });
   }
   function eventById(id) {
     var i;
@@ -1705,6 +1735,7 @@
     cutDaoChance: cutDaoChance,
     enterSaintChance: enterSaintChance,
     rekindleCutDao: rekindleCutDao,
+    rekindleEnterSaint: rekindleEnterSaint,
     cutWasClose: cutWasClose,
     markStory: markStory,
     hasStory: hasStory,
@@ -2363,7 +2394,7 @@
   function isDoorStory(ev) {
     var id = ev && ev.id || '';
     return id.indexOf('th_stuck_') === 0 || id === 'th_after_cut' ||
-      id === 'th_after_saint' || id === 'th_cut_rekindle';
+      id === 'th_after_saint' || id === 'th_cut_rekindle' || id === 'th_saint_rekindle';
   }
   /* 凡体卡关不看路边池标签。刚抽过悟道，也该能坐下把这一层坐穿。 */
   function collectStuckEvents(g) {
@@ -2419,6 +2450,11 @@
     }
     if (lvl === 70) {
       var saintId = (g && g.saintTried && !g.saintPassed) ? 'th_after_saint' : 'th_stuck_sheng';
+      var afterSaintLeft = ((g && g.maxCount) || {}).th_after_saint;
+      var satSaint = afterSaintLeft != null && afterSaintLeft <= 0;
+      if (g && g.saintNearMiss && !g.saintPassed && !g.saintRekindled && satSaint) {
+        saintId = 'th_saint_rekindle';
+      }
       for (i = 0; i < pool.length; i++) {
         ev = pool[i];
         if (ev && ev.id === saintId) return ev;
@@ -4756,6 +4792,7 @@
     cutDaoChance: cutDaoChance,
     enterSaintChance: enterSaintChance,
     rekindleCutDao: rekindleCutDao,
+    rekindleEnterSaint: rekindleEnterSaint,
     ensureCutDao: ensureCutDao,
     ensureEnterSaint: ensureEnterSaint,
     quasiUnlocked: quasiUnlocked,

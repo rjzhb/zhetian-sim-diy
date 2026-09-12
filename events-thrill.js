@@ -311,7 +311,7 @@
     },
     {
       id: 'th_after_saint', name: '圣位余生', tier: 2, tag: 'insight',
-      desc: '圣位那一坎过不去，生命还在原来那边', weight: 14, maxCount: 2,
+      desc: '圣位那一坎过不去，生命还在原来那边', weight: 14, maxCount: 8,
       minAge: 400, maxAge: 100000,
       available: function (g) {
         return !g.becameEmperor && g.lvl === 70 && g.saintTried && !g.saintPassed;
@@ -319,11 +319,33 @@
       cond: function (g) { return Math.random() < 0.76; },
       ok: function (g, U) {
         var lf = U.gainLife(g, 22, 44);
+        var c = U.cultPct(g, 0.018, 0.032, 700);
         U.printlog('有人从圣位那一侧回头看你一眼。那一眼里的寿元、气血、神识，已经不是同一种东西' +
-          (lf ? '。你把目光收回来，寿元+' + lf : ''));
+          (lf ? '。你把目光收回来，寿元+' + lf : '') + '，实力+' + c);
       },
       fail: function (g, U) {
         U.printlog('你试着再迈半步。门槛还是门槛。过了斩道的人，也大多止步于此');
+      }
+    },
+    {
+      id: 'th_saint_rekindle', name: '圣位回潮', tier: 2, tag: 'insight',
+      desc: '只差一线的那一坎，自己回来了', weight: 18, maxCount: 1,
+      minAge: 400, maxAge: 100000,
+      available: function (g) {
+        return !g.becameEmperor && (g.innate || 1) < 8 && g.lvl === 70 &&
+          g.saintNearMiss && !g.saintPassed && !g.saintRekindled;
+      },
+      cond: function (g) { return Math.random() < 0.74; },
+      ok: function (g, U, log) {
+        var lf = U.gainLife(g, 20, 40);
+        var c = U.cultPct(g, 0.018, 0.032, 700);
+        U.gainDao(g, 8, 4);
+        U.printlog('胸口那一口忽然烫起来。你没有再选，它自己要跨过门槛' +
+          (lf ? '，寿元+' + lf : '') + '，实力+' + c);
+        if (U.rekindleEnterSaint) U.rekindleEnterSaint(g, log);
+      },
+      fail: function (g, U) {
+        U.printlog('那口气动了一下，又沉回去了。你知道它还在，只是这一夜没燃起来');
       }
     },
 
