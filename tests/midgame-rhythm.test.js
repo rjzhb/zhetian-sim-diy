@@ -49,10 +49,10 @@ function mortalSage(opt) {
   assert.strictEqual(Sim.canAdvance(byGold), true, '有帝路金卡也应能越过凡体墙');
 
   var early = mortalSage();
-  early.lvl = 80;
-  assert.strictEqual(Sim.markQuasiFate(early, { tag: 'allin', tier: 3 }), false, '大圣之前接机缘还不能开准帝门');
-  early.lvl = 85;
-  assert.ok(Sim.markQuasiFate(early, { tag: 'allin', tier: 3 }), '大圣之后梭哈应记下准帝机缘');
+  early.lvl = 70;
+  assert.strictEqual(Sim.markQuasiFate(early, { tag: 'allin', tier: 3 }), false, '入圣之前接机缘还不能开准帝门');
+  early.lvl = 75;
+  assert.ok(Sim.markQuasiFate(early, { tag: 'allin', tier: 3 }), '圣人之后梭哈应记下准帝机缘');
   early.lvl = 90;
   assert.strictEqual(Sim.canAdvance(early), true, '记下的机缘应能送进准帝');
   assert.strictEqual(Sim.markQuasiFate(early, { id: 'th_stuck_sheng', tag: 'insight' }), false,

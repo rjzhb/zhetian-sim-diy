@@ -171,7 +171,7 @@
     return false;
   }
   function markQuasiFate(g, ev) {
-    if (!g || (g.lvl || 1) < 81) return false;
+    if (!g || (g.lvl || 1) < 71) return false;
     if (!isQuasiFateEvent(ev)) return false;
     g.quasiFate = true;
     return true;
