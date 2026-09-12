@@ -175,6 +175,7 @@
         var lf = U.gainLife(g, 28, 55);
         var c = U.cultPct(g, 0.018, 0.035, 220);
         sitThrough(g, U);
+        if ((g.lvl || 1) < 41) sitThrough(g, U);
         U.printlog('第四极那口气在夜里忽然通了。你没求任何人，只是自己坐到了天亮' +
           (lf ? '，寿元+' + lf : '') + '，实力+' + c);
       },

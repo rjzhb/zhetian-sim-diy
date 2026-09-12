@@ -620,7 +620,15 @@ function mortalSage(opt) {
   stuckG.age = 80;
   var before = stuckG.lvl;
   stuck.ok(stuckG, Sim.U);
-  assert.ok(stuckG.lvl > before, '四极夜关成功应推一层，实际 ' + stuckG.lvl);
+  assert.ok(stuckG.lvl >= before + 2, '四极夜关在内层应连破两层，实际 ' + stuckG.lvl);
+  var fourEdge = Sim.createGame(0, []);
+  Sim.setPhysique(fourEdge, D.physiqueById('mortal'));
+  fourEdge.innate = 1;
+  fourEdge.aptitude = 1;
+  fourEdge.lvl = 40;
+  fourEdge.age = 80;
+  stuck.ok(fourEdge, Sim.U);
+  assert.ok(fourEdge.lvl >= 41 && fourEdge.lvl < 60, '四极尽头连破也不能坐进斩道，实际 ' + fourEdge.lvl);
   var missSit = Sim.createGame(0, []);
   Sim.setPhysique(missSit, D.physiqueById('mortal'));
   missSit.innate = 1;
