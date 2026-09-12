@@ -688,6 +688,7 @@ function mortalSage(opt) {
     '让出的这一年应走路边故事，不该再吃梭哈');
   var sheng = byId('th_stuck_sheng');
   assert.ok(sheng && !Sim.isStakeEvent(sheng), '圣位枯坐应走路边池，不占梭哈');
+  assert.ok((sheng.maxCount || 0) >= 8, '入圣前后十几层，三次枯坐坐不穿寿元');
   var shengG = Sim.createGame(0, []);
   Sim.setPhysique(shengG, D.physiqueById('mortal'));
   shengG.innate = 1;
@@ -972,7 +973,7 @@ function mortalSage(opt) {
   Sim.rollEvent(saintStake, []);
   Math.random = saintRnd;
   assert.ok(saintStake.maxCount && saintStake.maxCount.th_stuck_sheng != null &&
-    saintStake.maxCount.th_stuck_sheng < 3, '入圣门口额度没用完也应能坐下堆战力');
+    saintStake.maxCount.th_stuck_sheng < (sheng.maxCount || 8), '入圣门口额度没用完也应能坐下堆战力');
   assert.strictEqual(saintStake.lvl, 70, '门口坐下不能坐进圣人');
   var afterSaint = byId('th_after_saint');
   assert.ok(afterSaint && !Sim.isStakeEvent(afterSaint), '圣位余生应走路边池');

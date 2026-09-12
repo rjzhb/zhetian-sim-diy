@@ -284,7 +284,7 @@
     },
     {
       id: 'th_stuck_sheng', name: '圣位枯坐', tier: 2, tag: 'insight',
-      desc: '大圣这一层，凡骨只能坐', weight: 14, maxCount: 3,
+      desc: '大圣这一层，凡骨只能坐', weight: 14, maxCount: 8,
       minAge: 400, maxAge: 100000,
       available: function (g) {
         if (g.lvl === 70 && g.saintTried) return false;
