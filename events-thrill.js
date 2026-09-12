@@ -427,6 +427,7 @@
         var d = U.irand(3, 6);
         U.gainDao(g, d);
         U.printlog('你把阵纹在地上画了三遍，' + s.gong + '的呼吸法自己会走了，实力+' + c + '，道蕴+' + d);
+        if (U.markStory) U.markStory(g, 'array_wake');
       },
       midFail: function (g, U) {
         hurtLine(g, U, 18, 55, '阵纹一闪，你闭上眼，什么都没学到', '残阵反噬，指尖裂开，你连笔都握不住');
@@ -436,6 +437,7 @@
         var d = U.irand(4, 6);
         U.gainDao(g, d);
         U.printlog('你踏进阵心的瞬间阵停了。残篇落到掌心，' + s.gong + '缺的那一节自己补上，实力+' + c + '，道蕴+' + d);
+        if (U.markStory) U.markStory(g, 'array_wake');
       },
       hotFail: function (g, U) {
         hurtLine(g, U, 48, 115, '阵纹收拢前你滚了出来，残篇没拿到', '阵绞了你三圈，是过路的散修把你从崖上捞起来的');
@@ -865,6 +867,24 @@
       fail: function (g, U) {
         if (U.clearStory) U.clearStory(g, 'insight_ripple');
         U.printlog('有人在山下问：那一夜心湖是谁开的。你没有应声，波纹自己散了');
+      }
+    },
+    {
+      id: 'th_echo_array', name: '残阵未死', tier: 2, tag: 'echo',
+      desc: '崖上那座阵还记得你', needStory: 'array_wake', weight: 8, maxCount: 1,
+      minAge: 30, maxAge: 100000,
+      available: function (g) { return !g.becameEmperor && (g.lvl || 1) >= 41; },
+      cond: function (g) { return Math.random() < 0.80; },
+      ok: function (g, U) {
+        if (U.clearStory) U.clearStory(g, 'array_wake');
+        var c = U.cultPct(g, 0.016, 0.028, 360);
+        var d = U.irand(3, 6);
+        U.gainDao(g, d);
+        U.printlog('夜里洞府外自己转起半圈旧阵。你按那一夜描过的纹走了一遍，阵停了，实力+' + c + '，道蕴+' + d);
+      },
+      fail: function (g, U) {
+        if (U.clearStory) U.clearStory(g, 'array_wake');
+        U.printlog('有人在崖下问：那座阵是谁停的。你没有上去，纹路自己散了');
       }
     }
   ];

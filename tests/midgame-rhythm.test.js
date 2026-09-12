@@ -1467,6 +1467,49 @@ function mortalSage(opt) {
   assert.ok(wakeDoor.maxCount && wakeDoor.maxCount.th_echo_insight != null &&
     wakeDoor.maxCount.th_echo_insight < 1, '有心湖余波时，下一次抽事宜先出余波');
   assert.ok(!Sim.hasStory(wakeDoor, 'insight_ripple'), '余波出过之后，钩子应摘掉');
+
+  var arrayEcho = byId('th_echo_array');
+  assert.ok(arrayEcho, '应有残阵余波');
+  assert.ok(!Sim.isStakeEvent(arrayEcho), '残阵余波不占梭哈');
+  assert.ok(!arrayEcho.choice, '残阵余波不是选择题');
+  g.lvl = 48;
+  g.age = 160;
+  Sim.clearStory(g, 'insight_ripple');
+  assert.ok(!Sim.eventAvailable(g, arrayEcho), '没动过崖上残阵，不该有人来问阵纹');
+  Sim.markStory(g, 'array_wake');
+  assert.ok(Sim.eventAvailable(g, arrayEcho), '动过残阵后，余波应能抽到');
+  var took = Sim.createGame(0, []);
+  Sim.setPhysique(took, D.physiqueById('mortal'));
+  took.lvl = 48;
+  took.age = 160;
+  var arrRnd = Math.random;
+  Math.random = function () { return 0; };
+  byId('th_xian_array').resolve(took, Sim.U, 'hot');
+  Math.random = arrRnd;
+  assert.ok(Sim.hasStory(took, 'array_wake'), '踏进阵心得残篇应留下阵纹钩子');
+  var sketched = Sim.createGame(0, []);
+  Sim.setPhysique(sketched, D.physiqueById('mortal'));
+  sketched.lvl = 48;
+  sketched.age = 160;
+  arrRnd = Math.random;
+  Math.random = function () { return 0; };
+  byId('th_xian_array').resolve(sketched, Sim.U, 'mid');
+  Math.random = arrRnd;
+  assert.ok(Sim.hasStory(sketched, 'array_wake'), '外围描纹学得皮毛也应留下阵纹钩子');
+  var arrayDoor = Sim.createGame(0, []);
+  Sim.setPhysique(arrayDoor, D.physiqueById('mortal'));
+  arrayDoor.innate = 1;
+  arrayDoor.lvl = 48;
+  arrayDoor.age = 160;
+  arrayDoor.eventDrawsBySpan = { pre: 3 };
+  Sim.markStory(arrayDoor, 'array_wake');
+  var arrayRoll = Math.random;
+  Math.random = function () { return 0.1; };
+  Sim.rollEvent(arrayDoor, []);
+  Math.random = arrayRoll;
+  assert.ok(arrayDoor.maxCount && arrayDoor.maxCount.th_echo_array != null &&
+    arrayDoor.maxCount.th_echo_array < 1, '有阵纹钩子时，下一次抽事宜先出余波');
+  assert.ok(!Sim.hasStory(arrayDoor, 'array_wake'), '余波出过之后，钩子应摘掉');
 })();
 
 console.log('midgame-rhythm: ok');
