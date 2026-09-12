@@ -194,6 +194,7 @@
         var lf = U.gainLife(g, 30, 58);
         var c = U.cultPct(g, 0.020, 0.038, 400);
         sitThrough(g, U);
+        if ((g.lvl || 1) < 56) sitThrough(g, U);
         U.printlog('仙台这一层的窗户纸被你坐薄了。不是顿悟，是坐到它自己破' +
           (lf ? '，寿元+' + lf : '') + '，实力+' + c);
       },

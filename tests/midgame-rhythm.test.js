@@ -657,7 +657,17 @@ function mortalSage(opt) {
   xianG.daoyunCap = 200;
   var xianBefore = xianG.lvl;
   xianStuck.ok(xianG, Sim.U);
-  assert.ok(xianG.lvl > xianBefore, '仙台枯坐在道蕴不够时也应推一层，实际 ' + xianG.lvl);
+  assert.ok(xianG.lvl >= xianBefore + 2, '仙台枯坐在内层应连破两层，实际 ' + xianG.lvl);
+  var xianEdge = Sim.createGame(0, []);
+  Sim.setPhysique(xianEdge, D.physiqueById('mortal'));
+  xianEdge.innate = 1;
+  xianEdge.aptitude = 1;
+  xianEdge.daoGift = 5;
+  xianEdge.lvl = 55;
+  xianEdge.daoyun = 4;
+  xianEdge.daoyunCap = 200;
+  xianStuck.ok(xianEdge, Sim.U);
+  assert.ok(xianEdge.lvl >= 56 && xianEdge.lvl < 60, '仙台尽头连破也不能坐进斩道，实际 ' + xianEdge.lvl);
   var xianDoor = Sim.createGame(0, []);
   Sim.setPhysique(xianDoor, D.physiqueById('mortal'));
   xianDoor.innate = 1;
