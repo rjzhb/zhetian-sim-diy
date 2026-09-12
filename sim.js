@@ -433,9 +433,9 @@
       resolveCutDao(g, log);
       return;
     }
-    /* 凡人先看见前夜，再落刀。否则门槛年把事件年吃掉，前夜永远是 0。 */
+    /* 凡人先把前夜坐完，再落刀。坐一次就斩，战力还是门口那一刀。 */
     if (!thresholdDaoReady(g)) return;
-    if ((g.innate || 1) < 8 && !g.cutEveOffered && offerDoorStory(g, log, 'th_stuck_cut')) {
+    if ((g.innate || 1) < 8 && offerDoorStory(g, log, 'th_stuck_cut')) {
       g.cutEveOffered = true;
       return;
     }

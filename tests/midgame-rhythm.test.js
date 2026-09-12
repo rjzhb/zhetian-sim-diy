@@ -831,7 +831,7 @@ function mortalSage(opt) {
   Sim.rollEvent(doorStake, []);
   Math.random = doorRnd;
   assert.ok(doorStake.maxCount && doorStake.maxCount.th_stuck_cut != null &&
-    doorStake.maxCount.th_stuck_cut < 2, '斩道门口应先看见前夜，而不是被调息挤掉');
+    doorStake.maxCount.th_stuck_cut < 8, '斩道门口应先看见前夜，而不是被调息挤掉');
   assert.strictEqual(doorStake.lvl, 60, '门口坐下不能坐进王者');
   var doorSpent = Sim.createGame(0, []);
   Sim.setPhysique(doorSpent, D.physiqueById('mortal'));
@@ -847,6 +847,7 @@ function mortalSage(opt) {
   assert.ok(sawEvent(doorSpent, 'th_stuck_cut'), '额度用尽、骰子再大，斩道门口仍该看见前夜');
   var cutEve = byId('th_stuck_cut');
   assert.ok(cutEve && !Sim.isStakeEvent(cutEve), '斩道前夜应走路边池，不占梭哈');
+  assert.strictEqual(cutEve.maxCount, 8, '斩道前夜应能多坐几次，再落刀');
   var kingDoor = Sim.createGame(0, []);
   Sim.setPhysique(kingDoor, D.physiqueById('human_king'));
   kingDoor.lvl = 60;
@@ -913,9 +914,10 @@ function mortalSage(opt) {
   near.age = 500;
   near.daoyun = Math.max(near.daoyun || 0, 800);
   near.cult = 24000;
+  near.maxCount = { th_stuck_cut: 0 };
+  near.cutEveOffered = true;
   var failRnd = Math.random;
   Math.random = function () { return 0.99; };
-  Sim.ensureCutDao(near, []);
   Sim.ensureCutDao(near, []);
   Math.random = failRnd;
   assert.ok(near.cutDaoTried && !near.cutDaoPassed, '高战力仍可能斩败');
@@ -1389,7 +1391,13 @@ function mortalSage(opt) {
   assert.ok(door.cutEveOffered, '凡人该先看见斩道前夜');
   assert.ok(!door.cutDaoTried, '前夜那年不应落刀');
   Sim.ensureCutDao(door, log);
-  assert.ok(door.cutDaoTried, '前夜过后，道蕴够了就斩一刀');
+  assert.ok(!door.cutDaoTried, '前夜没坐完，不该落刀');
+  var eveGuard = 0;
+  while (!door.cutDaoTried && eveGuard < 24) {
+    eveGuard++;
+    Sim.ensureCutDao(door, log);
+  }
+  assert.ok(door.cutDaoTried, '前夜坐完、道蕴够了才斩一刀');
   assert.ok(!door.pendingChoice, '斩道不是选择题');
   assert.ok(log.length, '斩道应写下旁白');
   var again = door.cutDaoPassed;
@@ -1410,8 +1418,11 @@ function mortalSage(opt) {
   var passed = 0, n;
   for (n = 0; n < 80; n++) {
     var roll = mortalAt(60, { daoyun: 90, cult: 5000 });
-    Sim.ensureCutDao(roll, []);
-    Sim.ensureCutDao(roll, []);
+    var rollGuard = 0;
+    while (!roll.cutDaoTried && rollGuard < 24) {
+      rollGuard++;
+      Sim.ensureCutDao(roll, []);
+    }
     if (roll.cutDaoPassed) passed++;
   }
   assert.ok(passed <= 22, '大部分凡人过不了斩道，80 次过了 ' + passed);

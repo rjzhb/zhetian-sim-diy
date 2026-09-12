@@ -223,7 +223,7 @@
     },
     {
       id: 'th_stuck_cut', name: '斩道前夜', tier: 2, tag: 'insight',
-      desc: '大能巅峰，这一刀还没落下', weight: 18, maxCount: 2,
+      desc: '大能巅峰，这一刀还没落下', weight: 18, maxCount: 8,
       minAge: 180, maxAge: 100000,
       available: function (g) {
         return !g.becameEmperor && (g.innate || 1) < 8 && g.lvl === 60 && !g.cutDaoTried && !g.cutDaoPassed;
