@@ -1748,6 +1748,47 @@ function mortalSage(opt) {
   assert.ok(relicDoor.maxCount && relicDoor.maxCount.th_echo_relic != null &&
     relicDoor.maxCount.th_echo_relic < 1, '有手札钩子时，下一次抽事宜先出余波');
   assert.ok(!Sim.hasStory(relicDoor, 'relic_note'), '余波出过之后，钩子应摘掉');
+
+  var sitEcho = byId('th_echo_sit');
+  assert.ok(sitEcho, '应有夜坐下文');
+  assert.ok(!Sim.isStakeEvent(sitEcho), '夜坐下文不占梭哈');
+  assert.ok(!sitEcho.choice, '夜坐下文不是选择题');
+  g.lvl = 25;
+  g.age = 80;
+  Sim.clearStory(g, 'relic_note');
+  assert.ok(!Sim.eventAvailable(g, sitEcho), '没夜坐过，不该有人来问蒲团');
+  Sim.markStory(g, 'sit_wake');
+  assert.ok(Sim.eventAvailable(g, sitEcho), '夜坐过后，下文应能抽到');
+  var satNight = Sim.createGame(0, []);
+  Sim.setPhysique(satNight, D.physiqueById('mortal'));
+  satNight.innate = 1;
+  satNight.lvl = 25;
+  satNight.age = 80;
+  satNight.daoyun = 200;
+  satNight.daoyunCap = 400;
+  byId('th_stuck_fourpole').ok(satNight, Sim.U);
+  assert.ok(Sim.hasStory(satNight, 'sit_wake'), '四极夜关坐通应留下下文钩子');
+  var missNight = Sim.createGame(0, []);
+  Sim.setPhysique(missNight, D.physiqueById('mortal'));
+  missNight.innate = 1;
+  missNight.lvl = 25;
+  missNight.age = 80;
+  byId('th_stuck_fourpole').fail(missNight, Sim.U);
+  assert.ok(!Sim.hasStory(missNight, 'sit_wake'), '夜关没坐通不应留下下文');
+  var sitDoor = Sim.createGame(0, []);
+  Sim.setPhysique(sitDoor, D.physiqueById('mortal'));
+  sitDoor.innate = 1;
+  sitDoor.lvl = 25;
+  sitDoor.age = 80;
+  sitDoor.eventDrawsBySpan = { pre: 3 };
+  Sim.markStory(sitDoor, 'sit_wake');
+  var sitRnd = Math.random;
+  Math.random = function () { return 0.1; };
+  Sim.rollEvent(sitDoor, []);
+  Math.random = sitRnd;
+  assert.ok(sitDoor.maxCount && sitDoor.maxCount.th_echo_sit != null &&
+    sitDoor.maxCount.th_echo_sit < 1, '有夜坐钩子时，下一次抽事宜先出下文');
+  assert.ok(!Sim.hasStory(sitDoor, 'sit_wake'), '下文出过之后，钩子应摘掉');
 })();
 
 console.log('midgame-rhythm: ok');

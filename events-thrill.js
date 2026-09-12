@@ -40,6 +40,12 @@
     return function (g) { return !g.becameEmperor && g.lvl >= lo && g.lvl <= hi; };
   }
   /* 卡关能推到大圣门口。进准帝不是坐出来的，要撞上机缘。 */
+  function markSitWake(g, U, fromId) {
+    if (!U.markStory) return;
+    if (U.hasStory && U.hasStory(g, 'sit_wake')) return;
+    U.markStory(g, 'sit_wake');
+    g.sitWakeFrom = fromId || '';
+  }
   function sitThrough(g, U) {
     var need = U.effectiveDaoyunNeed ? U.effectiveDaoyunNeed(g, g.lvl) : 0;
     if (need && (g.daoyun || 0) < need) g.daoyun = need;
@@ -158,6 +164,7 @@
         sitThrough(g, U);
         U.printlog('苦海里那口气今夜自己匀开了。你把命续上，再往前挪一步' +
           (lf ? '，寿元+' + lf : '') + '，实力+' + c);
+        markSitWake(g, U, 'th_stuck_sea');
       },
       fail: function (g, U) {
         U.printlog('苦海还是苦海。你把腿盘紧，明天再坐');
@@ -178,6 +185,7 @@
         if ((g.lvl || 1) < 41) sitThrough(g, U);
         U.printlog('第四极那口气在夜里忽然通了。你没求任何人，只是自己坐到了天亮' +
           (lf ? '，寿元+' + lf : '') + '，实力+' + c);
+        markSitWake(g, U, 'th_stuck_fourpole');
       },
       fail: function (g, U) {
         U.printlog('你在夜里把第四极那口气又捋了一遍，还是差一截。差的那一截，明天再坐');
@@ -198,6 +206,7 @@
         if ((g.lvl || 1) < 56) sitThrough(g, U);
         U.printlog('仙台这一层的窗户纸被你坐薄了。不是顿悟，是坐到它自己破' +
           (lf ? '，寿元+' + lf : '') + '，实力+' + c);
+        markSitWake(g, U, 'th_stuck_xian');
       },
       fail: function (g, U) {
         U.printlog('你从蒲团上起来，这一层还在。你把蒲团拍了拍，重新坐下');
@@ -218,6 +227,7 @@
         sitThrough(g, U);
         U.printlog('同境的人靠血脉一步跨过去。你把息调匀，自己走过去' +
           (lf ? '，寿元+' + lf : '') + '，实力+' + c);
+        markSitWake(g, U, 'th_stuck_neng');
       },
       fail: function (g, U) {
         U.printlog('息乱了一次，你停下来，没有硬闯。凡骨过关，急不得');
@@ -240,6 +250,7 @@
             (lf ? '，寿元+' + lf : '') + '，实力+' + c :
           '同境有人斩过去了，有人跪在门口起不来。你把这一刀又掂了一遍，仍然没落' +
             (lf ? '，寿元+' + lf : '') + '，实力+' + c);
+        markSitWake(g, U, 'th_stuck_cut');
       },
       fail: function (g, U) {
         U.printlog('刀意散了一夜。斩道还在前面，你连压刀的资格都差一点');
@@ -306,6 +317,7 @@
             (lf ? '，寿元+' + lf : '') + '，实力+' + c :
           '圣位这一层没有人来点破。你把息坐稳，自己往前挪了一步' +
             (lf ? '，寿元+' + lf : '') + '，实力+' + c);
+        markSitWake(g, U, 'th_stuck_sheng');
       },
       fail: function (g, U) {
         U.printlog('这一坐没有通。你起身添了灯油，再坐');
@@ -963,6 +975,34 @@
       fail: function (g, U) {
         if (U.clearStory) U.clearStory(g, 'relic_note');
         U.printlog('有人在市集打听那部手札。你把书换了个匣，没有见他');
+      }
+    },
+    {
+      id: 'th_echo_sit', name: '蒲团有人问', tier: 2, tag: 'echo',
+      desc: '夜坐过的人，会被人记得', needStory: 'sit_wake', weight: 8, maxCount: 1,
+      minAge: 12, maxAge: 100000,
+      available: function (g) { return !g.becameEmperor && (g.lvl || 1) >= 6; },
+      cond: function (g) { return Math.random() < 0.80; },
+      ok: function (g, U) {
+        if (U.clearStory) U.clearStory(g, 'sit_wake');
+        var c = U.cultPct(g, 0.016, 0.028, 360);
+        var d = U.irand(3, 6);
+        U.gainDao(g, d);
+        var from = g.sitWakeFrom || '';
+        var line = '有人夜里来看你的蒲团。他没有夺悟，只把你坐过的那一截又点亮了一寸';
+        if (from === 'th_stuck_sea') line = '有人在苦海边问：昨夜那口匀开的气是谁坐出来的。他没有夺气，只把你续上的那一截又拍实了';
+        else if (from === 'th_stuck_fourpole') line = '有人在第四极外停了一夜。他问那口气是谁通的，没有伸手，只把你坐过的纹路又描深一笔';
+        else if (from === 'th_stuck_xian') line = '同辈摸过你坐薄的那层窗户纸。他没有点破，只把纸边按回去，让你自己再走一步';
+        else if (from === 'th_stuck_neng') line = '有人问息是怎么调匀的。他没有教你口诀，只把乱掉的半息替你按住';
+        else if (from === 'th_stuck_cut') line = '有人看见你膝上那把没落的刀。他没有催你斩，只把刀脊上的锈擦掉一寸';
+        else if (from === 'th_stuck_sheng') line = '有人在圣位前问蒲团是谁坐热的。他没有点破门槛，只把灯油添满';
+        U.printlog(line + '，实力+' + c + '，道蕴+' + d);
+        g.sitWakeFrom = '';
+      },
+      fail: function (g, U) {
+        if (U.clearStory) U.clearStory(g, 'sit_wake');
+        U.printlog('有人在山下问：昨夜蒲团是谁坐热的。你没有应声，脚印自己散了');
+        g.sitWakeFrom = '';
       }
     }
   ];
