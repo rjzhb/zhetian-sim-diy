@@ -1435,6 +1435,22 @@ function mortalSage(opt) {
   shut.daoGift = 8;
   byId('lf_dao_high_glance').resolve(shut, Sim.U, 'shut');
   assert.ok(!Sim.hasStory(shut, 'remnant_owner'), '合上放回不应留下故人钩子');
+  var grindEv = byId('lf_dao_low_grind');
+  var dull = Sim.createGame(0, []);
+  Sim.setPhysique(dull, D.physiqueById('mortal'));
+  dull.lvl = 20;
+  dull.age = 40;
+  dull.daoGift = 5;
+  assert.ok(Sim.eventAvailable(dull, grindEv), '悟性5也应能磨同一句');
+  grindEv.resolve(dull, Sim.U, 'grind');
+  assert.ok(Sim.hasStory(dull, 'insight_ripple'), '磨穿那一句应留下心湖余波');
+  var skipped = Sim.createGame(0, []);
+  Sim.setPhysique(skipped, D.physiqueById('mortal'));
+  skipped.lvl = 20;
+  skipped.age = 40;
+  skipped.daoGift = 5;
+  grindEv.resolve(skipped, Sim.U, 'skip');
+  assert.ok(!Sim.hasStory(skipped, 'insight_ripple'), '换口诀绕开不应留下心湖余波');
 
   var market = byId('th_echo_market');
   assert.ok(market, '应有髓香追来');

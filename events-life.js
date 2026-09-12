@@ -1171,7 +1171,7 @@
     }),
     ev({
       id: 'lf_dao_low_grind', name: '同一句一百遍', tier: 2, tag: 'insight', lo: 11, hi: 40, minAge: 14, weight: 2.6,
-      daoMax: 4,
+      daoMax: 5,
       choice: function (g, U) {
         return {
           lead: '别人一日能过的关，你卡在同一句上已经一个月',
@@ -1188,6 +1188,7 @@
         var c = U.cultPct(g, 0.03, 0.05, 220);
         var lf = U.gainLife(g, 8, 24);
         U.printlog('第一百遍的时候句子自己通了。不是顿悟，是磨穿了' + (lf ? '，寿元+' + lf : '') + '，实力+' + c);
+        if (U.markStory) U.markStory(g, 'insight_ripple');
       }
     }),
     ev({
