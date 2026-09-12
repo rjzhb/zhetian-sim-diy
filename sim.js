@@ -2314,7 +2314,7 @@
       /* 凡体卡在四极到入圣门口时，额度没花完也先坐下。两道门槛只堆战力，坐不穿。
        * 斩道/入圣门口不再先掷骰，否则前夜会被梭哈额度吃掉。 */
       if ((g.innate || 1) <= 4 && (g.lvl || 1) >= 6 && (g.lvl || 1) <= 70 &&
-          (wantClimbSit(g) || Math.random() < 0.40)) {
+          ((wantClimbSit(g) && !justSatDoor(g)) || Math.random() < 0.40)) {
         var earlyStuck = collectStuckEvents(g);
         if (earlyStuck.length) {
           fireEvent(g, log, pickDoorStuck(g, earlyStuck));
@@ -2334,6 +2334,11 @@
     if (lvl === 60 && !g.cutDaoTried) return true;
     if (lvl === 70 && !g.saintTried) return true;
     return false;
+  }
+  function justSatDoor(g) {
+    var rec = g && g.recentEvents;
+    if (!rec || !rec.length) return false;
+    return isDoorStory(rec[rec.length - 1]);
   }
   function collectEchoEvents(g) {
     var out = [], i, ev, mc = (g && g.maxCount) || {};
@@ -2378,7 +2383,7 @@
     if (!g || (innate > 4 && !afterCut && !afterSaint)) return null;
     if ((g.lvl || 1) < 6 || (g.lvl || 1) > 90) return null;
     /* 门槛失败后余生必须能看见。化龙到仙台、斩道/入圣门口也不再先掷骰。 */
-    if (!afterCut && !afterSaint && !wantClimbSit(g) && Math.random() > 0.62) return null;
+    if (!afterCut && !afterSaint && !(wantClimbSit(g) && !justSatDoor(g)) && Math.random() > 0.62) return null;
     var found = collectStuckEvents(g);
     if (!found.length && flavor && flavor.length) {
       var i, ev;
