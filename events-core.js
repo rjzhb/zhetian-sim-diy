@@ -641,6 +641,7 @@
         U.printlog('拍得' + hb + '，炼化入体，实力+' + c);
         var lf = U.gainLife(g, 20, 60);
         if (lf) U.printlog('药力温养肉身，寿元+' + lf);
+        if (U.markStory) U.markStory(g, 'auction_scent');
       },
       fail: function (g, U) {
         var h = U.hurt(g, 20, 60);

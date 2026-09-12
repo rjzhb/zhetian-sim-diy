@@ -1547,6 +1547,37 @@ function mortalSage(opt) {
   assert.ok(lectureDoor.maxCount && lectureDoor.maxCount.th_echo_lecture != null &&
     lectureDoor.maxCount.th_echo_lecture < 1, '有讲席余音时，下一次抽事宜先出余波');
   assert.ok(!Sim.hasStory(lectureDoor, 'lecture_echo'), '余波出过之后，钩子应摘掉');
+
+  var auctionEcho = byId('th_echo_auction');
+  assert.ok(auctionEcho, '应有拍场余波');
+  assert.ok(!Sim.isStakeEvent(auctionEcho), '拍场余波不占梭哈');
+  assert.ok(!auctionEcho.choice, '拍场余波不是选择题');
+  g.lvl = 35;
+  g.age = 80;
+  Sim.clearStory(g, 'lecture_echo');
+  assert.ok(!Sim.eventAvailable(g, auctionEcho), '没拍过东西，不该有人来问那一拍');
+  Sim.markStory(g, 'auction_scent');
+  assert.ok(Sim.eventAvailable(g, auctionEcho), '拍得宝物后，余波应能抽到');
+  var wonLot = Sim.createGame(0, []);
+  Sim.setPhysique(wonLot, D.physiqueById('mortal'));
+  wonLot.lvl = 35;
+  wonLot.age = 80;
+  byId('paimai').ok(wonLot, Sim.U);
+  assert.ok(Sim.hasStory(wonLot, 'auction_scent'), '拍得宝物应留下拍场余波');
+  var auctionDoor = Sim.createGame(0, []);
+  Sim.setPhysique(auctionDoor, D.physiqueById('mortal'));
+  auctionDoor.innate = 1;
+  auctionDoor.lvl = 35;
+  auctionDoor.age = 80;
+  auctionDoor.eventDrawsBySpan = { pre: 3 };
+  Sim.markStory(auctionDoor, 'auction_scent');
+  var auctionRnd = Math.random;
+  Math.random = function () { return 0.1; };
+  Sim.rollEvent(auctionDoor, []);
+  Math.random = auctionRnd;
+  assert.ok(auctionDoor.maxCount && auctionDoor.maxCount.th_echo_auction != null &&
+    auctionDoor.maxCount.th_echo_auction < 1, '有拍场余波时，下一次抽事宜先出余波');
+  assert.ok(!Sim.hasStory(auctionDoor, 'auction_scent'), '余波出过之后，钩子应摘掉');
 })();
 
 console.log('midgame-rhythm: ok');

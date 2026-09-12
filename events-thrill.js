@@ -904,6 +904,24 @@
         if (U.clearStory) U.clearStory(g, 'lecture_echo');
         U.printlog('有人在山下问：圣贤那一席是谁听完的。你没有应声，余音自己散了');
       }
+    },
+    {
+      id: 'th_echo_auction', name: '拍场余波', tier: 2, tag: 'echo',
+      desc: '那一拍还有人记得', needStory: 'auction_scent', weight: 8, maxCount: 1,
+      minAge: 30, maxAge: 100000,
+      available: function (g) { return !g.becameEmperor && (g.lvl || 1) >= 30; },
+      cond: function (g) { return Math.random() < 0.80; },
+      ok: function (g, U) {
+        if (U.clearStory) U.clearStory(g, 'auction_scent');
+        var c = U.cultPct(g, 0.016, 0.028, 360);
+        var d = U.irand(3, 6);
+        U.gainDao(g, d);
+        U.printlog('落败的买家夜里来访。他没有夺药，只把拍场上没喊出来的半句价补上，实力+' + c + '，道蕴+' + d);
+      },
+      fail: function (g, U) {
+        if (U.clearStory) U.clearStory(g, 'auction_scent');
+        U.printlog('有人在城门口问：那一拍是谁拍走的。你没有应声，药香自己散了');
+      }
     }
   ];
 
