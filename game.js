@@ -1276,6 +1276,7 @@
       else if (G.deadCause === 'event') { t.textContent = '💀 身死道消'; blip(160, 0.4, 'sawtooth', 0.12); }
       else if (G.cutDaoTried && !G.cutDaoPassed) { t.textContent = '⚔ 斩道止步'; blip(140, 0.4, 'sawtooth', 0.13); }
       else if (G.saintTried && !G.saintPassed) { t.textContent = '⚔ 止步圣位'; blip(140, 0.4, 'sawtooth', 0.13); }
+      else if (G.deadCause === 'age') { t.textContent = '🕯 ' + Sim.ageSettleTitle(G); blip(160, 0.4, 'sawtooth', 0.12); }
       else { t.textContent = '💀 与世长辞'; blip(160, 0.4, 'sawtooth', 0.12); }
       t.className = 'settle-title';
     }
@@ -1327,6 +1328,9 @@
       gd.hidden = false;
     } else if (G.saintTried && !G.saintPassed) {
       gd.textContent = '过了斩道，也大多过不了圣位。你看见了另一种生命，却没踏进去';
+      gd.hidden = false;
+    } else if (G.deadCause === 'age') {
+      gd.textContent = G.epitaph || Sim.ageEpitaph(G);
       gd.hidden = false;
     } else gd.hidden = true;
 

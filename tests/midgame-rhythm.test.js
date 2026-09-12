@@ -1126,6 +1126,40 @@ function mortalSage(opt) {
   var gameSrc = fs.readFileSync(require('path').join(__dirname, '../game.js'), 'utf8');
   assert.ok(gameSrc.indexOf('斩道止步') >= 0 && gameSrc.indexOf('止步圣位') >= 0,
     '结算应写出斩道/入圣止步，而不是一律与世长辞');
+  assert.strictEqual(typeof Sim.ageEpitaph, 'function', '寿尽应能写出这一世的收束');
+  assert.strictEqual(typeof Sim.ageSettleTitle, 'function', '结算标题应按停处写，不能一律与世长辞');
+  var fourDie = Sim.createGame(0, []);
+  Sim.setPhysique(fourDie, D.physiqueById('mortal'));
+  fourDie.daoGift = 1;
+  fourDie.daoGiftName = Sim.daoGiftName(1);
+  fourDie.lvl = 26;
+  fourDie.age = 800;
+  var seaDie = Sim.createGame(0, []);
+  Sim.setPhysique(seaDie, D.physiqueById('star'));
+  seaDie.daoGift = 4;
+  seaDie.daoGiftName = Sim.daoGiftName(4);
+  seaDie.lvl = 12;
+  seaDie.age = 200;
+  var fourLine = Sim.ageEpitaph(fourDie);
+  var seaLine = Sim.ageEpitaph(seaDie);
+  assert.ok(fourLine.indexOf('寿元耗尽，坐化') < 0, '四极寿尽不应再写三个字坐化');
+  assert.ok(seaLine.indexOf('寿元耗尽，坐化') < 0, '苦海寿尽不应再写三个字坐化');
+  assert.notStrictEqual(fourLine, seaLine, '停在四极和停在苦海，收束不该同一句');
+  assert.ok(/第四极|四极/.test(fourLine), '四极寿尽应让人记得第四极：' + fourLine);
+  assert.ok(/苦海/.test(seaLine), '苦海寿尽应让人记得苦海：' + seaLine);
+  assert.notStrictEqual(Sim.ageSettleTitle(fourDie), Sim.ageSettleTitle(seaDie),
+    '结算标题也应按停处分开');
+  assert.ok(gameSrc.indexOf('ageEpitaph') >= 0 && gameSrc.indexOf('ageSettleTitle') >= 0,
+    '结算页应抬出寿尽收束，不能只写与世长辞');
+  fourDie.lifeBase = 10;
+  fourDie.lifeBonus = 0;
+  fourDie.lifespan = 10;
+  fourDie.age = 10;
+  var ageLog = Sim.rollYear(fourDie);
+  assert.strictEqual(fourDie.deadCause, 'age');
+  assert.ok(fourDie.epitaph, '寿尽应记下收束，给结算用');
+  assert.ok(ageLog && ageLog.some(function (x) { return x.text && x.text.indexOf(fourDie.epitaph) >= 0; }),
+    '日志最后一句应是收束，不是寿元耗尽坐化');
   var tagged = Sim.createGame(0, []);
   Sim.setPhysique(tagged, D.physiqueById('mortal'));
   tagged.innate = 1;

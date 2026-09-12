@@ -4628,6 +4628,57 @@
     return g;
   }
 
+  /* 寿尽要像这一世的收束，不能只写三个字坐化。停处不同、身子不同，句子就不同。 */
+  function ageSettleTitle(g) {
+    var lvl = (g && g.lvl) || 1;
+    if (g && g.cutDaoTried && !g.cutDaoPassed) return '斩道止步';
+    if (g && g.saintTried && !g.saintPassed) return '止步圣位';
+    if (lvl < 21) return '苦海坐化';
+    if (lvl < 41) return '四极坐化';
+    if (lvl < 56) return '仙台坐化';
+    if (lvl < 60) return '大能坐化';
+    if (lvl === 60) return '斩道未斩';
+    if (lvl < 70) return '王者坐化';
+    if (lvl === 70) return '圣位之前';
+    if (lvl < 91) return '圣位坐化';
+    if (lvl < 99) return '准帝坐化';
+    return '帝关之前';
+  }
+  function ageEpitaph(g) {
+    if (!g) return '寿元耗尽，坐化';
+    var lvl = g.lvl || 1;
+    var phy = g.physiqueName || '这具身子';
+    var gift = g.daoGift != null ? g.daoGift : 5;
+    var line;
+    if (lvl < 21) line = phy + '这一世，苦海那口气没匀开。第四极的门，你连边都没摸到';
+    else if (lvl < 41) line = '第四极那口气一直差一截。' + phy + '把蒲团坐热了，寿元自己先散了';
+    else if (lvl < 56) line = '仙台的窗户纸还在。' + phy + '坐到灯油尽了，纸也没破';
+    else if (lvl < 60) line = '同境有人靠血脉走过去。你把息调到最后一夜，还是停在大能';
+    else if (lvl === 60 && g.cutDaoTried && !g.cutDaoPassed) {
+      line = g.cutNearMiss
+        ? (g.cutDaoRekindled
+          ? '刀意回过一次，还是差那一线。这一世停在斩道门口'
+          : '这一刀只差一线。刀意还在骨头里，只是没能再燃起来')
+        : '大能巅峰那一刀没落下去。这一世的名字，停在斩道门口';
+    } else if (lvl === 60) line = '刀在膝上，寿元先到。这一世没斩，也没回头';
+    else if (lvl < 70) line = '过了那一刀，王者内层把你留下来了。' + phy + '再往前，没有第二口寿元';
+    else if (lvl === 70 && g.saintTried && !g.saintPassed) {
+      line = '过了斩道，也大多过不了圣位。你看见了另一种生命，却没踏进去';
+    } else if (lvl === 70) line = '圣位在前，蒲团还是热的。灯油尽了';
+    else if (lvl < 91) line = '圣位之上，够格的机缘没来。你把灯油坐干了';
+    else if (lvl < 99) line = '准帝的路还没走完。这一世先把自己坐化了';
+    else line = '帝关在前，寿元先尽。你没有硬闯，只是坐化在门下';
+    if (gift <= 2 && lvl < 60) line += '。悟性钝，靠的是坐，坐也有尽头';
+    else if (gift >= 7 && lvl < 70) line += '。心里有法，寿元不够用';
+    return line;
+  }
+  function writeAgeDeath(g, log) {
+    g.dead = true;
+    g.deadCause = 'age';
+    g.epitaph = ageEpitaph(g);
+    push(log, { cls: 'dead', text: '第' + g.age + '岁，' + g.epitaph });
+  }
+
   /* ---------- 过一年，返回今年日志（fast 模式不建日志以提速校准） ---------- */
   function rollYear(g) {
     if (_fast) return rollYearFast(g);
@@ -4750,8 +4801,7 @@
 
     /* 寿元判定放在突破之后：寿元将尽那年仍可突破/续命 */
     if (g.age > g.lifespan && !g.dead) {
-      g.dead = true; g.deadCause = 'age';
-      push(log, { cls: 'dead', text: '第' + g.age + '岁，寿元耗尽，坐化' });
+      writeAgeDeath(g, log);
       return;
     }
 
@@ -4827,6 +4877,8 @@
     xianCult: xianCult,
     emperorLifeSpanRange: emperorLifeSpanRange,
     emperorDaoyunGainPerYear: emperorDaoyunGainPerYear,
+    ageEpitaph: ageEpitaph,
+    ageSettleTitle: ageSettleTitle,
     emperorCultGainPerYear: emperorCultGainPerYear,
     runEmperorExperience: runEmperorExperience,
     emperorBeatIds: emperorBeatIds,
