@@ -8,6 +8,11 @@ function byId(id) {
   for (var i = 0; i < E.length; i++) if (E[i].id === id) return E[i];
   return null;
 }
+function sawEvent(g, id) {
+  var i, rec = (g && g.recentEvents) || [];
+  for (i = 0; i < rec.length; i++) if (rec[i] && rec[i].id === id) return true;
+  return !!(g && g.realmSeenIds && g.realmSeenIds[id]);
+}
 
 function mortalSage(opt) {
   opt = opt || {};
@@ -616,6 +621,20 @@ function mortalSage(opt) {
   var before = stuckG.lvl;
   stuck.ok(stuckG, Sim.U);
   assert.ok(stuckG.lvl > before, '四极夜关成功应推一层，实际 ' + stuckG.lvl);
+  var missSit = Sim.createGame(0, []);
+  Sim.setPhysique(missSit, D.physiqueById('mortal'));
+  missSit.innate = 1;
+  missSit.aptitude = 1;
+  missSit.lvl = 25;
+  missSit.age = 90;
+  missSit.eventDrawsBySpan = { pre: 0 };
+  var missRnd = Math.random;
+  Math.random = function () { return 0.9; };
+  Sim.rollEvent(missSit, []);
+  Math.random = missRnd;
+  assert.ok(!missSit.maxCount || missSit.maxCount.th_stuck_fourpole == null ||
+    missSit.maxCount.th_stuck_fourpole >= (stuck.maxCount || 8),
+    '夜关没坐通不应占掉次数');
   var vajraG = Sim.createGame(0, []);
   Sim.setPhysique(vajraG, D.physiqueById('vajra'));
   vajraG.lvl = 25;
@@ -650,8 +669,7 @@ function mortalSage(opt) {
   Math.random = function () { return 0.9; };
   Sim.rollEvent(xianDoor, []);
   Math.random = xianDoorRnd;
-  assert.ok(xianDoor.maxCount && xianDoor.maxCount.th_stuck_xian != null &&
-    xianDoor.maxCount.th_stuck_xian < (xianStuck.maxCount || 8), '化龙到仙台卡住时，骰子再大也应先夜坐');
+  assert.ok(sawEvent(xianDoor, 'th_stuck_xian'), '化龙到仙台卡住时，骰子再大也应先夜坐');
   var sheng = byId('th_stuck_sheng');
   assert.ok(sheng && !Sim.isStakeEvent(sheng), '圣位枯坐应走路边池，不占梭哈');
   var shengG = Sim.createGame(0, []);
@@ -768,8 +786,7 @@ function mortalSage(opt) {
   Math.random = function () { return 0.9; };
   Sim.rollEvent(nengStake, []);
   Math.random = nengRnd;
-  assert.ok(nengStake.maxCount && nengStake.maxCount.th_stuck_neng != null &&
-    nengStake.maxCount.th_stuck_neng < (neng.maxCount || 8), '大能内层卡住时，骰子再大也应先夜坐');
+  assert.ok(sawEvent(nengStake, 'th_stuck_neng'), '大能内层卡住时，骰子再大也应先夜坐');
   var kingSit = Sim.createGame(0, []);
   Sim.setPhysique(kingSit, D.physiqueById('mortal'));
   kingSit.innate = 1;
@@ -783,8 +800,7 @@ function mortalSage(opt) {
   Math.random = function () { return 0.9; };
   Sim.rollEvent(kingSit, []);
   Math.random = kingSitRnd;
-  assert.ok(kingSit.maxCount && kingSit.maxCount.th_stuck_neng != null &&
-    kingSit.maxCount.th_stuck_neng < (neng.maxCount || 8), '过了斩道卡在王者内层时，骰子再大也应先调息');
+  assert.ok(sawEvent(kingSit, 'th_stuck_neng'), '过了斩道卡在王者内层时，骰子再大也应先调息');
   assert.ok(kingSit.lvl >= 64 && kingSit.lvl < 70, '王者内层调息不能坐进圣位');
   var doorStake = Sim.createGame(0, []);
   Sim.setPhysique(doorStake, D.physiqueById('mortal'));
@@ -811,8 +827,7 @@ function mortalSage(opt) {
   Math.random = function () { return 0.9; };
   Sim.rollEvent(doorSpent, []);
   Math.random = spentRnd;
-  assert.ok(doorSpent.maxCount && doorSpent.maxCount.th_stuck_cut != null &&
-    doorSpent.maxCount.th_stuck_cut < 2, '额度用尽、骰子再大，斩道门口仍该看见前夜');
+  assert.ok(sawEvent(doorSpent, 'th_stuck_cut'), '额度用尽、骰子再大，斩道门口仍该看见前夜');
   var cutEve = byId('th_stuck_cut');
   assert.ok(cutEve && !Sim.isStakeEvent(cutEve), '斩道前夜应走路边池，不占梭哈');
   var kingDoor = Sim.createGame(0, []);

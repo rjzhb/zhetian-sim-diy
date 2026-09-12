@@ -2284,6 +2284,7 @@
       if (ev.ok) ev.ok(g, U, log);
       grantEventDaoyun(g, ev, log);
     } else {
+      if (isDoorStory(ev)) mc[ev.id] = (mc[ev.id] != null ? mc[ev.id] : 0) + 1;
       if (ev.fail) ev.fail(g, U, log);
     }
     _curEv = prevCur;
