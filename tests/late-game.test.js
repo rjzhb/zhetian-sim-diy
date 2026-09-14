@@ -1164,6 +1164,24 @@ heavenlyImmortal.innate = 10;
 assert.ok(Sim.strangeWorldImmortalityChance(heavenlyImmortal) >= 0.65,
   'a heavenly emperor should usually succeed on the first red-dust attempt');
 
+assert.strictEqual(typeof Sim.strangeWorldGrowCult, 'function');
+const balloon = Sim.createGame(0, []);
+Sim.becomeDi(balloon, [], 'force');
+balloon.inStrangeWorld = true;
+balloon.cult = 7500000;
+assert.ok(Sim.strangeWorldGrowCult(balloon, 1.025, 1.06) >= 7500000);
+assert.ok(balloon.cult < 9000000, 'an eighth-life emperor must not leave the red-dust scale in one refine');
+let i;
+for (i = 0; i < 24; i++) Sim.strangeWorldGrowCult(balloon, 1.025, 1.06);
+assert.ok(balloon.cult < 9000000,
+  'refining longevity matter must not compound an eighth-life emperor toward two hundred million');
+const rising = Sim.createGame(0, []);
+Sim.becomeDi(rising, [], 'force');
+rising.inStrangeWorld = true;
+rising.cult = 1000000;
+assert.ok(Sim.strangeWorldGrowCult(rising, 1.025, 1.06) >= 1025000,
+  'a newly-made emperor should still grow while far below the immortal scale');
+
 const entryGame = Sim.createGame(0, ['w06', 'w11']);
 Sim.becomeDi(entryGame, [], 'force');
 entryGame.awaitingImmortalPath = true;

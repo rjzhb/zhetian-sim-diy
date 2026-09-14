@@ -3841,7 +3841,7 @@
     var years = span || irand(5000, 20000);
     var add = irand(8, 15);
     g.strangeWorldInsight = (g.strangeWorldInsight || 0) + add;
-    g.cult = round(g.cult * rand(1.03, 1.07));
+    strangeWorldGrowCult(g, 1.03, 1.07);
     gainDaoyun(g, 8);
     push(log, { cls: 'rare', text: '五色天刀余威未散，你收敛帝道气机，藏入奇异世界的法则褶皱蛰伏' + years + '年；长生感悟+' + add + '，实力暗增至' + g.cult });
     return true;
@@ -3861,7 +3861,7 @@
     if (repel > 0 && Math.random() < repel) {
       g.undeadRepelled = true;
       g.undeadHunting = false;
-      g.cult = round(g.cult * rand(1.03, 1.08));
+      strangeWorldGrowCult(g, 1.03, 1.08);
       g.strangeWorldInsight = (g.strangeWorldInsight || 0) + 14;
       push(log, { cls: 'god', text: '你反身硬撼五色天刀，以自身极道与之相持；不死天皇伤而不死，暂时退入此界深处，追杀就此中断' });
       return true;
@@ -3941,6 +3941,19 @@
     return true;
   }
 
+  function strangeWorldGrowCult(g, lo, hi) {
+    if (!g) return 0;
+    var soft = 7500000;
+    var hard = (D.RED_DUST_IMMORTAL_CULT || 8000000) - 1;
+    if ((g.cult || 0) >= soft) {
+      g.cult = Math.min(hard, (g.cult || 0) + irand(8000, 24000));
+      return g.cult;
+    }
+    g.cult = round((g.cult || 0) * rand(lo, hi));
+    if (g.cult > soft) g.cult = Math.min(g.cult, soft + irand(20000, 80000));
+    if (g.cult > hard) g.cult = hard;
+    return g.cult;
+  }
   function strangeWorldHazardThreat(kind) {
     if (kind === 'ancient') return D.WORLD_EMPEROR_CULT_MAX || 1050000;
     return D.HEAVENLY_EMPEROR_CULT || 3000000;
@@ -4115,7 +4128,7 @@
         }
       } else {
         g.strangeWorldInsight += 8;
-        g.cult = round(g.cult * 1.025);
+        strangeWorldGrowCult(g, 1.025, 1.025);
         push(log, { cls: 'god', text: '你与无始大帝联手挡下一次五色天刀袭杀，从仙道碰撞中获得长生感悟+8' });
       }
       return;
@@ -4123,7 +4136,7 @@
 
     var r = Math.random(), add;
     if (r < 0.24) {
-      add = irand(9, 16); g.strangeWorldInsight += add; g.cult = round(g.cult * rand(1.025, 1.06));
+      add = irand(9, 16); g.strangeWorldInsight += add; strangeWorldGrowCult(g, 1.025, 1.06);
       push(log, { cls: 'gain', text: '你炼化此界长生物质' + span + '年，长生感悟+' + add + '，实力精进至' + g.cult });
     } else if (r < 0.44) {
       add = irand(6, 12); g.strangeWorldInsight += add; g.daoyunCap = Math.min(D.DAO_ABSOLUTE_MAX, g.daoyunCap + 32); gainDaoyun(g, 12);
@@ -5438,6 +5451,7 @@
     chooseStrangeWorldAlliance: chooseStrangeWorldAlliance,
     stepStrangeWorld: stepStrangeWorld,
     strangeWorldImmortalityChance: strangeWorldImmortalityChance,
+    strangeWorldGrowCult: strangeWorldGrowCult,
     strangeWorldHazardOutcome: strangeWorldHazardOutcome,
     strangeWorldHazardThreat: strangeWorldHazardThreat,
     resolveStrangeWorldHazard: resolveStrangeWorldHazard,
