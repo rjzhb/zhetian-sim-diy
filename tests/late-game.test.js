@@ -1472,6 +1472,62 @@ experienceEvents.dao_create_swallowing.ok(selfCreator, Sim.U, []);
 assert.strictEqual(selfCreator.swallowingArt, true,
   'only the explicit self-created swallowing route should enable its extra mortality');
 
+(function () {
+  var ev = experienceEvents.dao_create_swallowing;
+  function mortalDao(lvl, extra) {
+    extra = extra || {};
+    var g = Sim.createGame(0, []);
+    Sim.setPhysique(g, DATA.physiqueById('mortal'));
+    g.lvl = lvl;
+    g.daoyun = extra.daoyun != null ? extra.daoyun : 1200;
+    g.daoyunCap = extra.daoyunCap != null ? extra.daoyunCap : 1500;
+    g.innate = 2;
+    g.swallowingArt = false;
+    g.becameEmperor = false;
+    return g;
+  }
+  assert.strictEqual(typeof Sim.swallowCreateChance, 'function');
+  assert.strictEqual(typeof Sim.swallowCreateWindow, 'function');
+  var first = mortalDao(75);
+  assert.strictEqual(Sim.eventAvailable(first, ev), true, '圣人高悟凡体应能第一次看见自创吞天');
+  var firstChance = Sim.swallowCreateChance(first);
+  assert.ok(firstChance >= 0.18 && firstChance <= 0.36,
+    '第一次推演可以难，但不该再锁死在三成以下：' + firstChance);
+  ev.choice(first, Sim.U);
+  try {
+    Math.random = function () { return 0.999; };
+    ev.resolve(first, Sim.U, 'forge', []);
+  } finally {
+    Math.random = oldRandom;
+  }
+  assert.strictEqual(first.swallowingArt, false);
+  assert.ok(first.swallowCreateSeen, '推演过一次就要记下，后面才能复盘');
+  assert.strictEqual(Sim.eventAvailable(first, ev), false,
+    '同一大境界不该立刻再弹一次');
+  first.lvl = 81;
+  assert.strictEqual(Sim.eventAvailable(first, ev), true,
+    '出过一次后，破入下一个大境界应再给一次复盘');
+  ev.choice(first, Sim.U);
+  first.lvl = 81;
+  assert.strictEqual(Sim.eventAvailable(first, ev), false,
+    '大圣这一境用过窗口后应等下一境');
+  first.lvl = 91;
+  assert.strictEqual(Sim.eventAvailable(first, ev), true,
+    '入准帝还要再复盘');
+  var late = mortalDao(100);
+  late.swallowCreateSeen = true;
+  late.swallowCreateAttempts = 3;
+  late.swallowCreateLastWindow = 'quasi_后期';
+  var lateChance = Sim.swallowCreateChance(late);
+  assert.ok(lateChance >= 0.72,
+    '成帝前反复复盘应大概率能成：' + lateChance);
+  assert.strictEqual(Sim.eventAvailable(late, ev), true,
+    '准帝巅峰相对上一窗应还能再推一次');
+  late.swallowingArt = true;
+  assert.strictEqual(Sim.eventAvailable(late, ev), false, '已经立成魔功就不要再推');
+  assert.ok((ev.maxCount || 0) >= 6, '复盘次数必须够撑到成帝前');
+})();
+
 const ordinaryInjury = Sim.createGame(0, []);
 Sim.setPhysique(ordinaryInjury, DATA.physiqueById('mortal'));
 ordinaryInjury.age = 99;

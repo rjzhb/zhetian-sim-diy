@@ -163,38 +163,46 @@
       }
     },
     {
-      id: 'dao_create_swallowing', weight: 0.35, maxCount: 1,
+      id: 'dao_create_swallowing', weight: 0.35, maxCount: 8,
       name: '自创吞天魔功', tier: 4, tag: 'create',
       desc: '凡躯观万法本源，开创吞噬诸体的逆天魔功',
       minAge: 100, maxAge: 10000,
       available: function (g, U) {
-        return !g.becameEmperor && !g.swallowingArt && g.innate <= 2 &&
-          g.lvl >= 71 && U.isHighDaoyun(g);
+        if (g.becameEmperor || g.swallowingArt || g.innate > 2) return false;
+        if (g.lvl < 71 || !U.isHighDaoyun(g)) return false;
+        if (!g.swallowCreateSeen) return true;
+        return g.swallowCreateLastWindow !== U.swallowCreateWindow(g);
       },
       cond: function (g, U) {
-        return U.isHighDaoyun(g) && Math.random() < Math.min(0.28, 0.05 + g.daoyun / U.data.DAO_ABSOLUTE_MAX * 0.20);
+        return U.isHighDaoyun(g) && Math.random() < U.swallowCreateChance(g);
       },
       choice: function (g, U) {
-        var p = U.clamp(0.08 + (g.daoyun || 0) / U.data.DAO_ABSOLUTE_MAX * 0.22, 0.06, 0.32);
+        var p = U.swallowCreateChance(g);
         g.pendingSwallowCreate = p;
+        U.noteSwallowCreateOffer(g);
+        var replay = (g.swallowCreateAttempts || 0) > 0;
         return {
-          lead: '你以凡躯一遍遍拆别人的本源。某一夜，那些互不相容的法在识海里自行咬合，像要长成一门吞天的魔功',
-          info: '落成则从此可吞诸体，也从此举世皆敌。此番推演胜算 ' + U.pct(p),
-          note: '收手无死险，只是这门法会散。',
+          lead: replay ?
+            '你把那门未成的魔功再摊开复盘。这一境的见识比上次更深，互不相容的本源又一次在识海里咬合' :
+            '你以凡躯一遍遍拆别人的本源。某一夜，那些互不相容的法在识海里自行咬合，像要长成一门吞天的魔功',
+          info: (replay ? '这是又一次复盘。' : '') +
+            '落成则从此可吞诸体，也从此举世皆敌。此番推演胜算 ' + U.pct(p),
+          note: '收手无死险，只是这门法会散；破入下一境后还能再复盘。',
           options: [
             { id: 'stop', label: '斩断推演', desc: '不踏上魔路', safe: true },
-            { id: 'forge', label: '以凡躯立魔功', desc: '成则自创吞天，败则反噬伤寿', chance: p }
+            { id: 'forge', label: replay ? '再推一回魔功' : '以凡躯立魔功',
+              desc: '成则自创吞天，败则反噬伤寿', chance: p }
           ]
         };
       },
       resolve: function (g, U, optionId) {
-        var p = g.pendingSwallowCreate != null ? g.pendingSwallowCreate :
-          U.clamp(0.08 + (g.daoyun || 0) / U.data.DAO_ABSOLUTE_MAX * 0.22, 0.06, 0.32);
+        var p = g.pendingSwallowCreate != null ? g.pendingSwallowCreate : U.swallowCreateChance(g);
         g.pendingSwallowCreate = null;
         if (optionId === 'stop') {
           U.printlog('你把那门还没长成的法从识海里拔了出去。凡躯吞天，不是这条路上人人都该走的');
           return;
         }
+        g.swallowCreateAttempts = (g.swallowCreateAttempts || 0) + 1;
         if (Math.random() < p) {
           g.swallowingArt = true;
           g.selfCreatedSwallowing = true;
@@ -203,8 +211,8 @@
           return;
         }
         var h = U.hurt(g, 60, 180);
-        U.printlog(h.loss ? '你欲以凡躯吞纳万道，功法雏形反噬，寿元 -' + h.loss :
-          '吞天法雏形一闪即灭，你没有强行踏上魔路');
+        U.printlog(h.loss ? '你欲以凡躯吞纳万道，功法雏形反噬，寿元 -' + h.loss + '。这门法还在，破境后可再复盘' :
+          '吞天法雏形一闪即灭，你没有强行踏上魔路。破入下一境后，还可再复盘');
       },
       ok: function (g, U) {
         g.swallowingArt = true;

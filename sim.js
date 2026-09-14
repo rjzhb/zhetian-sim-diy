@@ -1186,6 +1186,30 @@
     return { cultGain: cultGain, upgraded: upgraded };
   }
 
+  function swallowCreateWindow(g) {
+    if (!g) return '';
+    var band = D.realmIdx(g.lvl || 1);
+    if (band >= 10) return 'quasi_' + D.phaseOf(g.lvl || 1);
+    return 'realm_' + band;
+  }
+  function swallowCreateChance(g) {
+    var dao = (g && g.daoyun || 0) / (D.DAO_ABSOLUTE_MAX || 3000);
+    var attempts = (g && g.swallowCreateAttempts) || 0;
+    var lvl = (g && g.lvl) || 1;
+    var p = 0.20 + dao * 0.12;
+    p += Math.min(0.36, attempts * 0.12);
+    if (lvl >= 100) p += 0.22;
+    else if (lvl >= 96) p += 0.16;
+    else if (lvl >= 91) p += 0.08;
+    else if (lvl >= 81) p += 0.04;
+    return clamp(p, 0.18, 0.88);
+  }
+  function noteSwallowCreateOffer(g) {
+    if (!g) return;
+    g.swallowCreateSeen = true;
+    g.swallowCreateLastWindow = swallowCreateWindow(g);
+  }
+
   function swallowStepChance(g, target) {
     var base = g.gotRuthless ? 0.28 : 0.16;
     if (target.tier >= 9) return base * 0.55;
@@ -1733,6 +1757,9 @@
     trySwallowPhysique: trySwallowPhysique,
     nextSwallowTarget: nextSwallowTarget,
     swallowProgress: swallowProgress,
+    swallowCreateChance: swallowCreateChance,
+    swallowCreateWindow: swallowCreateWindow,
+    noteSwallowCreateOffer: noteSwallowCreateOffer,
     swallowSiegeDeathChance: swallowSiegeDeathChance,
     swallowSiegeSurviveChance: swallowSiegeSurviveChance,
     isReverseCutPath: isReverseCutPath,
@@ -2092,7 +2119,10 @@
     if (ev.tag === 'create' || ev.id === 'dao_create_swallowing') {
       var gift = (g && g.daoGift) || 5;
       if (gift >= 8) w *= 2.4 + Math.min(1.6, (gift - 8) * 0.4);
-      if (ev.id === 'dao_create_swallowing') w *= gift >= 8 ? 2.2 : 0.55;
+      if (ev.id === 'dao_create_swallowing') {
+        w *= gift >= 8 ? 2.2 : 0.55;
+        if (g.swallowCreateSeen && !g.swallowingArt) w *= 4.2;
+      }
     }
     if ((g.lvl || 1) >= 91 && ev.tier >= 4) w *= 2.4;
     /* 对得上体质/悟性的专属事件抬权，让两局人生岔开，而不是所有人抽同一套 */
@@ -5318,6 +5348,8 @@
     swallowSiegeDeathChance: swallowSiegeDeathChance,
     swallowSiegeSurviveChance: swallowSiegeSurviveChance,
     swallowProgress: swallowProgress,
+    swallowCreateChance: swallowCreateChance,
+    swallowCreateWindow: swallowCreateWindow,
     swallowTargets: swallowTargets,
     nextSwallowTarget: nextSwallowTarget,
     becomeChaosFromSwallow: becomeChaosFromSwallow,
