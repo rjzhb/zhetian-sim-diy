@@ -295,8 +295,9 @@
           寿元有定数，唯有不断突破大境界方可延展命限；准帝寿元约八千至一万，黄金帝路约万岁闭合。<br>
           凡人亦能逆天！乱世之中机缘遍地——极道帝兵、不死神药、无上功法、生命禁区……步步惊心，步步登天。<br>
           <b>证道成帝并非终点</b>：可融合天心、以力强证，也可能借合道花等机缘破关；成帝后将获得完整帝命，面对禁区、黑暗动乱与长生之谜。<br>
-          帝命晚年将自动寻找长生路。连续逆活九世是万古罕见的奇迹，每一世都是可能身死的蜕变大劫；另一条路须<b>成帝之后</b>才可能在帝者机缘中获知奇异世界坐标，再修炼到足以轰穿界壁的战力。界壁之后仍是一片未知天地，可能存在机缘，也可能潜伏着无法想象的强者。两条道路皆有机会通向<b>红尘仙</b>，操作方式不变。<br>
-          第一世帝命将尽时，你还可选择<b>自斩一刀、入主禁区</b>：前提是成帝后寻得仙源或太初命石，以皇道果位与九世逆活资格为代价自封、跨时代沉睡。禁区至尊可在苏醒时获得仙路线索或冒险发动黑暗动乱续命，但血债会招致当世大帝清算。<br>
+          成帝后可<b>暂停</b>使用手头的坐标、仙源、太初命石或不死神药：不必等第一次获得时立刻用掉。坐标留下就能继续走逆活；有封存材料时可提前自斩，入主禁区。<br>
+          连续逆活九世是万古罕见的奇迹。另一条路须<b>成帝之后</b>才可能获知奇异世界坐标，再修炼到足以轰穿界壁。成仙路大约一百万年开一次，一世帝命几乎等不到；禁区至尊沉睡跨越岁月，大约有两到三次冲关机会。两条道路皆有机会通向<b>红尘仙</b>。<br>
+          自斩须成帝后寻得仙源或太初命石，以皇道果位与九世逆活资格为代价自封。禁区至尊可在苏醒时发动黑暗动乱续命，但血债会招致当世大帝清算。<br>
           每局结束将获得境界点，提升修士境界；境界越高，来世觉醒高阶体质的几率越大——<br>
           你是想成为一代天骄，还是蛰伏万古、于绝巅称尊的那个人？<br>
           说明：<br>
@@ -370,6 +371,7 @@
     <div class="mask-box">
       <div class="mask-title">修行暂停</div>
       <div class="mask-info" id="pause-info"></div>
+      <div id="pause-items" class="pause-items" hidden=""></div>
       <button class="btn btn-primary" id="btn-pause-resume">继续修行</button>
       <button class="btn" id="btn-pause-settings">⚙ 设置</button>
       <button class="btn" id="btn-pause-settle">提前结算</button>
@@ -391,7 +393,7 @@
   <!-- ============ 帝命晚年：自斩抉择 ============ -->
   <div id="selfslash-mask" class="mask" hidden="">
     <div class="mask-box selfslash-box">
-      <div class="mask-title">帝命将尽</div>
+      <div class="mask-title" id="selfslash-title">自斩入禁区</div>
       <div class="mask-info" id="selfslash-info"></div>
       <div class="selfslash-note">自斩必须消耗仙源或太初命石。仙源可维持三道生命本源，太初命石可维持两道；两者齐备可维持四道。若不自斩，则保留完整帝身，继续寻找奇异世界与红尘仙路。</div>
       <button class="btn btn-primary" id="btn-selfslash-decline">保全帝位，继续求仙</button>
@@ -415,9 +417,20 @@
     <div class="mask-box choice-box">
       <div class="mask-title">长生路抉择</div>
       <div class="mask-info" id="immortalpath-info"></div>
-      <div class="selfslash-note">界壁之后的时代、强者与危险皆不可知。入界可寻找更浓郁的长生物质，但不代表必定成仙。成仙路需近一纪元、数百万年才可能显现，横渡亦极难；一世帝命几乎等不到。</div>
+      <div class="selfslash-note">界壁之后的时代、强者与危险皆不可知。入界可寻找更浓郁的长生物质，但不代表必定成仙。成仙路大约一百万年开一次，横渡亦极难；一世帝命几乎等不到，禁区至尊大约能赶上两到三次。</div>
       <button class="btn btn-primary" id="btn-immortalpath-strange">轰开界壁，踏入未知世界</button>
       <button class="btn" id="btn-immortalpath-wait">暂不入界，等待成仙路</button>
+    </div>
+  </div>
+
+  <!-- ============ 成仙路降临：出世或沉睡 ============ -->
+  <div id="immortalroad-mask" class="mask" hidden="">
+    <div class="mask-box choice-box">
+      <div class="mask-title">成仙路降临</div>
+      <div class="mask-info" id="immortalroad-info"></div>
+      <div class="selfslash-note">大约一百万年开一次。出世要和其他禁区至尊抢路，出来的人越多越难打进去；不出世则继续沉睡，等下一次。</div>
+      <button class="btn btn-primary" id="btn-immortalroad-emerge">出世抢路</button>
+      <button class="btn" id="btn-immortalroad-sleep">继续沉睡</button>
     </div>
   </div>
 

@@ -2795,7 +2795,7 @@
     if (!g || !(g.emperor || g.becameEmperor || g.forbiddenLord)) return false;
     if (g.knowsStrangeWorld) return false;
     g.knowsStrangeWorld = true;
-    if (text) push(log, { cls: 'rainbow', text: text });
+    if (text) push(log, { cls: 'rainbow', text: text + '。坐标已记下，可在暂停时使用' });
     return true;
   }
 
@@ -3861,34 +3861,91 @@
   function canChooseImmortalPath(g) {
     return !!(g.knowsStrangeWorld && g.cult >= D.STRANGE_WORLD_BREAK_CULT && !g.waitingImmortalRoad);
   }
-  function openImmortalPathChoice(g, log) {
-    if (!canChooseImmortalPath(g) || g.awaitingImmortalPath) return false;
-    g.awaitingImmortalPath = true;
-    push(log, { cls: 'rainbow', text: '你已掌握奇异世界坐标，且战力足以轰开界壁：是踏入未知世界寻找长生，还是继续等待虚无缥缈的成仙路？' });
-    /* 批量校准没有前台可供点击，默认进入未知世界继续事件链。 */
-    if (_fast) chooseImmortalPath(g, 'strange', log);
+  function canUseStrangeCoords(g) {
+    if (!g || g.dead || g.redDustImmortal || g.inStrangeWorld || g.waitingImmortalRoad) return false;
+    if (!(g.emperor || g.forbiddenLord || g.becameEmperor)) return false;
+    return !!(g.knowsStrangeWorld && (g.cult || 0) >= D.STRANGE_WORLD_BREAK_CULT);
+  }
+  function useStrangeCoords(g, log) {
+    if (!canUseStrangeCoords(g)) return false;
+    if (log) push(log, { cls: 'god', text: '你取出记下的界壁坐标，轰开界壁，主动打入奇异世界！' });
+    enterStrangeWorld(g, log);
     return true;
   }
+  function openImmortalPathChoice(g, log) {
+    if (!canUseStrangeCoords(g) || g.awaitingImmortalPath) return false;
+    g.awaitingImmortalPath = true;
+    push(log, { cls: 'rainbow', text: '你已掌握奇异世界坐标，且战力足以轰开界壁：是踏入未知世界寻找长生，还是继续等待虚无缥缈的成仙路？' });
+    return true;
+  }
+  function immortalRoadCycle(worldYear) {
+    return Math.floor((worldYear || 0) / (D.IMMORTAL_ROAD_PERIOD || 1000000));
+  }
   function canOpenImmortalRoad(g) {
-    return !!(g && g.waitingImmortalRoad && (g.worldYear || 0) >= (D.IMMORTAL_ROAD_MIN_YEAR || 3600000));
+    if (!g || g.dead || g.redDustImmortal || g.inStrangeWorld) return false;
+    if ((g.worldYear || 0) < (D.IMMORTAL_ROAD_MIN_YEAR || 1000000)) return false;
+    if (g.forbiddenLord) return (g.immortalRoadAttempts || 0) < (D.IMMORTAL_ROAD_LORD_MAX || 3);
+    return !!g.waitingImmortalRoad;
+  }
+  function immortalRoadDue(g) {
+    if (!canOpenImmortalRoad(g)) return false;
+    var cycle = immortalRoadCycle(g.worldYear);
+    if (cycle < 1) return false;
+    return cycle > (g.immortalRoadLastCycle || 0);
+  }
+  function yearsUntilImmortalRoad(g) {
+    var period = D.IMMORTAL_ROAD_PERIOD || 1000000;
+    var min = D.IMMORTAL_ROAD_MIN_YEAR || period;
+    var y = (g && g.worldYear) || 0;
+    var next = y < min ? min : (Math.floor(y / period) + 1) * period;
+    return next - y;
   }
   function immortalRoadAppearChance(g) {
-    if (!canOpenImmortalRoad(g)) return 0;
-    if (g.forbiddenLord) return 0.10;
-    var span = Math.max(1, (g.emperorLifeEnd || 0) - (g.emperorLifeStart || 0));
-    return (D.IMMORTAL_ROAD_EVENT_TARGET || 0.08) / span;
+    return immortalRoadDue(g) ? 1 : 0;
+  }
+  function immortalRoadRivalsForRoll(r) {
+    if (r < 0.12) return 0;
+    if (r < 0.32) return 1;
+    if (r < 0.55) return 2;
+    if (r < 0.74) return 3;
+    if (r < 0.88) return 4;
+    if (r < 0.96) return 5;
+    return 6;
+  }
+  function immortalRoadPkChance(g, rivals) {
+    var others = Math.max(0, rivals || 0);
+    var cult = ((g && g.cult) || 0) / 2000000;
+    return clamp(0.60 - others * 0.08 + clamp(cult - 1, -0.16, 0.18), 0.07, 0.72);
   }
   function immortalRoadChance(g) {
     var daoPeak = g && g.daoyunCap > 0 ? g.daoyun / g.daoyunCap : 0;
     var chance = 0.010 + Math.min(0.045, (g && g.cult || 0) / 8000000 * 0.045) +
       Math.min(0.025, daoPeak * 0.025);
     chance += Math.min(0.025, createdArtN(g) * 0.006);
-    return clamp(chance, 0.008, 0.12);
+    var rivals = g && g.immortalRoadRivals;
+    if (rivals > 0) chance *= clamp(1 - rivals * 0.10, 0.35, 1);
+    return clamp(chance, 0.006, 0.12);
+  }
+  function offerImmortalRoad(g, log) {
+    if (!immortalRoadDue(g) || (g && g.awaitingImmortalRoad)) return false;
+    g.awaitingImmortalRoad = true;
+    g.immortalRoadRivals = immortalRoadRivalsForRoll(Math.random());
+    var n = g.immortalRoadRivals;
+    var left = g.forbiddenLord ? Math.max(0, (D.IMMORTAL_ROAD_LORD_MAX || 3) - (g.immortalRoadAttempts || 0)) : 0;
+    push(log, { cls: 'rainbow', text: '万古历' + (g.worldYear || 0) + '年，成仙路降临。' +
+      (n ? '禁区中另有' + n + '位至尊也要出世抢路' : '此世暂无其他至尊抢路') +
+      (g.forbiddenLord ? '；这是你还能赶上的窗口之一，大约还剩' + left + '次' : '') +
+      '。是出世一争，还是继续沉睡？' });
+    return true;
   }
   function tryImmortalRoad(g, log) {
-    if (!canOpenImmortalRoad(g)) return false;
+    if (!offerImmortalRoad(g, log)) return false;
+    if (_fast) chooseImmortalRoad(g, false, log);
+    return true;
+  }
+  function crossImmortalRoad(g, log) {
     var chance = immortalRoadChance(g);
-    push(log, { cls: 'rainbow', text: '近一纪元后，成仙路终于自虚无中显现；你携帝道冲关，凭当前战力与道蕴，横渡把握约' + Math.round(chance * 100) + '%' });
+    push(log, { cls: 'rainbow', text: '你杀出重围，踏上成仙路。横渡把握约' + Math.round(chance * 100) + '%' });
     if (Math.random() >= chance) {
       g.dead = true; g.deadCause = 'immortal_road';
       push(log, { cls: 'dead', text: '成仙路崩裂，你未能跨过那一道天堑，帝躯消散于仙路尽头' });
@@ -3899,6 +3956,32 @@
     push(log, { cls: 'god', text: '你横渡成仙路，万法归一，终成红尘仙！' });
     return true;
   }
+  function chooseImmortalRoad(g, emerge, log) {
+    if (!g || !g.awaitingImmortalRoad) return false;
+    g.awaitingImmortalRoad = false;
+    g.immortalRoadAttempts = (g.immortalRoadAttempts || 0) + 1;
+    g.immortalRoadLastCycle = immortalRoadCycle(g.worldYear);
+    var n = g.immortalRoadRivals || 0;
+    if (!emerge) {
+      push(log, { cls: 'rare', text: '你按住杀意，继续沉睡。成仙路大约一百万年后再开，这一次让给别人去抢' });
+      return true;
+    }
+    var pk = immortalRoadPkChance(g, n);
+    push(log, { cls: n ? 'ev4' : 'rainbow', text: n ?
+      '你出世抢路。此世' + n + '位禁区至尊同时出手，乱斗胜算约' + Math.round(pk * 100) + '%' :
+      '你出世抢路。此世没有其他至尊抢先，眼前只剩成仙路本身' });
+    if (n && Math.random() >= pk) {
+      if (Math.random() < 0.38) {
+        g.dead = true; g.deadCause = 'immortal_road_melee';
+        push(log, { cls: 'dead', text: '禁区至尊乱战中，你被数道残缺皇道合击，没能靠近成仙路' });
+        return false;
+      }
+      g.cult = round((g.cult || 0) * rand(0.82, 0.92));
+      push(log, { cls: 'dead', text: '你在乱斗中落了下风，被逼回禁区。成仙路这一次没能打进去，实力跌至' + g.cult });
+      return false;
+    }
+    return crossImmortalRoad(g, log);
+  }
   function chooseImmortalPath(g, path, log) {
     if (!g || !g.awaitingImmortalPath) return false;
     g.awaitingImmortalPath = false;
@@ -3907,18 +3990,30 @@
       enterStrangeWorld(g, log);
     } else {
       g.waitingImmortalRoad = true;
-      push(log, { cls: 'rare', text: '你放弃眼前奇异世界之门，选择静候成仙路；此路需近一纪元、数百万年才可能显现，一世帝命几乎等不到' });
+      push(log, { cls: 'rare', text: '你放弃眼前奇异世界之门，选择静候成仙路；此路大约一百万年开一次，一世帝命几乎等不到，禁区至尊大约能赶上两到三次' });
     }
     return true;
   }
 
-  /* ---------- 自斩禁区：以帝位换取沉睡岁月；只能作为绝境退路，不能再走九世逆活 ---------- */
+  /* ---------- 自斩禁区：以帝位换取沉睡岁月；可在暂停时提前选，不必等帝命将尽 ---------- */
+  function canSelfSlashNow(g) {
+    if (!g || !g.emperor || g.lifeNo !== 1) return false;
+    if (g.forbiddenLord || g.selfSlashed || g.inStrangeWorld || g.redDustImmortal || g.dead) return false;
+    return !!(g.xianSource || g.primordialStone);
+  }
+  function beginSelfSlash(g, log) {
+    if (!canSelfSlashNow(g) || g.awaitingSelfSlash) return false;
+    g.awaitingSelfSlash = true;
+    g.selfSlashDeclined = false;
+    if (log) push(log, { cls: 'rainbow', text: '你按下暂停，决定提前自斩：以手中封存材料入主禁区。' });
+    return true;
+  }
   function chooseSelfSlash(g, slash, log) {
     if (!g || !g.awaitingSelfSlash) return false;
     g.awaitingSelfSlash = false;
     if (!slash) {
       g.selfSlashDeclined = true;
-      push(log, { cls: 'god', text: '帝命将尽，你拒绝自斩，不愿舍弃皇道果位；将以完整帝身继续寻找长生路' });
+      push(log, { cls: 'god', text: '你按下自斩之念，仍保全皇道果位，以完整帝身继续寻找长生路' });
       return true;
     }
     if (!g.xianSource && !g.primordialStone) {
@@ -3956,9 +4051,9 @@
   }
 
   function forbiddenSleepRange(g) {
-    if (g && g.sealingMaterial === '仙源与太初命石') return [250000, 600000];
-    if (g && g.sealingMaterial === '仙源') return [150000, 400000];
-    return [80000, 220000];
+    if (g && g.sealingMaterial === '仙源与太初命石') return [700000, 1100000];
+    if (g && g.sealingMaterial === '仙源') return [500000, 900000];
+    return [350000, 700000];
   }
 
   function startForbiddenSleep(g, log) {
@@ -3985,13 +4080,12 @@
     if (!g.knowsStrangeWorld && Math.random() < strangeWorldLearnChance(g)) {
       learnStrangeWorld(g, log, '你从仙路残片与古代至尊遗骸中，终于获知奇异世界坐标');
     }
-    if (g.waitingImmortalRoad && Math.random() < immortalRoadAppearChance(g)) {
+    if (immortalRoadDue(g)) {
       tryImmortalRoad(g, log);
       return;
     }
-    if (canChooseImmortalPath(g)) {
-      openImmortalPathChoice(g, log);
-      return;
+    if (canUseStrangeCoords(g)) {
+      push(log, { cls: 'rare', text: '你仍握着奇异世界坐标。要轰开界壁，可在暂停时使用' });
     }
     if (g.forbiddenEssence <= 0) {
       g.awaitingDarkTurmoil = true; g.forcedDarkTurmoil = true;
@@ -4023,18 +4117,24 @@
       g.cult = round(g.cult * rand(1.04, 1.09));
       push(log, { cls: 'gain', text: '你于神源中推演残缺皇道，虽未补全帝位，实力仍精进至' + g.cult });
     }
-    if (!g.dead && canChooseImmortalPath(g)) {
-      openImmortalPathChoice(g, log);
+    if (!g.dead && canUseStrangeCoords(g)) {
+      push(log, { cls: 'rare', text: '你仍握着奇异世界坐标。要轰开界壁，可在暂停时使用' });
     }
   }
 
   function stepForbiddenLord(g, log) {
-    if (g.awaitingDarkTurmoil || g.awaitingImmortalPath) return;
+    if (g.awaitingDarkTurmoil || g.awaitingImmortalPath || g.awaitingImmortalRoad) return;
     if ((g.forbiddenSleepLeft || 0) > 0) {
       var tick = forbiddenSleepChunk(g);
+      var untilRoad = yearsUntilImmortalRoad(g);
+      if (!_fast && untilRoad > 0 && untilRoad < tick && canOpenImmortalRoad(g)) tick = Math.max(1, untilRoad);
       g.age += tick;
       advanceWorldCalendar(g, tick, _fast ? null : log);
       g.forbiddenSleepLeft -= tick;
+      if (!_fast && g.forbiddenSleepLeft > 0 && immortalRoadDue(g)) {
+        tryImmortalRoad(g, log);
+        return;
+      }
       if (g.forbiddenSleepLeft > 0) {
         push(log, { cls: 'gain', text: '禁区岁月无声，又过' + tick + '年。万古历' + g.worldYear + '年，距苏醒尚余' + g.forbiddenSleepLeft + '年' });
         return;
@@ -4088,7 +4188,7 @@
     }
     if (g.waitingImmortalRoad) {
       g.dead = true; g.deadCause = 'waited_immortal_road';
-      push(log, { cls: 'dead', text: '帝命耗尽，成仙路需近一纪元才会开启，此世终究等不到；你错过奇异世界之门，最终坐化' });
+      push(log, { cls: 'dead', text: '帝命耗尽，成仙路大约一百万年才开一次，此世终究等不到；你错过奇异世界之门，最终坐化' });
       return;
     }
     if (Math.random() < reversePathChance(g)) {
@@ -4107,7 +4207,8 @@
       push(log, { cls: 'dead', text: '你虽已掌握奇异世界坐标，但当前实力未达' + Math.round(D.STRANGE_WORLD_BREAK_CULT / 10000) + '万，无法轰穿界壁，最终帝命耗尽' });
       return;
     }
-    enterStrangeWorld(g, log);
+    g.dead = true; g.deadCause = 'held_coords';
+    push(log, { cls: 'dead', text: '你记下了奇异世界坐标，却始终未轰开界壁，也未能走出九世逆活，最终帝命耗尽' });
   }
 
   function emperorTickSize(g) {
@@ -4120,12 +4221,9 @@
     if (g.inStrangeWorld) { stepStrangeWorld(g, log); return; }
     if (g.forbiddenLord) { stepForbiddenLord(g, log); return; }
     if (g.awaitingDeathlessChoice) return;
-    if (g.awaitingImmortalPath) return;
+    if (g.awaitingImmortalPath || g.awaitingImmortalRoad) return;
     if (g.waitingImmortalRoad) {
-      if (Math.random() < immortalRoadAppearChance(g)) { tryImmortalRoad(g, log); return; }
-    } else if (canChooseImmortalPath(g)) {
-      openImmortalPathChoice(g, log);
-      return;
+      if (immortalRoadDue(g)) { tryImmortalRoad(g, log); return; }
     }
     if (!g.selfSlashOffered && !g.selfSlashed && !g.selfSlashDeclined && g.lifeNo === 1 &&
         g.age >= g.emperorLifeEnd - 200) {
@@ -4605,6 +4703,7 @@
       knowsStrangeWorld: false,
       awaitingSelfSlash: false, selfSlashOffered: false, selfSlashDeclined: false, selfSlashed: false,
       awaitingDarkTurmoil: false, forcedDarkTurmoil: false, awaitingImmortalPath: false, waitingImmortalRoad: false,
+      awaitingImmortalRoad: false, immortalRoadAttempts: 0, immortalRoadLastCycle: 0, immortalRoadRivals: 0,
       forbiddenLord: false, forbiddenEssence: 0, forbiddenKarma: 0,
       forbiddenSleepLeft: 0, forbiddenSleepTotal: 0,
       traits: [],
@@ -5004,7 +5103,16 @@
     chooseDeathless: chooseDeathless,
     reversePathChance: reversePathChance,
     learnStrangeWorld: learnStrangeWorld,
+    canUseStrangeCoords: canUseStrangeCoords,
+    useStrangeCoords: useStrangeCoords,
+    canSelfSlashNow: canSelfSlashNow,
+    beginSelfSlash: beginSelfSlash,
     canOpenImmortalRoad: canOpenImmortalRoad,
+    immortalRoadDue: immortalRoadDue,
+    immortalRoadRivalsForRoll: immortalRoadRivalsForRoll,
+    immortalRoadPkChance: immortalRoadPkChance,
+    offerImmortalRoad: offerImmortalRoad,
+    chooseImmortalRoad: chooseImmortalRoad,
     immortalRoadAppearChance: immortalRoadAppearChance,
     immortalRoadChance: immortalRoadChance,
     tryImmortalRoad: tryImmortalRoad,

@@ -582,6 +582,7 @@
     $('selfslash-mask').hidden = true;
     $('darkturmoil-mask').hidden = true;
     $('immortalpath-mask').hidden = true;
+    $('immortalroad-mask').hidden = true;
     $('strangeworld-mask').hidden = true;
     resetChoiceSheet();
     $('choice-mask').hidden = true;
@@ -707,6 +708,7 @@
     if (G.awaitingStrangeWorldChoice) return openStrangeWorldChoice();
     if (G.awaitingDarkTurmoil) return openDarkTurmoilChoice();
     if (G.awaitingImmortalPath) return openImmortalPathChoice();
+    if (G.awaitingImmortalRoad) return openImmortalRoadChoice();
     return openSelfSlashChoiceIfNeeded();
   }
   /* ---------- 通用机缘抉择：事件把选项交给玩家，概率如实展示 ---------- */
@@ -968,6 +970,35 @@
     $('immortalpath-mask').hidden = false;
     return true;
   }
+  function openImmortalRoadChoice() {
+    stopPlay();
+    var n = G.immortalRoadRivals || 0;
+    var pk = Sim.immortalRoadPkChance ? Math.round(Sim.immortalRoadPkChance(G, n) * 100) : 0;
+    var left = Math.max(0, 3 - (G.immortalRoadAttempts || 0));
+    $('immortalroad-info').textContent = '万古历第 ' + fmt(G.worldYear || 0) + ' 年 · 当前实力 ' + fmt(G.cult) +
+      (n ? ' · 另有' + n + '位至尊出世，乱斗胜算约' + pk + '%' : ' · 此世暂无其他至尊抢路') +
+      ' · 大约还能赶上' + left + '次';
+    $('immortalroad-mask').hidden = false;
+    return true;
+  }
+  function resolveImmortalRoad(emerge) {
+    if (!G || !G.awaitingImmortalRoad) return;
+    ensureAudio(); blip(emerge ? 160 : 520, 0.15, emerge ? 'sawtooth' : 'triangle', 0.12);
+    var log = [];
+    if (!Sim.chooseImmortalRoad(G, emerge, log)) {
+      $('immortalroad-mask').hidden = true;
+      for (var i = 0; i < log.length; i++) fullLog.push(log[i]);
+      renderLog(log); renderAttrs();
+      if (G.dead || G.ascended) { stopPlay(); finishGame(G.dead ? 'dead' : 'god'); }
+      else startPlay();
+      return;
+    }
+    $('immortalroad-mask').hidden = true;
+    for (var j = 0; j < log.length; j++) fullLog.push(log[j]);
+    renderLog(log); renderAttrs();
+    if (G.dead || G.ascended) { stopPlay(); finishGame(G.dead ? 'dead' : 'god'); }
+    else startPlay();
+  }
   function resolveImmortalPath(path) {
     if (!G || !G.awaitingImmortalPath) return;
     ensureAudio(); blip(path === 'strange' ? 780 : 480, 0.15, path === 'strange' ? 'sawtooth' : 'triangle', 0.12);
@@ -998,6 +1029,8 @@
   function openSelfSlashChoiceIfNeeded() {
     if (!G || !G.awaitingSelfSlash) return false;
     stopPlay();
+    var nearEnd = G.emperorLifeEnd && G.age >= G.emperorLifeEnd - 200;
+    if ($('selfslash-title')) $('selfslash-title').textContent = nearEnd ? '帝命将尽' : '提前自斩';
     var info = G.knowsStrangeWorld ? '已掌握奇异世界坐标' : '尚未获得奇异世界坐标';
     var seal = G.xianSource && G.primordialStone ? '仙源＋太初命石' : (G.xianSource ? '仙源' : (G.primordialStone ? '太初命石' : '未获得封存材料'));
     $('selfslash-info').textContent = '当前实力 ' + fmt(G.cult) + ' · ' + info + ' · 封存材料：' + seal;
@@ -1209,7 +1242,61 @@
     if (!G || !timer) return;
     stopPlay();
     $('pause-info').textContent = '体质 ' + physiqueName(G) + ' · ' + G.age + ' 岁 · ' + (G.forbiddenLord ? '禁区至尊' : (G.emperor ? '帝者第' + G.lifeNo + '世' : DATA.titleOf(G.lvl)));
+    renderPauseItems();
     $('pause-mask').hidden = false;
+  }
+  function renderPauseItems() {
+    var box = $('pause-items');
+    if (!box || !G) return;
+    box.innerHTML = '';
+    var items = [];
+    if (Sim.canSelfSlashNow && Sim.canSelfSlashNow(G)) {
+      items.push({ id: 'selfslash', label: '提前自斩，入主禁区', enabled: true });
+    }
+    if (G.knowsStrangeWorld && !G.inStrangeWorld && !G.redDustImmortal) {
+      var canBreak = Sim.canUseStrangeCoords && Sim.canUseStrangeCoords(G);
+      var need = DATA.STRANGE_WORLD_BREAK_CULT || 1250000;
+      items.push({
+        id: 'coords',
+        label: canBreak ? '使用坐标，轰开界壁' : '坐标在手，战力未够（需' + Math.round(need / 10000) + '万）',
+        enabled: canBreak
+      });
+    }
+    if (!items.length) { box.hidden = true; return; }
+    box.hidden = false;
+    var i, btn;
+    for (i = 0; i < items.length; i++) {
+      btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = items[i].enabled ? 'btn btn-primary' : 'btn';
+      btn.disabled = !items[i].enabled;
+      btn.textContent = items[i].label;
+      btn.setAttribute('data-pause-item', items[i].id);
+      btn.addEventListener('click', function () { usePauseItem(this.getAttribute('data-pause-item')); });
+      box.appendChild(btn);
+    }
+  }
+  function usePauseItem(id) {
+    if (!G) return false;
+    var log = [];
+    if (id === 'selfslash') {
+      if (!Sim.beginSelfSlash(G, log)) return false;
+      $('pause-mask').hidden = true;
+      for (var i = 0; i < log.length; i++) fullLog.push(log[i]);
+      renderLog(log); renderAttrs();
+      openSelfSlashChoiceIfNeeded();
+      return true;
+    }
+    if (id === 'coords') {
+      if (!Sim.useStrangeCoords(G, log)) return false;
+      $('pause-mask').hidden = true;
+      for (var j = 0; j < log.length; j++) fullLog.push(log[j]);
+      renderLog(log); renderAttrs();
+      if (G.dead || G.ascended) { stopPlay(); finishGame(G.dead ? 'dead' : 'god'); }
+      else startPlay();
+      return true;
+    }
+    return false;
   }
   function resumeGame() {
     if (!G) return;
@@ -1264,9 +1351,11 @@
       else if (G.deadCause === 'strange_world_tribulation') { t.textContent = '💀 奇异世界 · 成仙劫灭'; blip(120, 0.5, 'sawtooth', 0.15); }
       else if (G.deadCause === 'strange_world_accident') { t.textContent = '💀 奇异世界 · 仙道横祸'; blip(110, 0.5, 'sawtooth', 0.15); }
       else if (G.deadCause === 'immortal_road') { t.textContent = '💀 成仙路崩裂'; blip(120, 0.5, 'sawtooth', 0.15); }
+      else if (G.deadCause === 'immortal_road_melee') { t.textContent = '💀 至尊乱斗 · 抢路身陨'; blip(110, 0.5, 'sawtooth', 0.15); }
       else if (G.deadCause === 'waited_immortal_road') { t.textContent = '💀 空候仙路 · 帝命坐化'; blip(140, 0.4, 'sawtooth', 0.13); }
       else if (G.deadCause === 'no_strange_world_info') { t.textContent = '💀 不知仙路 · 帝命坐化'; blip(140, 0.4, 'sawtooth', 0.12); }
       else if (G.deadCause === 'cannot_break_world') { t.textContent = '💀 战力不足 · 无法破界'; blip(130, 0.4, 'sawtooth', 0.13); }
+      else if (G.deadCause === 'held_coords') { t.textContent = '💀 握着坐标 · 未破界壁'; blip(130, 0.4, 'sawtooth', 0.13); }
       else if (G.deadCause === 'forbidden_exhausted') { t.textContent = '💀 神源枯竭 · 禁区落幕'; blip(120, 0.4, 'sawtooth', 0.14); }
       else if (G.deadCause === 'forbidden_battle') { t.textContent = '💀 当世大帝 · 平定禁区'; blip(110, 0.5, 'sawtooth', 0.15); }
       else if (G.deadCause === 'world_emperor_suppression' || G.deadCause === 'overwhelm_failed') { t.textContent = '💀 有帝之世 · 万道压制'; blip(110, 0.5, 'sawtooth', 0.15); }
@@ -1310,8 +1399,10 @@
       if (G.deadCause === 'undead_emperor') gd.textContent = '你曾证道成帝，却在打入奇异世界时遭不死天皇截杀';
       else if (G.deadCause === 'strange_world_tribulation') gd.textContent = '你在奇异世界积累了' + G.strangeWorldInsight + '点长生感悟，却最终倒在第二次红尘仙蜕变中';
       else if (G.deadCause === 'strange_world_accident') gd.textContent = '你在奇异世界遭逢毫无预兆的仙道横祸，漫长积累毁于一旦';
-      else if (G.deadCause === 'immortal_road') gd.textContent = '你选择等待成仙路，却在仙路崩裂时未能跨过天堑';
-      else if (G.deadCause === 'waited_immortal_road') gd.textContent = '成仙路需近一纪元才会显现，你放弃奇异世界之门后，终其一世也未等到';
+      else if (G.deadCause === 'immortal_road') gd.textContent = '你出世抢路，却在仙路崩裂时未能跨过天堑';
+      else if (G.deadCause === 'immortal_road_melee') gd.textContent = '成仙路降临，你与其他禁区至尊乱战，没能打进去';
+      else if (G.deadCause === 'waited_immortal_road') gd.textContent = '成仙路大约一百万年开一次，你放弃奇异世界之门后，终其一世也未等到';
+      else if (G.deadCause === 'held_coords') gd.textContent = '你已记下奇异世界坐标，却始终未在暂停时轰开界壁，也未能走出九世逆活';
       else if (G.deadCause === 'forbidden_exhausted') gd.textContent = '你曾自斩入主禁区，却在漫长沉睡后耗尽了最后一缕生命本源';
       else if (G.deadCause === 'forbidden_battle') gd.textContent = '你曾自斩化为禁区至尊，最终被当世大帝平定';
       else if (G.deadCause === 'no_strange_world_info') gd.textContent = '你曾证道成帝，却始终未能获得奇异世界的信息';
@@ -1780,6 +1871,8 @@
     $('btn-darkturmoil-start').addEventListener('click', function () { resolveDarkTurmoil(true); });
     $('btn-immortalpath-strange').addEventListener('click', function () { resolveImmortalPath('strange'); });
     $('btn-immortalpath-wait').addEventListener('click', function () { resolveImmortalPath('wait'); });
+    $('btn-immortalroad-emerge').addEventListener('click', function () { resolveImmortalRoad(true); });
+    $('btn-immortalroad-sleep').addEventListener('click', function () { resolveImmortalRoad(false); });
     $('btn-strangeworld-wushi').addEventListener('click', function () { resolveStrangeWorldChoice('wushi'); });
     $('btn-strangeworld-hide').addEventListener('click', function () { resolveStrangeWorldChoice('hide'); });
     $('choice-continue').addEventListener('click', function () {

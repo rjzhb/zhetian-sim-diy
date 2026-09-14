@@ -453,9 +453,9 @@ assert.ok(quasiYears > sageYears * 2.5,
   'even a chaos body must spend far longer on the first quasi-emperor layer than on Great Sage');
 
 assert.strictEqual(typeof Sim.forbiddenSleepRange, 'function');
-assert.deepStrictEqual(Sim.forbiddenSleepRange({ sealingMaterial: '太初命石' }), [80000, 220000]);
-assert.deepStrictEqual(Sim.forbiddenSleepRange({ sealingMaterial: '仙源' }), [150000, 400000]);
-assert.deepStrictEqual(Sim.forbiddenSleepRange({ sealingMaterial: '仙源与太初命石' }), [250000, 600000]);
+assert.deepStrictEqual(Sim.forbiddenSleepRange({ sealingMaterial: '太初命石' }), [350000, 700000]);
+assert.deepStrictEqual(Sim.forbiddenSleepRange({ sealingMaterial: '仙源' }), [500000, 900000]);
+assert.deepStrictEqual(Sim.forbiddenSleepRange({ sealingMaterial: '仙源与太初命石' }), [700000, 1100000]);
 
 function sealedLord() {
   const g = Sim.createGame(0, []);
@@ -475,7 +475,10 @@ assert.strictEqual(firstSleep.awaitingDarkTurmoil, false,
 assert.ok(firstSleepLog.some(function (row) { return /沉/.test(row.text); }),
   'the player should see that the forbidden sleep has started');
 let sleepTicks = 0;
-while (firstSleep.forbiddenSleepLeft > 0 && sleepTicks++ < 80) Sim.rollYear(firstSleep);
+while (firstSleep.forbiddenSleepLeft > 0 && sleepTicks++ < 200) {
+  Sim.rollYear(firstSleep);
+  if (firstSleep.awaitingImmortalRoad) Sim.chooseImmortalRoad(firstSleep, false, []);
+}
 assert.ok(sleepTicks >= 3, 'forbidden sleep must take several visible years to finish');
 assert.ok(firstSleep.forbiddenSleepLeft === 0, 'the sleep should eventually end');
 const afterTurmoil = sealedLord();
@@ -1042,15 +1045,18 @@ const openChoiceSource = gameSource.slice(openChoiceStart, openChoiceEnd);
 assert.ok(openChoiceSource.indexOf('UNDEAD_EMPEROR') < 0);
 assert.ok(openChoiceSource.indexOf('不死天皇') < 0);
 
-assert.ok(DATA.IMMORTAL_ROAD_MIN_YEAR >= 3000000, 'the immortal road must wait nearly an epoch');
+assert.strictEqual(DATA.IMMORTAL_ROAD_PERIOD, 1000000, 'the immortal road should open about once every million years');
+assert.strictEqual(DATA.IMMORTAL_ROAD_MIN_YEAR, 1000000);
+assert.strictEqual(DATA.IMMORTAL_ROAD_LORD_MAX, 3);
 assert.strictEqual(typeof Sim.canOpenImmortalRoad, 'function');
 assert.strictEqual(typeof Sim.immortalRoadChance, 'function');
+assert.strictEqual(typeof Sim.immortalRoadDue, 'function');
 const roadWait = Sim.createGame(0, []);
 Sim.becomeDi(roadWait, [], 'force');
 roadWait.waitingImmortalRoad = true;
 roadWait.worldYear = 200000;
 assert.strictEqual(Sim.canOpenImmortalRoad(roadWait), false,
-  'an emperor life must not see the immortal road before an epoch has passed');
+  'the road must not open before the first million-year mark');
 assert.strictEqual(Sim.immortalRoadAppearChance(roadWait), 0);
 const earlyLog = [];
 assert.strictEqual(Sim.tryImmortalRoad(roadWait, earlyLog), false);
@@ -1058,6 +1064,7 @@ assert.strictEqual(roadWait.redDustImmortal, false);
 assert.strictEqual(roadWait.dead, false);
 roadWait.worldYear = DATA.IMMORTAL_ROAD_MIN_YEAR;
 assert.strictEqual(Sim.canOpenImmortalRoad(roadWait), true);
+assert.strictEqual(Sim.immortalRoadDue(roadWait), true);
 roadWait.cult = 2000000;
 roadWait.daoyun = 900;
 roadWait.daoyunCap = 1500;
@@ -1067,10 +1074,74 @@ roadWait.daoyun = 1500;
 Sim.setPhysique(roadWait, DATA.physiqueById('chaos'));
 assert.ok(Sim.immortalRoadChance(roadWait) <= 0.10, 'even a peak emperor must find the crossing extremely hard');
 roadWait.forbiddenLord = true;
-assert.ok(Math.abs(Sim.immortalRoadAppearChance(roadWait) - 0.10) < 1e-9,
-  'a forbidden lord who has waited nearly an epoch still only rarely sees the road');
-assert.ok(choice.indexOf('近一纪元') >= 0 || html.indexOf('数百万年') >= 0,
-  'the wait option must tell the player the road takes nearly an epoch');
+assert.strictEqual(Sim.immortalRoadAppearChance(roadWait), 1,
+  'a forbidden lord who reaches a million-year opening must get that attempt');
+roadWait.immortalRoadLastCycle = 1;
+assert.strictEqual(Sim.immortalRoadDue(roadWait), false, 'the same opening must not be spent twice');
+roadWait.worldYear = 2000000;
+assert.strictEqual(Sim.immortalRoadDue(roadWait), true, 'the next million-year mark is a new attempt');
+roadWait.immortalRoadAttempts = 3;
+roadWait.immortalRoadLastCycle = 2;
+roadWait.worldYear = 3000000;
+assert.strictEqual(Sim.canOpenImmortalRoad(roadWait), false, 'a forbidden lord gets at most three attempts');
+assert.ok(choice.indexOf('一百万') >= 0 || html.indexOf('一百万') >= 0,
+  'the wait option must say the road opens about every million years');
+
+assert.strictEqual(typeof Sim.immortalRoadRivalsForRoll, 'function');
+assert.strictEqual(typeof Sim.immortalRoadPkChance, 'function');
+assert.strictEqual(typeof Sim.offerImmortalRoad, 'function');
+assert.strictEqual(typeof Sim.chooseImmortalRoad, 'function');
+assert.ok(Sim.immortalRoadPkChance({ cult: 2000000 }, 1) > Sim.immortalRoadPkChance({ cult: 2000000 }, 6),
+  'if more forbidden lords emerge, breaking into the road must get harder');
+assert.ok(Sim.immortalRoadRivalsForRoll(0.01) <= 1);
+assert.ok(Sim.immortalRoadRivalsForRoll(0.99) >= 5);
+const roadChoice = Sim.createGame(0, []);
+Sim.becomeDi(roadChoice, [], 'force');
+roadChoice.forbiddenLord = true;
+roadChoice.worldYear = 1000000;
+roadChoice.cult = 2000000;
+assert.strictEqual(Sim.offerImmortalRoad(roadChoice, []), true);
+assert.strictEqual(roadChoice.awaitingImmortalRoad, true);
+assert.ok(roadChoice.immortalRoadRivals >= 0);
+assert.strictEqual(Sim.chooseImmortalRoad(roadChoice, false, []), true);
+assert.strictEqual(roadChoice.dead, false, 'refusing to emerge must skip this opening');
+assert.strictEqual(roadChoice.redDustImmortal, false);
+assert.strictEqual(Sim.immortalRoadDue(roadChoice), false);
+assert.ok(html.indexOf('id="immortalroad-mask"') >= 0, 'the road opening must ask whether to emerge');
+assert.ok(html.indexOf('出世抢路') >= 0 && html.indexOf('继续沉睡') >= 0);
+
+const roadMelee = Sim.createGame(0, []);
+Sim.becomeDi(roadMelee, [], 'force');
+roadMelee.forbiddenLord = true;
+roadMelee.worldYear = 1000000;
+roadMelee.cult = 2000000;
+assert.strictEqual(Sim.offerImmortalRoad(roadMelee, []), true);
+roadMelee.immortalRoadRivals = 6;
+try {
+  Math.random = function () { return 0.99; };
+  Sim.chooseImmortalRoad(roadMelee, true, []);
+} finally {
+  Math.random = oldRandom;
+}
+assert.strictEqual(roadMelee.redDustImmortal, false, 'a crowded melee must keep you off the road');
+assert.ok(roadMelee.dead || roadMelee.cult < 2000000);
+
+const roadClear = Sim.createGame(0, []);
+Sim.becomeDi(roadClear, [], 'force');
+roadClear.forbiddenLord = true;
+roadClear.worldYear = 1000000;
+roadClear.cult = 8000000;
+roadClear.daoyun = 1500;
+roadClear.daoyunCap = 1500;
+assert.strictEqual(Sim.offerImmortalRoad(roadClear, []), true);
+roadClear.immortalRoadRivals = 0;
+try {
+  Math.random = function () { return 0; };
+  Sim.chooseImmortalRoad(roadClear, true, []);
+} finally {
+  Math.random = oldRandom;
+}
+assert.strictEqual(roadClear.redDustImmortal, true, 'emerging alone and winning the crossing should become a red-dust immortal');
 
 assert.ok(/id="gold-random-toggle"/.test(html));
 assert.ok(/id="gold-free-toggle"/.test(html));
@@ -1103,6 +1174,47 @@ assert.strictEqual(emperorClue.knowsStrangeWorld, true);
 assert.ok(gameSource.indexOf('becameEmperor && G.knowsStrangeWorld') >= 0,
   'settlement must not advertise Strange World coordinates before becoming emperor');
 
+assert.strictEqual(typeof Sim.canSelfSlashNow, 'function');
+assert.strictEqual(typeof Sim.beginSelfSlash, 'function');
+assert.strictEqual(typeof Sim.canUseStrangeCoords, 'function');
+assert.strictEqual(typeof Sim.useStrangeCoords, 'function');
+
+const peakSlash = Sim.createGame(0, []);
+Sim.becomeDi(peakSlash, [], 'force');
+peakSlash.xianSource = true;
+peakSlash.age = 2000;
+assert.ok(peakSlash.age < peakSlash.emperorLifeEnd - 200, '2000-year emperor must still be far from life-end');
+assert.strictEqual(Sim.canSelfSlashNow(peakSlash), true, 'pause must allow self-slash at peak if a seal is in hand');
+assert.strictEqual(Sim.canSelfSlashNow(Sim.createGame(0, [])), false, 'pre-emperor lives cannot self-slash');
+assert.strictEqual(Sim.beginSelfSlash(peakSlash, []), true);
+assert.strictEqual(peakSlash.awaitingSelfSlash, true);
+assert.strictEqual(Sim.chooseSelfSlash(peakSlash, true, []), true);
+assert.strictEqual(peakSlash.forbiddenLord, true);
+assert.strictEqual(peakSlash.xianSource, false);
+
+const keepCoords = Sim.createGame(0, []);
+Sim.becomeDi(keepCoords, [], 'force');
+keepCoords.knowsStrangeWorld = true;
+keepCoords.cult = 2000000;
+assert.strictEqual(Sim.canUseStrangeCoords(keepCoords), true);
+try {
+  Math.random = function () { return 0.5; };
+  Sim.rollYear(keepCoords);
+} finally {
+  Math.random = oldRandom;
+}
+assert.strictEqual(keepCoords.awaitingImmortalPath, false, 'coords stay in hand until you spend them');
+assert.strictEqual(keepCoords.inStrangeWorld, false);
+try {
+  Math.random = function () { return 0.9; };
+  assert.strictEqual(Sim.useStrangeCoords(keepCoords, []), true);
+} finally {
+  Math.random = oldRandom;
+}
+assert.strictEqual(keepCoords.inStrangeWorld, true);
+
+assert.ok(html.indexOf('id="pause-items"') >= 0, 'pause panel must list held relics');
+assert.ok(gameSource.indexOf('usePauseItem') >= 0, 'pause panel must spend relics while time is stopped');
 const eventsSource = fs.readFileSync(path.join(__dirname, '..', 'events.js'), 'utf8');
 assert.ok(!/T3_HERB = \[[^\]]*太初命石/.test(eventsSource), 'primordial stone must not appear as a pre-emperor herb drop');
 
