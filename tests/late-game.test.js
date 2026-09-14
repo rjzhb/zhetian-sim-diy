@@ -354,8 +354,22 @@ try {
   Math.random = oldRandom;
 }
 assert.strictEqual(firstTrueReverse.lifeNo, 2);
-assert.ok(firstTrueReverse.cult >= DATA.HEAVENLY_EMPEROR_CULT,
-  'a true reverse into the second life must already be heavenly-emperor class');
+assert.ok(firstTrueReverse.cult < DATA.HEAVENLY_EMPEROR_CULT,
+  'even a risky first-life reverse should not skip the second-life heavenly breakthrough');
+assert.ok(firstTrueReverse.cult >= 1200000, 'a true reverse-life awakening should still jump power');
+
+const medicineThenDao = reverseFixture(900, 1500, 1);
+medicineThenDao.deathless = true;
+medicineThenDao.deathlessUsed = false;
+medicineThenDao.cult = 1100000;
+assert.strictEqual(Sim.openDeathlessChoice(medicineThenDao, []), true);
+assert.strictEqual(Sim.chooseDeathless(medicineThenDao, true, []), true);
+assert.strictEqual(medicineThenDao.lifeNo, 2);
+assert.ok(medicineThenDao.cult < DATA.HEAVENLY_EMPEROR_CULT, 'medicine must not hand over heavenly power');
+assert.strictEqual(typeof Sim.tryHeavenlyBreakthrough, 'function');
+assert.strictEqual(Sim.tryHeavenlyBreakthrough(medicineThenDao, []), true);
+assert.ok(medicineThenDao.cult >= DATA.HEAVENLY_EMPEROR_CULT,
+  'a second-life emperor should enter heavenly class by enlightenment, after taking medicine');
 
 const tooWeakForThird = reverseFixture(2000, 2000, 2);
 tooWeakForThird.redDustPath = 'reverse';
@@ -580,14 +594,17 @@ assert.ok(DATA.RED_DUST_IMMORTAL_CULT >= 8000000,
   '红尘仙必须压过未成仙的八世天皇');
 const undead2 = Sim.undeadEmperorForRoll(0, 0, { lifeNo: 1 });
 const undead5 = { lives: 5, cult: 3000000 };
-const undead8 = { lives: 8, cult: 5200000 };
+const undead8 = { lives: 8, cult: 7500000 };
 assert.ok(undead2.cult < DATA.HEAVENLY_EMPEROR_CULT,
   '两三世天皇可压大帝，但不应已经强过天帝');
 assert.ok(undead5.cult <= DATA.HEAVENLY_EMPEROR_CULT,
   '五世天皇才到能与天帝相持的那一档');
-assert.ok(undead8.cult > DATA.HEAVENLY_EMPEROR_CULT,
-  '八世天皇应明显强过天帝、逼近仙');
-assert.strictEqual(Sim.undeadEmperorForRoll(0.999, 20000000, { lifeNo: 9 }).cult >= DATA.RED_DUST_IMMORTAL_CULT, true);
+assert.ok(undead8.cult >= 7000000 && undead8.cult < DATA.RED_DUST_IMMORTAL_CULT,
+  '八世天皇应逼近红尘仙，但还未成仙');
+const undeadXian = Sim.undeadEmperorForRoll(0.999, 20000000, { lifeNo: 9 });
+assert.strictEqual(undeadXian.immortal, true);
+assert.strictEqual(undeadXian.cult, DATA.RED_DUST_IMMORTAL_CULT,
+  '红尘仙级不死天皇就是标准红尘仙战力');
 
 const slashBand = reverseFixture(900, 1500, 1);
 slashBand.cult = 1000000;

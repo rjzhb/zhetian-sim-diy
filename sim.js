@@ -2757,6 +2757,24 @@
     if ((g.cult || 0) < floor) g.cult = floor;
     return g.cult;
   }
+  function canHeavenlyBreakthrough(g) {
+    if (!g || !(g.emperor || g.becameEmperor) || g.heavenlyBreakthrough) return false;
+    if (g.redDustImmortal || g.forbiddenLord || g.inStrangeWorld) return false;
+    if (isHeavenlyEmperor(g)) return false;
+    var fill = g.daoyunCap > 0 ? (g.daoyun || 0) / g.daoyunCap : 0;
+    /* 天帝看战力与悟道，不看第几世：一世道海近满也能破；吃药进二世后悟道是常路。 */
+    if ((g.lifeNo || 1) <= 1) return fill >= 0.90;
+    return fill >= 0.50 || (g.daoyun || 0) >= 800 || (g.reverseMethodReadyFor || 0) >= 3;
+  }
+  function tryHeavenlyBreakthrough(g, log) {
+    if (!canHeavenlyBreakthrough(g)) return false;
+    g.heavenlyBreakthrough = true;
+    grantHeavenlyEmperor(g);
+    if (log) {
+      push(log, { cls: 'god', text: '第' + g.lifeNo + '世中，你以道换境，战力踏入天帝之列。此境只问道果深浅，不问活了几世' });
+    }
+    return true;
+  }
 
   function resetEmperorLife(g) {
     var range = emperorLifeSpanRange(g.lifeNo, g);
@@ -3484,7 +3502,7 @@
       g.cult = round((g.cult || 0) * 1.01);
     } else {
       g.cult = round((g.cult || 0) * rand(1.22, 1.36));
-      if (targetLife >= 2) grantHeavenlyEmperor(g);
+      if (targetLife >= 3) grantHeavenlyEmperor(g);
     }
     push(log, { cls: 'rainbow', text: rescued ?
       '帝命将尽，你以『' + route + '』续出第' + g.lifeNo + '世；药力只续命，战力几乎没有长进，道蕴上限提高至' + g.daoyunCap :
@@ -3549,7 +3567,9 @@
     /* 红尘仙级的天皇是真正的意外，早期入界几乎不可能撞上。 */
     var immortalChance = clamp(0.002 + Math.max(0, worldYear || 0) / 20000000 * 0.06 +
       Math.max(0, lifeNo - 1) * 0.004, 0, 0.08);
-    if (r >= 1 - immortalChance) return { lives: 9, cult: 8000000, immortal: true };
+    if (r >= 1 - immortalChance) {
+      return { lives: 9, cult: D.RED_DUST_IMMORTAL_CULT || 8000000, immortal: true };
+    }
     var mean = undeadEmperorMean(worldYear, lifeNo);
     var weights = [], total = 0, i;
     for (i = 2; i <= 8; i++) {
@@ -3557,12 +3577,12 @@
       weights.push(w); total += w;
     }
     var scaled = r / (1 - immortalChance), cumulative = 0;
-    var cults = [1650000, 2100000, 2550000, 3000000, 3600000, 4300000, 5200000];
+    var cults = [1650000, 2200000, 2600000, 3000000, 4800000, 6200000, 7500000];
     for (i = 0; i < weights.length; i++) {
       cumulative += weights[i] / total;
       if (scaled < cumulative) return { lives: i + 2, cult: cults[i] };
     }
-    return { lives: 8, cult: 5200000 };
+    return { lives: 8, cult: 7500000 };
   }
 
   /* 单人永远杀不死不死天皇：极限配置最多相持或逼退，真正斩杀只能靠与无始联手。 */
@@ -4289,6 +4309,7 @@
     g.age += tick - 1;
     advanceWorldCalendar(g, tick - 1, log);
     gainDaoyun(g, emperorDaoyunGainPerYear(g) * tick);
+    tryHeavenlyBreakthrough(g, log);
     var span = Math.max(1, g.emperorLifeEnd - g.emperorLifeStart);
     if (Math.random() < D.EMPEROR_EVENT_TARGET * tick / span) emperorEvent(g, log);
     if (g.age >= g.emperorLifeEnd) finishEmperorLife(g, log);
@@ -4754,6 +4775,7 @@
       awaitingSelfSlash: false, selfSlashOffered: false, selfSlashDeclined: false, selfSlashed: false,
       awaitingDarkTurmoil: false, forcedDarkTurmoil: false, awaitingImmortalPath: false, waitingImmortalRoad: false,
       awaitingImmortalRoad: false, immortalRoadAttempts: 0, immortalRoadLastCycle: 0, immortalRoadRivals: 0,
+      heavenlyBreakthrough: false,
       forbiddenLord: false, forbiddenEssence: 0, forbiddenKarma: 0,
       forbiddenSleepLeft: 0, forbiddenSleepTotal: 0,
       traits: [],
@@ -5166,6 +5188,8 @@
     immortalRoadAppearChance: immortalRoadAppearChance,
     immortalRoadChance: immortalRoadChance,
     tryImmortalRoad: tryImmortalRoad,
+    tryHeavenlyBreakthrough: tryHeavenlyBreakthrough,
+    canHeavenlyBreakthrough: canHeavenlyBreakthrough,
     strangeWorldLearnChance: strangeWorldLearnChance,
     emperorEvent: emperorEvent,
     tryReverseLife: tryReverseLife,
