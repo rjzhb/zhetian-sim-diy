@@ -789,6 +789,10 @@ body.ui-beta #view-game .log-box { min-height: 260px; max-height: 460px; }
 .mask.choice-mask {
   align-items: center;
   justify-content: center;
+  /* 选项出来时要还能看见前面刚写下的惊人事件，不能把日志糊掉。 */
+  background: rgba(5, 2, 18, .22);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 .mask-box.choice-box {
   width: 400px; max-width: 94vw; max-height: 78vh;
