@@ -2884,7 +2884,23 @@
     star_herding: { max: 3 },
     saint_pilgrimage: { max: 3 },
     dao_war: { max: 3 },
-    quasi_challenger: { max: 4 }
+    quasi_challenger: { max: 4 },
+    nine_dragon_coffin: { once: true },
+    source_heaven_array: { max: 2 },
+    false_emperor: { max: 2 },
+    disciple_crisis: { max: 2, requireBeat: 'disciple_rise' },
+    tomb_raided: { max: 2, requireAnyBeat: ['tomb_builder', 'emperor_tomb'] },
+    heaven_court: { max: 3, requireBeat: 'establish_heaven' },
+    weapon_god_wake: { max: 2, requireFlag: 'gotDiBing' },
+    mortal_year: { oncePerLife: true },
+    immortal_road_glow: { max: 2 },
+    star_rescue: { max: 2 },
+    dao_judgment: { oncePerLife: true },
+    void_immortal_crack: { max: 2 },
+    name_sect: { max: 2 },
+    beast_plea: { max: 2 },
+    tianxin_walk: { oncePerLife: true },
+    border_demon: { max: 2 }
   };
 
   function emperorBeatIds() {
@@ -2899,7 +2915,11 @@
       'dao_prosper', 'saint_pilgrimage', 'star_herding', 'race_ancestor', 'heaven_gate',
       'ancient_pact', 'dao_war', 'fallen_friend', 'emperor_seed', 'tomb_builder',
       'chaos_source', 'immortal_trace', 'forbidden_dialogue', 'dao_purge',
-      'quasi_challenger', 'epoch_turn'
+      'quasi_challenger', 'epoch_turn',
+      'nine_dragon_coffin', 'source_heaven_array', 'false_emperor', 'disciple_crisis',
+      'tomb_raided', 'heaven_court', 'weapon_god_wake', 'mortal_year',
+      'immortal_road_glow', 'star_rescue', 'dao_judgment', 'void_immortal_crack',
+      'name_sect', 'beast_plea', 'tianxin_walk', 'border_demon'
     ];
   }
 
@@ -2922,6 +2942,15 @@
       if (m.once && ever) return false;
       if (m.max && ever >= m.max) return false;
       if (m.oncePerLife && used[id]) return false;
+      if (m.requireBeat && !beatUsedEver(legacy, m.requireBeat)) return false;
+      if (m.requireAnyBeat) {
+        var hooked = false, hi;
+        for (hi = 0; hi < m.requireAnyBeat.length; hi++) {
+          if (beatUsedEver(legacy, m.requireAnyBeat[hi])) { hooked = true; break; }
+        }
+        if (!hooked) return false;
+      }
+      if (m.requireFlag && !g[m.requireFlag]) return false;
       return true;
     });
     var preferred = pool.filter(function (id) { return id !== legacy.lastBeat; });
@@ -2929,11 +2958,14 @@
     var unused = preferred.filter(function (id) { return !used[id]; });
     var pickFrom = unused.length ? unused : preferred;
     if (!pickFrom.length) return null;
-    /* 帝者日常淬炼是最稳定的成长来源，略提高权重，避免被一次性大事件挤掉。 */
+    /* 帝者日常淬炼是最稳定的成长来源，略提高权重，避免被一次性大事件挤掉。
+     * 前文种下的钩子再加重，下次更容易上门，但不独占奖池。 */
     var totalWeight = 0, pick;
     function beatWeight(id) {
       if (id === 'body_refine') return 2;
       if (id === 'reverse_deduction' && g.redDustPath === 'reverse') return lifeNo <= 5 ? 3 : 2;
+      var meta = EMPEROR_BEAT_META[id] || {};
+      if ((meta.requireBeat || meta.requireAnyBeat || meta.requireFlag) && !used[id]) return 8;
       return 1;
     }
     for (var wi = 0; wi < pickFrom.length; wi++) totalWeight += beatWeight(pickFrom[wi]);
@@ -3417,6 +3449,159 @@
       beatLine(g, log, 'rare', '一个纪元悄然翻篇：你熟悉的族群尽数变异，新生的种族喊你作古老传说中的名字，道果根基+1');
       return true;
     }
+    if (id === 'nine_dragon_coffin') {
+      roots.soul++; gainDaoyun(g, irand(16, 28), 8);
+      beatLine(g, log, 'rainbow', pickVariant(g, id, [
+        '你梦见九龙拉棺横穿星海，棺中人与你对视一眼；醒来后元神久久不散，元神根基+1',
+        '夜半棺铃声起，九龙虚影绕帝宫一周便散，你从中抓住一缕不属于此世的道韵，元神根基+1',
+        '你立于虚空，看见那口古棺从自己身侧擦过，却没有停。元神根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'source_heaven_array') {
+      roots.dao++; gainDaoyun(g, irand(10, 18));
+      beatLine(g, log, 'god', pickVariant(g, id, [
+        '北域源天大阵余威未散，你走入阵心，把前人未走完的纹路补了一角，道果根基+1',
+        '你以帝道重演源天杀阵，只为看清它究竟在防谁，道果根基+1',
+        '阵中残存的古老意志认你作后来人，把一半阵意交给了你，道果根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'false_emperor') {
+      roots.body++; g.cult = round(g.cult * rand(1.02, 1.04));
+      beatLine(g, log, 'ev4', pickVariant(g, id, [
+        '有人借天心空窗自称大帝，你一指压碎他的伪道，天下再无第二帝音，肉身根基+1',
+        '一座圣地捧出伪帝欲分你气运，你踏平山门却只废其主，肉身根基+1',
+        '边荒走出一名气息驳杂的「大帝」，你三招拆穿，将其道果打回原形，肉身根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'disciple_crisis') {
+      roots.dao++; roots.soul++;
+      beatLine(g, log, 'dead', pickVariant(g, id, [
+        '禁区掳走你座下传人，要逼你自斩；你杀入禁区边缘救人，却未掀开山门，道果与元神根基各+1',
+        '你最得意的弟子被古老杀阵困住，你远隔星海一念解开，却因此暴露了自己的道，道果与元神根基各+1',
+        '传人在古路上被人截杀，你赶到时只余一口帝兵残鸣；你把凶手的道统从星域抹去，道果与元神根基各+1'
+      ]));
+      return true;
+    }
+    if (id === 'tomb_raided') {
+      roots.dao++;
+      if (Math.random() < 0.7) {
+        beatLine(g, log, 'god', '有人掘你未成的帝陵，踩中杀阵；你隔空收回那缕盗墓者的神魂，问清来路，道果根基+1');
+      } else {
+        var tombLoss = irand(80, 220);
+        g.emperorLifeEnd -= tombLoss; g.lifeBase -= tombLoss; syncLife(g);
+        beatLine(g, log, 'dead', '盗陵者带了一件前代帝兵残片，你虽拿回陵中之物，帝命-' + tombLoss + '年');
+      }
+      return true;
+    }
+    if (id === 'heaven_court') {
+      roots.dao++; gainDaoyun(g, irand(8, 16));
+      beatLine(g, log, 'god', pickVariant(g, id, [
+        '天庭朝会，万族奏报边荒异动；你只点了三件事，星域便安定一纪，道果根基+1',
+        '你在天庭设下巡天法度，令各域不得再私开战端，道果根基+1',
+        '朝会上有人请你立神位收香火，你当场驳回，只留下律法，道果根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'weapon_god_wake') {
+      roots.soul += 2;
+      beatLine(g, log, 'ev4', pickVariant(g, id, [
+        '帝兵中神祇开口，说看见了你尚未走完的路；你没有追问，只让它继续镇守，元神根基+2',
+        '兵鸣三日，神祇要随你征战禁区，你按住它，令其先温养自身，元神根基+2',
+        '你以精血再祭帝兵，神祇第一次喊出你的帝号，元神根基+2'
+      ]));
+      return true;
+    }
+    if (id === 'mortal_year') {
+      roots.soul++; roots.dao++;
+      gainDaoyun(g, irand(12, 22));
+      beatLine(g, log, 'rainbow', pickVariant(g, id, [
+        '你收尽帝威，在人间过了一年：赶集、送葬、听雨。回来后元神与道果根基各+1',
+        '你扮作老农看了一季稻熟，忽然明白长生若只余自己，便只是另一种死，元神与道果根基各+1',
+        '红尘客栈里，没人认得你。你喝完一壶劣酒，把帝尊之身又穿回去，元神与道果根基各+1'
+      ]));
+      return true;
+    }
+    if (id === 'immortal_road_glow') {
+      roots.dao++; gainDaoyun(g, irand(14, 24));
+      beatLine(g, log, 'rare', pickVariant(g, id, [
+        '天边闪过一线成仙路残光，你追出去万里，只抓住一缕不属于帝道的气息，道果根基+1',
+        '你看见仙路虚影从宇宙尽头掠过，伸手时它已散尽，道果根基+1',
+        '残光落在你掌心一瞬，烫得道海震动，却没有留下坐标，道果根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'star_rescue') {
+      roots.body++; g.cult = round(g.cult * rand(1.015, 1.03));
+      beatLine(g, log, 'gain', pickVariant(g, id, [
+        '一颗古星将灭，亿万生灵跪祈；你移星换斗，把它重新点燃，肉身根基+1',
+        '你拦下一场坠星之劫，自己也被星核余温烫穿袖口，肉身根基+1',
+        '死寂星域求你开一线生机，你洒下一滴帝血，草木竟在真空中发芽，肉身根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'dao_judgment') {
+      roots.dao++;
+      beatLine(g, log, 'god', pickVariant(g, id, [
+        '一座圣地灭族祭道，你降下帝判：废其天心资格，留其族中孩童，道果根基+1',
+        '你当众审一桩万载血案，不偏圣地也不偏古族，只按你立下的帝律，道果根基+1',
+        '有人借你之名屠城，你亲手废去那座宗门的传承，道果根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'void_immortal_crack') {
+      roots.soul++; gainDaoyun(g, irand(12, 22), 6);
+      beatLine(g, log, 'rainbow', pickVariant(g, id, [
+        '虚空裂开一线，你看见疑似仙域的轮廓，随即被无形之力挡回，元神根基+1',
+        '裂缝里吹出一缕不属于此世的风，你以帝躯硬受，道蕴上限微涨，元神根基+1',
+        '你把神念探进裂缝半寸，听见有人用你听不懂的语言念你的帝号，元神根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'name_sect') {
+      roots.dao++;
+      beatLine(g, log, 'rare', pickVariant(g, id, [
+        '有人借你帝号开宗，香火三年便传遍一域；你既未认也未毁，只派人去看他们走的是不是你的道，道果根基+1',
+        '一座没落圣地把你的帝经残篇奉为祖训，你远远看了一眼，没有收回，道果根基+1',
+        '边荒出现「代帝教」，你一念压灭其主，留下真正记下你法门的人，道果根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'beast_plea') {
+      roots.body++; roots.soul++;
+      beatLine(g, log, 'ev4', pickVariant(g, id, [
+        '一头太古生物苏醒，跪在帝宫外求你放它回混沌；你允了，肉身与元神根基各+1',
+        '你放生一头被圣地囚了万载的古兽，它留下一滴精血便没入星海，肉身与元神根基各+1',
+        '荒古凶兽拦路，不是来战，是请你给它一个不死的名分；你没有给，只指了一条生路，肉身与元神根基各+1'
+      ]));
+      return true;
+    }
+    if (id === 'tianxin_walk') {
+      roots.dao++; gainDaoyun(g, irand(10, 20));
+      g.cult = round(g.cult * rand(1.01, 1.03));
+      beatLine(g, log, 'god', pickVariant(g, id, [
+        '你以天心巡游诸天，看见自己的道如何压着后辈破境，也看见它如何让有些人再无第二条路，道果根基+1',
+        '天心印记随你走遍星域，所过之处修士皆有所感，道果根基+1',
+        '你收回天心片刻，让一域后辈自己去撞关，再放回去时道更稳，道果根基+1'
+      ]));
+      return true;
+    }
+    if (id === 'border_demon') {
+      roots.body++;
+      if (Math.random() < 0.75) {
+        beatLine(g, log, 'rare', pickVariant(g, id, [
+          '边荒一位自称妖帝的存在来访，不战，只与你对坐饮了一夜，肉身根基+1',
+          '妖族天庭遣使划界，你应了，换来边荒百年无大战，肉身根基+1',
+          '来客身上有前代大帝的气息，你们谁也没揭破，只约了来世，肉身根基+1'
+        ]));
+      } else {
+        g.cult = round(g.cult * 1.03);
+        beatLine(g, log, 'god', '边荒来客忽然出手试你；你一掌将其逼退，却也摸清了对方的道，肉身根基+1');
+      }
+      return true;
+    }
     return false;
   }
 
@@ -3756,14 +3941,72 @@
     return true;
   }
 
+  function strangeWorldHazardThreat(kind) {
+    if (kind === 'ancient') return D.WORLD_EMPEROR_CULT_MAX || 1050000;
+    return D.HEAVENLY_EMPEROR_CULT || 3000000;
+  }
+  function strangeWorldHazardOutcome(g, kind) {
+    var threat = strangeWorldHazardThreat(kind);
+    var power = (g && g.cult) || 0;
+    var ratio = threat > 0 ? power / threat : 0;
+    if (ratio >= 2.2) return 'crush';
+    if (ratio >= 1.15) return 'hold';
+    if (ratio >= 0.80) return 'light';
+    if (ratio >= 0.50) return 'wound';
+    if (ratio >= 0.30) return Math.random() < 0.35 ? 'dead' : 'wound';
+    return Math.random() < 0.55 ? 'dead' : 'wound';
+  }
+  function resolveStrangeWorldHazard(g, log, kind) {
+    if (!g) return false;
+    var labels = {
+      ancient: '古代强者循着帝道气机袭杀而来',
+      storm: '奇异世界的法则风暴撕开你的闭关地',
+      backlash: '异界法则反噬旧日道果',
+      runaway: '熔炼长生物质时修行失控'
+    };
+    var danger = labels[kind] || labels.storm;
+    var outcome = strangeWorldHazardOutcome(g, kind);
+    if (outcome === 'crush') {
+      g.strangeWorldInsight = (g.strangeWorldInsight || 0) + irand(2, 5);
+      if (kind === 'ancient') {
+        push(log, { cls: 'god', text: danger + '，却在你帝威下自行溃散；此界再无人敢循着气机试探' });
+      } else {
+        push(log, { cls: 'god', text: danger + '，你以近仙之躯硬扛过去，连道果都未曾晃动' });
+      }
+      return true;
+    }
+    if (outcome === 'hold') {
+      push(log, { cls: 'rare', text: danger + '；以你如今的实力，只是拂袖压下，未成气候' });
+      return true;
+    }
+    if (outcome === 'light') {
+      g.cult = round(g.cult * 0.97);
+      g.strangeWorldInsight = Math.max(0, (g.strangeWorldInsight || 0) - 4);
+      push(log, { cls: 'dead', text: danger + '；你压下这场灾劫，只留下轻伤' });
+      return true;
+    }
+    if (outcome === 'dead') {
+      g.dead = true; g.deadCause = 'strange_world_accident';
+      push(log, { cls: 'dead', text: danger + '；你未能熬过这场仙道灾劫，帝躯与元神俱灭' });
+      return false;
+    }
+    g.cult = round(g.cult * 0.84);
+    g.strangeWorldInsight = Math.max(0, (g.strangeWorldInsight || 0) - 12);
+    push(log, { cls: 'dead', text: danger + '；你虽侥幸脱身，却留下严重道伤，实力与长生感悟一并受损' });
+    return true;
+  }
+
   function strangeWorldImmortalityChance(g) {
+    var cult = (g && g.cult) || 0;
+    if (cult >= 7500000) return 1;
     var daoPeak = g.daoyunCap > 0 ? g.daoyun / g.daoyunCap : 0;
     var roots = g.redDustRoots.body + g.redDustRoots.soul + g.redDustRoots.dao;
     var chance = 0.10 + Math.min(0.16, daoPeak * 0.16) + Math.min(0.08, roots * 0.003) +
       Math.min(0.08, Math.max(0, g.strangeWorldInsight - 80) * 0.0016);
     if (g.strangeWorldAlliance === 'wushi') chance += 0.04;
     chance += Math.min(0.10, createdArtN(g) * 0.025);
-    return clamp(chance, 0.12, 0.72);
+    if (cult > 1400000) chance += Math.min(0.55, (cult - 1400000) / 1600000 * 0.43);
+    return clamp(chance, 0.12, 0.98);
   }
 
   function tryStrangeWorldImmortality(g, log) {
@@ -3902,16 +4145,9 @@
       if (g.strangeWorldAlliance === 'wushi') g.strangeWorldInsight += 3;
       push(log, { cls: 'rare', text: '万载岁月流转，你在此界重演自身帝法，道果根基+1，长生感悟+' + add });
     } else {
-      var danger = ['奇异世界的法则风暴撕开你的闭关地', '古代强者循着帝道气机袭杀而来', '异界法则反噬旧日道果', '熔炼长生物质时修行失控'][irand(0, 3)];
-      var dangerSafe = clamp(0.42 + (g.tm.ward + pval(g, 'ward', 0)) / 120 + g.cult / 10000000, 0.42, 0.82);
-      if (Math.random() >= dangerSafe && Math.random() < 0.45) {
-        g.dead = true; g.deadCause = 'strange_world_accident';
-        push(log, { cls: 'dead', text: danger + '；你未能熬过这场毫无征兆的仙道灾劫，帝躯与元神俱灭' });
-        return;
-      }
-      g.cult = round(g.cult * 0.84);
-      g.strangeWorldInsight = Math.max(0, g.strangeWorldInsight - 12);
-      push(log, { cls: 'dead', text: danger + '；你虽侥幸脱身，却留下严重道伤，实力与长生感悟一并受损' });
+      var hazardKinds = ['storm', 'ancient', 'backlash', 'runaway'];
+      resolveStrangeWorldHazard(g, log, hazardKinds[irand(0, 3)]);
+      if (g.dead) return;
     }
 
     if (!g.dead && (g.strangeWorldInsight >= 100 || g.strangeWorldEvents >= 18)) {
@@ -5202,6 +5438,9 @@
     chooseStrangeWorldAlliance: chooseStrangeWorldAlliance,
     stepStrangeWorld: stepStrangeWorld,
     strangeWorldImmortalityChance: strangeWorldImmortalityChance,
+    strangeWorldHazardOutcome: strangeWorldHazardOutcome,
+    strangeWorldHazardThreat: strangeWorldHazardThreat,
+    resolveStrangeWorldHazard: resolveStrangeWorldHazard,
     tryStrangeWorldImmortality: tryStrangeWorldImmortality,
     finishStrangeWorldBattle: finishStrangeWorldBattle,
     strangeWorldSituationForRoll: strangeWorldSituationForRoll,

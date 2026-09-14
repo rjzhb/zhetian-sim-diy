@@ -1090,6 +1090,7 @@ limitedAttempts.strangeWorldEvents = 18;
 limitedAttempts.daoyun = 900;
 limitedAttempts.daoyunCap = 1500;
 limitedAttempts.innate = 10;
+limitedAttempts.cult = 1000000;
 const calibratedImmortalChance = Sim.strangeWorldImmortalityChance(limitedAttempts);
 assert.ok(calibratedImmortalChance >= 0.22 && calibratedImmortalChance <= 0.24,
   '成仙不再吃体质档，道蕴六成时约两成把握：' + calibratedImmortalChance);
@@ -1103,6 +1104,65 @@ try {
 }
 assert.strictEqual(limitedAttempts.strangeWorldImmortalAttempts, 2);
 assert.strictEqual(limitedAttempts.dead, true, 'the second failed immortal transformation should be fatal');
+
+assert.strictEqual(typeof Sim.strangeWorldHazardOutcome, 'function');
+assert.strictEqual(typeof Sim.resolveStrangeWorldHazard, 'function');
+const eighthHazard = Sim.createGame(0, []);
+Sim.becomeDi(eighthHazard, [], 'force');
+eighthHazard.inStrangeWorld = true;
+eighthHazard.cult = 7500000;
+eighthHazard.strangeWorldInsight = 40;
+assert.strictEqual(Sim.strangeWorldHazardOutcome(eighthHazard, 'ancient'), 'crush',
+  'an eighth-life peak must crush ordinary ancient hunters, not roll a wound');
+assert.strictEqual(Sim.strangeWorldHazardOutcome(eighthHazard, 'storm'), 'crush',
+  'the same peak must also walk through a law storm');
+const eighthHazardLog = [];
+const eighthCult = eighthHazard.cult;
+const eighthInsight = eighthHazard.strangeWorldInsight;
+assert.strictEqual(Sim.resolveStrangeWorldHazard(eighthHazard, eighthHazardLog, 'ancient'), true);
+assert.strictEqual(eighthHazard.dead, false);
+assert.ok(eighthHazard.cult >= eighthCult, 'crushing ancient hunters must not cut an eighth-life emperor');
+assert.ok(eighthHazard.strangeWorldInsight >= eighthInsight);
+assert.ok(!eighthHazardLog.some(function (row) { return /严重道伤/.test(row.text); }),
+  'an eighth-life emperor must not be written as barely escaping with dao wounds');
+assert.ok(eighthHazardLog.some(function (row) { return /古代强者/.test(row.text); }));
+
+const weakHazard = Sim.createGame(0, []);
+Sim.becomeDi(weakHazard, [], 'force');
+weakHazard.inStrangeWorld = true;
+weakHazard.cult = 1000000;
+assert.ok(['light', 'wound', 'dead'].indexOf(Sim.strangeWorldHazardOutcome(weakHazard, 'storm')) >= 0,
+  'a newly-made emperor can still be hurt by a heavenly-class storm');
+assert.notStrictEqual(Sim.strangeWorldHazardOutcome(weakHazard, 'storm'), 'crush');
+
+const eighthImmortal = Sim.createGame(0, []);
+Sim.becomeDi(eighthImmortal, [], 'force');
+eighthImmortal.inStrangeWorld = true;
+eighthImmortal.strangeWorldInsight = 100;
+eighthImmortal.cult = 7500000;
+eighthImmortal.daoyun = 900;
+eighthImmortal.daoyunCap = 1500;
+assert.strictEqual(Sim.strangeWorldImmortalityChance(eighthImmortal), 1,
+  'an eighth-life peak at the insight gate must not roll red-dust failure');
+try {
+  Math.random = function () { return 0.999; };
+  assert.strictEqual(Sim.tryStrangeWorldImmortality(eighthImmortal, []), true);
+} finally {
+  Math.random = oldRandom;
+}
+assert.strictEqual(eighthImmortal.redDustImmortal, true);
+assert.strictEqual(eighthImmortal.dead, false);
+
+const heavenlyImmortal = Sim.createGame(0, []);
+Sim.becomeDi(heavenlyImmortal, [], 'force');
+heavenlyImmortal.inStrangeWorld = true;
+heavenlyImmortal.strangeWorldInsight = 100;
+heavenlyImmortal.cult = DATA.HEAVENLY_EMPEROR_CULT;
+heavenlyImmortal.daoyun = 900;
+heavenlyImmortal.daoyunCap = 1500;
+heavenlyImmortal.innate = 10;
+assert.ok(Sim.strangeWorldImmortalityChance(heavenlyImmortal) >= 0.65,
+  'a heavenly emperor should usually succeed on the first red-dust attempt');
 
 const entryGame = Sim.createGame(0, ['w06', 'w11']);
 Sim.becomeDi(entryGame, [], 'force');
@@ -1584,7 +1644,7 @@ assert.strictEqual(sawBeat(onceHeaven, 'establish_heaven', 80), false,
   'founding the heavenly court is a once-in-an-era event');
 assert.strictEqual(sawBeat(onceHeaven, 'imperial_god', 80), false,
   'an imperial weapon-god can only awaken once');
-assert.ok(sawBeat(onceHeaven, 'body_refine', 80),
+assert.ok(sawBeat(onceHeaven, 'body_refine', 400),
   'daily emperor cultivation must remain available after unique beats are spent');
 
 const secretCap = Sim.createGame(0, []);
@@ -1604,6 +1664,55 @@ perLifeMethod.emperorLegacy.lastBeat = null;
 perLifeMethod.lifeNo = 4;
 assert.ok(sawBeat(perLifeMethod, 'self_method', 500),
   'each later life may still open a different longevity method');
+
+const newEmperorBeats = [
+  'nine_dragon_coffin', 'source_heaven_array', 'false_emperor', 'disciple_crisis',
+  'tomb_raided', 'heaven_court', 'weapon_god_wake', 'mortal_year',
+  'immortal_road_glow', 'star_rescue', 'dao_judgment', 'void_immortal_crack',
+  'name_sect', 'beast_plea', 'tianxin_walk', 'border_demon'
+];
+newEmperorBeats.forEach(function (id) {
+  assert.ok(Sim.emperorBeatIds().indexOf(id) >= 0, 'missing new emperor beat: ' + id);
+});
+assert.ok(Sim.emperorBeatIds().length >= 60,
+  'the emperor pool must stay large enough that later lives keep seeing new stories');
+
+const hookGame = Sim.createGame(0, []);
+Sim.becomeDi(hookGame, [], 'force');
+assert.strictEqual(sawBeat(hookGame, 'disciple_crisis', 120), false,
+  'a disciple crisis must wait until a disciple has actually risen');
+assert.strictEqual(sawBeat(hookGame, 'tomb_raided', 120), false,
+  'tomb raiders must wait until an emperor tomb exists');
+assert.strictEqual(sawBeat(hookGame, 'heaven_court', 120), false,
+  'the heavenly court session must wait until the court exists');
+assert.strictEqual(sawBeat(hookGame, 'weapon_god_wake', 80), false,
+  'a weapon-god cannot speak before the imperial weapon wakes');
+assert.strictEqual(Sim.runEmperorExperience(hookGame, 'disciple_rise', []), true);
+assert.ok(sawBeat(hookGame, 'disciple_crisis', 200),
+  'after a disciple rises, their later crisis should enter the pool');
+assert.strictEqual(Sim.runEmperorExperience(hookGame, 'tomb_builder', []), true);
+assert.ok(sawBeat(hookGame, 'tomb_raided', 200),
+  'after the tomb is built, raiders should be able to show up');
+assert.strictEqual(Sim.runEmperorExperience(hookGame, 'establish_heaven', []), true);
+assert.ok(sawBeat(hookGame, 'heaven_court', 200),
+  'after founding the court, later sessions should be pickable');
+assert.strictEqual(Sim.runEmperorExperience(hookGame, 'imperial_god', []), true);
+assert.ok(sawBeat(hookGame, 'weapon_god_wake', 200),
+  'an awakened imperial god should later speak');
+
+const newBeatLog = [];
+const newBeatGame = Sim.createGame(0, []);
+Sim.becomeDi(newBeatGame, [], 'force');
+newEmperorBeats.forEach(function (id) {
+  assert.strictEqual(Sim.runEmperorExperience(newBeatGame, id, newBeatLog), true, 'beat should run: ' + id);
+});
+const newBeatLines = {};
+newBeatLog.forEach(function (row) {
+  const stem = String(row.text || '').replace(/^帝历\d+年，/, '').replace(/\d+/g, '#');
+  newBeatLines[stem] = true;
+});
+assert.ok(Object.keys(newBeatLines).length >= 14,
+  'new emperor beats must not collapse into the same few sentences');
 
 (function () {
   var blocked = Sim.createGame(0, []);

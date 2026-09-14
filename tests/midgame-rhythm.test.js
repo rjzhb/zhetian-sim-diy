@@ -1383,10 +1383,12 @@ function mortalSage(opt) {
   Sim.becomeDi(poorXian, [], 'force');
   poorXian.daoyun = 800;
   poorXian.daoyunCap = 1500;
+  poorXian.cult = 1000000;
   var richXian = Sim.createGame(0, []);
   Sim.becomeDi(richXian, [], 'force');
   richXian.daoyun = 800;
   richXian.daoyunCap = 1500;
+  richXian.cult = 1000000;
   Sim.addCreatedArt(richXian, 'scripture');
   Sim.addCreatedArt(richXian, 'soul');
   Sim.addCreatedArt(richXian, 'longevity');
