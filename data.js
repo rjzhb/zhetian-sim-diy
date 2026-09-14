@@ -137,16 +137,19 @@
    *   无缺大帝    85~105 万
    *   破灭万道门槛 110 万     —— 必须压过当世大帝才谈得上破灭万道
    *   圣体破灭门槛 135 万     —— 有帝 + 圣体诅咒是双重关，要比凡体破灭再高一截
-   *   天帝 / 不死天皇 150 万
-   * 旧刻度里准帝九重 19 万到天帝 300 万是 15.5 倍的断裂，
-   * 且大成圣体 160~200 万反而高过新晋大帝的 105~135 万，梯度是倒的。
-   * 现在准帝九重到天帝收紧到 5 倍。 */
+   *   天帝           300 万     —— 无始、恒宇这一档；真逆活入二世即入此境，未至天帝不能活第三世
+   *   2~4 世天皇    165~255 万 —— 压大帝，尚未稳压天帝
+   *   5 世天皇      300 万     —— 与天帝相持
+   *   8 世天皇      520 万     —— 超天帝、逼近仙
+   *   红尘仙        800 万起   —— 碾压未成仙的帝与天皇
+   * 大成圣体必须低于大帝；天帝不能只比大帝高半截。 */
   var WORLD_EMPEROR_CULT_MIN = 850000;
   var WORLD_EMPEROR_CULT_MAX = 1050000;
   var OVERWHELM_DAO_CULT = 1100000;
   /* 有帝之世的荒古圣体要同时压过帝压和圣体诅咒，门槛高于凡体破灭。 */
   var SACRED_OVERWHELM_CULT = 1350000;
-  var HEAVENLY_EMPEROR_CULT = 1500000;
+  var HEAVENLY_EMPEROR_CULT = 3000000;
+  var RED_DUST_IMMORTAL_CULT = 8000000;
   /* 无帝之世的大成圣体是极道至尊，但仍在大帝之下。 */
   var SACRED_JIDAO_CULT = 700000;
   var SACRED_EMPEROR_DAO_CAP = 2800;
@@ -368,6 +371,7 @@
     OVERWHELM_DAO_CULT: OVERWHELM_DAO_CULT,
     SACRED_OVERWHELM_CULT: SACRED_OVERWHELM_CULT,
     HEAVENLY_EMPEROR_CULT: HEAVENLY_EMPEROR_CULT,
+    RED_DUST_IMMORTAL_CULT: RED_DUST_IMMORTAL_CULT,
     SACRED_JIDAO_CULT: SACRED_JIDAO_CULT,
     WORLD_EMPEROR_CULT_MIN: WORLD_EMPEROR_CULT_MIN,
     WORLD_EMPEROR_CULT_MAX: WORLD_EMPEROR_CULT_MAX,
@@ -420,7 +424,7 @@
     EMPEROR_EVENT_TARGET: 24,
     RED_DUST_LIVES: 9,
     /* 不死天皇高世蜕变阶段的战力基准；普通一世大帝通常远低于此值。 */
-    UNDEAD_EMPEROR_CULT: 1500000,
+    UNDEAD_EMPEROR_CULT: 3000000,
     /* 即使知道奇异世界坐标，也必须达到此战力才能轰穿界壁。 */
     STRANGE_WORLD_BREAK_CULT: 1250000,
     STRANGE_WORLD_YEARS_MIN: 200000,

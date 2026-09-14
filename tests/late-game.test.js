@@ -173,6 +173,7 @@ function readyReverseFixture(dao, cap, lifeNo) {
   const g = reverseFixture(dao, cap, lifeNo);
   g.redDustPath = 'reverse';
   g.reverseMethodReadyFor = lifeNo + 1;
+  if (lifeNo >= 2) g.cult = Math.max(g.cult || 0, DATA.HEAVENLY_EMPEROR_CULT);
   return g;
 }
 const fullSeaRates = [];
@@ -230,6 +231,7 @@ medicineChoice.redDustPath = null;
 assert.strictEqual(Sim.openDeathlessChoice(medicineChoice, []), true);
 assert.strictEqual(medicineChoice.awaitingDeathlessChoice, true);
 assert.strictEqual(medicineChoice.lifeNo, 1, 'opening the choice must pause before resolving the first emperor life');
+medicineChoice.cult = 1000000;
 assert.strictEqual(Sim.chooseDeathless(medicineChoice, true, []), true);
 assert.strictEqual(medicineChoice.awaitingDeathlessChoice, false);
 assert.strictEqual(medicineChoice.deathlessUsed, true);
@@ -237,6 +239,8 @@ assert.strictEqual(medicineChoice.reverseMedicineUsed, true);
 assert.strictEqual(medicineChoice.redDustPath, 'reverse');
 assert.strictEqual(medicineChoice.lifeNo, 2,
   'accepting the choice must consume the medicine and guarantee the second life');
+assert.ok(medicineChoice.cult <= 1020000,
+  'immortal medicine only continues the life; it should barely raise emperor power');
 
 const medicineDeclined = reverseFixture(1500, 1500, 1);
 medicineDeclined.deathless = true;
@@ -340,14 +344,59 @@ Sim.runEmperorExperience(laterEvent, 'time_scar', []);
 assert.ok(laterEvent.daoyun > daoBeforeEvent,
   'later lives must still gain Dao from insights and opportunities');
 
+const firstTrueReverse = reverseFixture(1500, 1500, 1);
+firstTrueReverse.redDustPath = 'reverse';
+firstTrueReverse.cult = 1000000;
+try {
+  Math.random = function () { return 0; };
+  assert.strictEqual(Sim.tryReverseLife(firstTrueReverse, [], true), true);
+} finally {
+  Math.random = oldRandom;
+}
+assert.strictEqual(firstTrueReverse.lifeNo, 2);
+assert.ok(firstTrueReverse.cult >= DATA.HEAVENLY_EMPEROR_CULT,
+  'a true reverse into the second life must already be heavenly-emperor class');
+
+const tooWeakForThird = reverseFixture(2000, 2000, 2);
+tooWeakForThird.redDustPath = 'reverse';
+tooWeakForThird.reverseMethodReadyFor = 3;
+tooWeakForThird.cult = 1000000;
+assert.ok(Sim.reverseLifeChance(tooWeakForThird) <= 0.08,
+  'without heavenly-emperor power, a second-life emperor cannot live a third life');
+try {
+  Math.random = function () { return 0; };
+  assert.strictEqual(Sim.tryReverseLife(tooWeakForThird, [], true), false);
+} finally {
+  Math.random = oldRandom;
+}
+assert.strictEqual(tooWeakForThird.dead, true);
+assert.strictEqual(tooWeakForThird.lifeNo, 2);
+
 const reverseGame = reverseFixture(1500, 1500, 2);
 reverseGame.redDustPath = 'reverse';
+reverseGame.reverseMethodReadyFor = 3;
+reverseGame.cult = DATA.HEAVENLY_EMPEROR_CULT;
 const reverseDaoBefore = reverseGame.daoyun;
 const reverseCapBefore = reverseGame.daoyunCap;
-assert.strictEqual(Sim.tryReverseLife(reverseGame, [], true), true);
+try {
+  Math.random = function () { return 0; };
+  assert.strictEqual(Sim.tryReverseLife(reverseGame, [], true), true);
+} finally {
+  Math.random = oldRandom;
+}
 assert.ok(reverseGame.daoyunCap > reverseCapBefore, 'successful reversal should raise Dao cap');
 assert.strictEqual(reverseGame.daoyun, reverseDaoBefore, 'successful reversal must not refill Dao');
 assert.strictEqual(reverseGame.redDustRoutes.length, 1);
+assert.ok(reverseGame.cult >= DATA.HEAVENLY_EMPEROR_CULT,
+  'living a third life must keep heavenly-emperor class');
+
+const medicineSecondInsight = reverseFixture(900, 1500, 2);
+medicineSecondInsight.cult = 1010000;
+medicineSecondInsight.lifeNo = 2;
+Sim.runEmperorExperience(medicineSecondInsight, 'reverse_deduction', []);
+assert.strictEqual(medicineSecondInsight.reverseMethodReadyFor, 3);
+assert.ok(medicineSecondInsight.cult >= DATA.HEAVENLY_EMPEROR_CULT,
+  'comprehending the third-life method in the second life must raise the emperor to heavenly class');
 
 assert.strictEqual(typeof Sim.quasiLayerMultiplier, 'function');
 assert.ok(Sim.quasiLayerMultiplier({ physiqueId: 'mortal' }, 91) >= 2,
@@ -520,6 +569,53 @@ assert.ok(Sim.undeadEmperorMean(0, 6) > Sim.undeadEmperorMean(0, 1),
   'entering after several reversed lives should also meet a more advanced enemy');
 assert.ok(undeadLifeShare(3600000, 9, [6, 7, 8]) >= 0.7,
   'entering late must face a far more advanced undead emperor');
+
+assert.ok(DATA.SACRED_JIDAO_CULT < DATA.WORLD_EMPEROR_CULT_MIN,
+  '大成圣体必须低于无缺大帝');
+assert.ok(DATA.WORLD_EMPEROR_CULT_MAX < DATA.HEAVENLY_EMPEROR_CULT,
+  '天帝必须明显高于普通大帝');
+assert.ok(DATA.HEAVENLY_EMPEROR_CULT >= 2800000,
+  '天帝应按原著远超无缺大帝，不能只比大帝高半截');
+assert.ok(DATA.RED_DUST_IMMORTAL_CULT >= 8000000,
+  '红尘仙必须压过未成仙的八世天皇');
+const undead2 = Sim.undeadEmperorForRoll(0, 0, { lifeNo: 1 });
+const undead5 = { lives: 5, cult: 3000000 };
+const undead8 = { lives: 8, cult: 5200000 };
+assert.ok(undead2.cult < DATA.HEAVENLY_EMPEROR_CULT,
+  '两三世天皇可压大帝，但不应已经强过天帝');
+assert.ok(undead5.cult <= DATA.HEAVENLY_EMPEROR_CULT,
+  '五世天皇才到能与天帝相持的那一档');
+assert.ok(undead8.cult > DATA.HEAVENLY_EMPEROR_CULT,
+  '八世天皇应明显强过天帝、逼近仙');
+assert.strictEqual(Sim.undeadEmperorForRoll(0.999, 20000000, { lifeNo: 9 }).cult >= DATA.RED_DUST_IMMORTAL_CULT, true);
+
+const slashBand = reverseFixture(900, 1500, 1);
+slashBand.cult = 1000000;
+slashBand.xianSource = true;
+slashBand.awaitingSelfSlash = true;
+assert.strictEqual(Sim.chooseSelfSlash(slashBand, true, []), true);
+assert.ok(slashBand.cult < DATA.WORLD_EMPEROR_CULT_MIN,
+  '普通大帝自斩后应低于无缺大帝，才是残缺至尊');
+assert.ok(slashBand.cult >= 500000 && slashBand.cult <= 650000);
+
+const roadFloor = Sim.createGame(0, []);
+Sim.becomeDi(roadFloor, [], 'force');
+roadFloor.forbiddenLord = true;
+roadFloor.worldYear = 1000000;
+roadFloor.cult = 1200000;
+roadFloor.daoyun = 1500;
+roadFloor.daoyunCap = 1500;
+assert.strictEqual(Sim.offerImmortalRoad(roadFloor, []), true);
+roadFloor.immortalRoadRivals = 0;
+try {
+  Math.random = function () { return 0; };
+  Sim.chooseImmortalRoad(roadFloor, true, []);
+} finally {
+  Math.random = oldRandom;
+}
+assert.strictEqual(roadFloor.redDustImmortal, true);
+assert.ok(roadFloor.cult >= DATA.RED_DUST_IMMORTAL_CULT,
+  '刚踏入红尘仙境也不能比八世未成仙的天皇还弱');
 
 /* 单人杀不死不死天皇：极限配置只能相持或逼退 */
 assert.strictEqual(typeof Sim.canSlayUndead, 'function');
@@ -1073,6 +1169,30 @@ roadWait.cult = 8000000;
 roadWait.daoyun = 1500;
 Sim.setPhysique(roadWait, DATA.physiqueById('chaos'));
 assert.ok(Sim.immortalRoadChance(roadWait) <= 0.10, 'even a peak emperor must find the crossing extremely hard');
+
+function roadBody(id, cult, dao, cap) {
+  const g = Sim.createGame(0, []);
+  Sim.setPhysique(g, DATA.physiqueById(id));
+  Sim.becomeDi(g, [], 'force');
+  g.cult = cult;
+  g.daoyun = dao;
+  g.daoyunCap = cap;
+  g.immortalRoadRivals = 0;
+  return g;
+}
+const mortalRoad = roadBody('mortal', 2000000, 900, 1500);
+const spiritRoad = roadBody('origin_spirit', 2000000, 900, 1500);
+const fetusRoad = roadBody('dao_fetus', 2000000, 900, 1500);
+const originSacredRoad = roadBody('origin_sacred', 2000000, 900, 1500);
+const innateRoad = roadBody('innate_sacred_dao', 2000000, 900, 1500);
+assert.ok(Sim.immortalRoadChance(mortalRoad) < 0.08, 'ordinary physiques still struggle on the road');
+assert.ok(Sim.immortalRoadChance(spiritRoad) >= 0.16, '元灵体 is near-immortal and must cross much more easily');
+assert.ok(Sim.immortalRoadChance(spiritRoad) > Sim.immortalRoadChance(mortalRoad) * 3);
+assert.ok(Sim.immortalRoadChance(fetusRoad) > Sim.immortalRoadChance(spiritRoad), '先天道胎 should outpace 元灵体');
+assert.ok(Sim.immortalRoadChance(originSacredRoad) > Sim.immortalRoadChance(fetusRoad), '元灵圣体 should outpace 道胎');
+assert.ok(Sim.immortalRoadChance(innateRoad) >= Sim.immortalRoadChance(originSacredRoad),
+  '先天圣体道胎 is the peak near-immortal crossing');
+assert.ok(Sim.immortalRoadChance(innateRoad) <= 0.60, 'even 先天圣体道胎 must not be guaranteed');
 roadWait.forbiddenLord = true;
 assert.strictEqual(Sim.immortalRoadAppearChance(roadWait), 1,
   'a forbidden lord who reaches a million-year opening must get that attempt');
@@ -1604,6 +1724,7 @@ assert.ok(sawBeat(perLifeMethod, 'self_method', 500),
     var g = Sim.createGame(0, []);
     Sim.setPhysique(g, DATA.physiqueById(physId));
     Sim.becomeDi(g, [], 'force');
+    g.era = { id: 'normal', name: '平常时代', daog: 1, evt: 1, evf: 1 };
     g.cult = 1000000;
     g.daoyun = dao;
     g.daoyunCap = cap;
@@ -1611,11 +1732,22 @@ assert.ok(sawBeat(perLifeMethod, 'self_method', 500),
   }
   var chaosThin = empAt('chaos', 200, 2000);
   var mortalThin = empAt('mortal', 200, 2000);
-  assert.ok(Math.abs(Sim.emperorCultGainPerYear(chaosThin) - Sim.emperorCultGainPerYear(mortalThin)) < 1e-6,
-    '成帝后长力不应再吃体质');
-  var chaosThick = empAt('chaos', 1800, 2000);
-  assert.ok(Sim.emperorCultGainPerYear(chaosThick) > Sim.emperorCultGainPerYear(chaosThin) * 2,
-    '成帝后道蕴厚的人长力应明显快过道蕴薄的人');
+  assert.strictEqual(Sim.emperorCultGainPerYear(chaosThin), 0, '枯坐岁月本身不该长力');
+  assert.strictEqual(Sim.emperorCultGainPerYear(mortalThin), 0, '凡人帝者枯坐也不该长力');
+  var insightMortal = empAt('mortal', 200, 2000);
+  var insightChaos = empAt('chaos', 200, 2000);
+  var mortalBefore = insightMortal.cult;
+  var chaosBefore = insightChaos.cult;
+  var mortalDao = Sim.gainDaoyun(insightMortal, 40);
+  var chaosDao = Sim.gainDaoyun(insightChaos, 40);
+  assert.ok(mortalDao > 0 && chaosDao > 0);
+  assert.ok(insightMortal.cult > mortalBefore, '悟到道才长力');
+  assert.ok(Math.abs((insightMortal.cult - mortalBefore) - (insightChaos.cult - chaosBefore)) < 1,
+    '同样悟道，长力不应再吃体质');
+  var fullSea = empAt('chaos', 1800, 2000);
+  var fullBefore = fullSea.cult;
+  Sim.gainDaoyun(fullSea, 80);
+  assert.strictEqual(fullSea.cult, fullBefore, '海满再坐，道不涨则力不涨');
 
   var immortalMortal = empAt('mortal', 400, 2000);
   immortalMortal.inStrangeWorld = true;

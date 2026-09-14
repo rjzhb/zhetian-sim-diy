@@ -492,7 +492,12 @@
       fillCap = Math.max(Math.floor(g.daoyunCap * 0.78), g.daoyun || 0);
     }
     g.daoyun = Math.min(fillCap, next);
-    return round((g.daoyun - old) * 10) / 10;
+    var got = round((g.daoyun - old) * 10) / 10;
+    if (got > 0 && (g.emperor || g.becameEmperor) && !g.redDustImmortal &&
+        !g.inStrangeWorld && !g.forbiddenLord) {
+      g.cult = round((g.cult || 0) + emperorInsightCult(g, got));
+    }
+    return got;
   }
   function isHighDaoyun(g) {
     if (!g) return false;
@@ -2728,11 +2733,29 @@
       emperorDaoyunLifePace(g.lifeNo);
     return perLifeBudget / span;
   }
-  /* 成帝以后长力跟道海填充走，不再吃体质成长。海空几乎不长，坐满才慢慢沉。 */
+  /* 成帝以后只有悟到道才长力，不再按当前战力复利。海满再坐，道不涨则力不涨。 */
+  function emperorInsightCult(g, daoGained) {
+    if (!g || !(daoGained > 0) || g.redDustImmortal) return 0;
+    return daoGained * 160;
+  }
   function emperorCultGainPerYear(g) {
-    if (!g || !(g.emperor || g.becameEmperor) || g.redDustImmortal) return 0;
-    var fill = g.daoyunCap > 0 ? clamp((g.daoyun || 0) / g.daoyunCap, 0, 1) : 0;
-    return Math.max(0, (g.cult || 0) * (0.00002 + fill * 0.00008));
+    return 0;
+  }
+  function grantRedDustPower(g, lo, hi) {
+    if (!g) return 0;
+    g.cult = round((g.cult || 0) * (hi == null ? lo : rand(lo, hi)));
+    var floor = D.RED_DUST_IMMORTAL_CULT || 8000000;
+    if (g.cult < floor) g.cult = floor;
+    return g.cult;
+  }
+  function isHeavenlyEmperor(g) {
+    return !!(g && (g.cult || 0) >= (D.HEAVENLY_EMPEROR_CULT || 3000000));
+  }
+  function grantHeavenlyEmperor(g) {
+    if (!g) return 0;
+    var floor = D.HEAVENLY_EMPEROR_CULT || 3000000;
+    if ((g.cult || 0) < floor) g.cult = floor;
+    return g.cult;
   }
 
   function resetEmperorLife(g) {
@@ -3217,13 +3240,15 @@
         '帝躯涅槃', '信仰神胎', '混沌重塑', '岁月蜕壳', '九世道果合一'];
       g.reverseMethodReadyFor = nextLife;
       g.reverseDaoBreakthroughLife = g.lifeNo;
+      if (nextLife >= 3) grantHeavenlyEmperor(g);
       roots.dao += 2;
       if (nextLife === 4 || nextLife === 8) roots.soul += 2;
       else if (nextLife === 5 || nextLife === 7) roots.body += 2;
       else { roots.body++; roots.soul++; }
       gainDaoyun(g, irand(90, 160), irand(12, 28));
       beatLine(g, log, 'god', '你在第' + g.lifeNo + '世遭逢长生机缘，悟透『' +
-        methods[nextLife] + '』的关键；下一世蜕变法已经明晰，道海桎梏随之松动');
+        methods[nextLife] + '』的关键；下一世蜕变法已经明晰，道海桎梏随之松动' +
+        (nextLife >= 3 ? '。这一悟也让你踏入天帝之境' : ''));
       return true;
     }
     if (id === 'lonely_throne') {
@@ -3416,6 +3441,10 @@
     var absoluteNeed = targetLife === 2 ? 800 : 1200;
     var daoPeak = g.daoyunCap > 0 ? clamp(g.daoyun / g.daoyunCap, 0, 1) : 0;
     var absoluteRatio = clamp(g.daoyun / absoluteNeed, 0, 1);
+    /* 第三世起必须已是天帝。普通大帝没那个资格活出来。 */
+    if (targetLife >= 3 && !isHeavenlyEmperor(g)) {
+      return clamp(0.02 + daoPeak * 0.02, 0.02, 0.06);
+    }
     /* 难点在于每世悟出新法并重新填海；两者俱全后不再重复用低概率惩罚玩家。 */
     if (!reverseMethodReady(g)) return clamp(0.02 + daoPeak * 0.04, 0.02, 0.08);
     if (g.daoyun >= absoluteNeed && daoPeak >= 0.995) return 0.99;
@@ -3429,6 +3458,11 @@
   function tryReverseLife(g, log, confirmed, medicineUsed) {
     var targetLife = Math.min(D.RED_DUST_LIVES, g.lifeNo + 1);
     var rescued = !!medicineUsed;
+    if (targetLife >= 3 && !isHeavenlyEmperor(g)) {
+      g.dead = true; g.deadCause = 'reverse';
+      push(log, { cls: 'dead', text: '第' + g.lifeNo + '世帝命燃尽，你尚未成就天帝之境，没有活出下一世的资格' });
+      return false;
+    }
     var success = rescued || confirmed || Math.random() < reverseLifeChance(g);
     if (!success) {
       g.dead = true; g.deadCause = 'reverse';
@@ -3446,11 +3480,18 @@
     g.daoyunCap = Math.min(D.DAO_ABSOLUTE_MAX, g.daoyunCap + capGrowth);
     g.lifeNo = targetLife;
     g.redDustMarks = g.lifeNo - 1;
-    g.cult = round(g.cult * rand(1.06, 1.16));
-    push(log, { cls: 'rainbow', text: '帝命将尽，你以『' + route + '』逆活出第' + g.lifeNo + '世，凝成一枚红尘印；道蕴上限提高至' + g.daoyunCap + '，须在新一世开辟不同长生法' });
+    if (rescued) {
+      g.cult = round((g.cult || 0) * 1.01);
+    } else {
+      g.cult = round((g.cult || 0) * rand(1.22, 1.36));
+      if (targetLife >= 2) grantHeavenlyEmperor(g);
+    }
+    push(log, { cls: 'rainbow', text: rescued ?
+      '帝命将尽，你以『' + route + '』续出第' + g.lifeNo + '世；药力只续命，战力几乎没有长进，道蕴上限提高至' + g.daoyunCap :
+      '帝命将尽，你以『' + route + '』逆活出第' + g.lifeNo + '世，凝成一枚红尘印；这一世悟出的新法让战力暴涨，道蕴上限提高至' + g.daoyunCap + '，须在新一世开辟不同长生法' });
     if (g.lifeNo >= D.RED_DUST_LIVES) {
       g.redDustImmortal = true; g.ascended = true; g.immortalMode = 'nine_lives';
-      g.cult = round(g.cult * 2);
+      grantRedDustPower(g, 2, 2);
       push(log, { cls: 'god', text: '九世道果合一，岁月再不能加身——你于万丈红尘中化作仙！' });
       return true;
     }
@@ -3722,7 +3763,7 @@
     }
     g.redDustImmortal = true;
     g.immortalMode = 'strange_world';
-    g.cult = round(g.cult * rand(1.7, 2.1));
+    grantRedDustPower(g, 1.7, 2.1);
     push(log, { cls: 'rainbow', text: '你将漫长岁月的感悟熔于一炉，帝躯、元神与大道同时蜕变，终于踏入红尘仙境！' });
 
     if (g.strangeWorldSituation === 'standoff' && g.strangeWorldAlliance === 'wushi') {
@@ -3917,14 +3958,24 @@
     var cult = ((g && g.cult) || 0) / 2000000;
     return clamp(0.60 - others * 0.08 + clamp(cult - 1, -0.16, 0.18), 0.07, 0.72);
   }
+  function immortalRoadPhysiqueBoost(g) {
+    var id = g && g.physiqueId;
+    if (id === 'innate_sacred_dao') return { mult: 6, floor: 0.28, cap: 0.55 };
+    if (id === 'origin_sacred') return { mult: 5.5, floor: 0.26, cap: 0.50 };
+    if (id === 'dao_fetus') return { mult: 5, floor: 0.20, cap: 0.40 };
+    if (id === 'origin_spirit') return { mult: 4, floor: 0.16, cap: 0.32 };
+    return null;
+  }
   function immortalRoadChance(g) {
     var daoPeak = g && g.daoyunCap > 0 ? g.daoyun / g.daoyunCap : 0;
     var chance = 0.010 + Math.min(0.045, (g && g.cult || 0) / 8000000 * 0.045) +
       Math.min(0.025, daoPeak * 0.025);
     chance += Math.min(0.025, createdArtN(g) * 0.006);
+    var boost = immortalRoadPhysiqueBoost(g);
+    if (boost) chance = Math.max(chance * boost.mult, boost.floor);
     var rivals = g && g.immortalRoadRivals;
     if (rivals > 0) chance *= clamp(1 - rivals * 0.10, 0.35, 1);
-    return clamp(chance, 0.006, 0.12);
+    return clamp(chance, 0.006, boost ? boost.cap : 0.12);
   }
   function offerImmortalRoad(g, log) {
     if (!immortalRoadDue(g) || (g && g.awaitingImmortalRoad)) return false;
@@ -3952,7 +4003,7 @@
       return false;
     }
     g.redDustImmortal = true; g.ascended = true; g.immortalMode = 'immortal_road';
-    g.cult = round(g.cult * rand(1.8, 2.3));
+    grantRedDustPower(g, 1.8, 2.3);
     push(log, { cls: 'god', text: '你横渡成仙路，万法归一，终成红尘仙！' });
     return true;
   }
@@ -4033,14 +4084,14 @@
     g.xintian = false;
     g.playerEmperorActive = false;
     markDaoTraces(g, g.worldYear || 0);
-    g.cult = round(g.cult * 0.75);
+    g.cult = round(g.cult * 0.58);
     push(log, { cls: 'dead', text: '你自斩一刀，皇道果位残缺，战力跌落至' + g.cult + '；以' + g.sealingMaterial + '自封，化为一代禁区至尊' });
     push(log, { cls: 'rainbow', text: '禁区之路：拥有' + g.forbiddenEssence + '道生命本源，可跨数十万乃至百万年沉睡；但封印仍会衰减，且已永失九世逆活之资格' });
     return true;
   }
 
   function forbiddenBattleChance(g) {
-    var ratio = g.cult / 1800000;
+    var ratio = g.cult / (D.WORLD_EMPEROR_CULT_MAX || 1050000);
     return clamp(0.05 + ratio * 0.32 + (g.tm.ward + pval(g, 'ward', 0)) / 500 - g.forbiddenKarma * 0.06, 0.05, 0.72);
   }
 
@@ -4238,7 +4289,6 @@
     g.age += tick - 1;
     advanceWorldCalendar(g, tick - 1, log);
     gainDaoyun(g, emperorDaoyunGainPerYear(g) * tick);
-    g.cult = round((g.cult || 0) + emperorCultGainPerYear(g) * tick);
     var span = Math.max(1, g.emperorLifeEnd - g.emperorLifeStart);
     if (Math.random() < D.EMPEROR_EVENT_TARGET * tick / span) emperorEvent(g, log);
     if (g.age >= g.emperorLifeEnd) finishEmperorLife(g, log);
